@@ -1,0 +1,74 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { Service } from '../lib/service';
+import { MemoryStore } from './memory-store';
+import { Conflict, InputError } from '../lib/domain/types';
+import * as directory from '../lib/domain/directory';
+import * as campaigns from '../lib/domain/campaigns';
+import * as orders from '../lib/domain/campaign-orders';
+
+test('reference graph separates clients, brands, owners, rep firms, reps and media coverage', () => {
+  const data=directory.initial();
+  for(const kind of directory.COLLECTIONS)for(const row of data[kind])directory.cleanEntity(kind,row,data);
+  const client=data.clients[0];assert.equal(client.id,'epic3');assert.equal(client.brand,'Weed Man');assert.equal(client.marketIds.length,25);
+  const kt=data.stations.find(s=>s.name==='KTAB')!;
+  assert.equal(data.firms.find(f=>f.id===kt.ownerFirmId)?.name,'Nexstar');
+  assert.equal(data.firms.find(f=>f.id===kt.repFirmId)?.name,'Katz TV');
+  const allie=data.reps.find(r=>r.name==='Allie Zimmermann')!;
+  assert.deepEqual(allie.coverage.map((c:any)=>c.mediaType).sort(),['broadcast-radio','digital']);
+  assert.equal(data.reps.filter(r=>r.name==='Allie Zimmermann').length,1);
+  assert.ok(!data.reps.some(r=>r.name==='Misty Morgan'));
+  assert.equal(data.reps.find(r=>r.name==='Mike McCarthy')?.active,false);
+});
+test('directory saves atomically, round-trips and rejects stale windows without overwriting',async()=>{
+  const store=new MemoryStore(),service=new Service(store),before=await service.get('directory',new URLSearchParams());
+  assert.equal(before.referenceOnly,true);assert.equal(store.records.size,0);
+  const payload={collection:'firms',revision:before.revision,entity:{name:'Test supplier',roles:['direct-vendor'],active:true}};
+  const saved=await service.post('directory/entity',payload);assert.equal(saved.revision,1);
+  const after=await service.get('directory',new URLSearchParams());assert.equal(after.referenceOnly,false);
+  assert.ok(after.directory.firms.some((r:any)=>r.id===saved.entity.id));
+  await assert.rejects(service.post('directory/entity',payload),Conflict);
+  assert.equal((await service.get('directory',new URLSearchParams())).revision,1);
+});
+test('directory rejects missing firm links, incompatible media and duplicate franchise ownership',()=>{
+  const data=directory.initial(),rep=structuredClone(data.reps[0]);
+  assert.throws(()=>directory.update(data,'reps',{...rep,firmId:'missing'}),InputError);
+  assert.throws(()=>directory.update(data,'reps',{...rep,coverage:[{mediaType:'digital',channelId:'r4'}]}),/channel must match/);
+  assert.throws(()=>directory.update(data,'clients',{name:'Another client',brand:'Other',marketIds:[data.clients[0].marketIds[0]]}),/already belongs/);
+  assert.throws(()=>directory.update(data,'firms',{id:'invented',name:'Bad',roles:['rep-firm']}),/no longer exists/);
+  const radio=data.stations.find(s=>s.mediaType==='broadcast-radio')!;
+  assert.throws(()=>directory.update(data,'reps',{...rep,coverage:[{mediaType:'broadcast-tv',stationId:radio.id}]}),/station must match/);
+  const linked=directory.update(data,'reps',{...rep,coverage:[{mediaType:'broadcast-radio',stationId:radio.id}]}).directory;
+  assert.throws(()=>directory.update(linked,'stations',{...radio,mediaType:'digital'}),/station must match/);
+});
+test('campaign client normalization is read-only and accepts additional registered clients',async()=>{
+  const legacy={...campaigns.defaults(),id:'legacy',revision:1};
+  const store=new MemoryStore([{id:'campaign:legacy',kind:'campaign',payload:legacy}]),service=new Service(store);
+  const loaded=await service.get('campaign',new URLSearchParams({id:'legacy'}));
+  assert.equal(loaded.details.clientId,'epic3');assert.equal(loaded.details.brand,'Weed Man');
+  assert.equal((await store.get('campaign:legacy'))?.payload.clientId,'weed-man');
+  const added=await service.post('directory/entity',{collection:'clients',revision:0,entity:{name:'Other client',brand:'Other brand',marketIds:[]}});
+  const saved=await service.post('campaign',{...campaigns.defaults(),clientId:added.entity.id,name:'Other campaign',markets:[]});
+  assert.equal(saved.details.clientName,'Other client');assert.equal(saved.details.brand,'Other brand');
+  await assert.rejects(service.post('campaign/preview',{...legacy,clientId:'missing'}),/Choose a client/);
+});
+test('order vendor choices validate rep membership and retain saved contact snapshots',async()=>{
+  const d=directory.initial(),allie=d.reps.find(r=>r.name==='Allie Zimmermann')!,tv=d.reps.find(r=>r.name==='John Wahlert')!;
+  assert.throws(()=>directory.vendorSnapshot({firmId:allie.firmId,repId:tv.id},d,'digital'),/belong/);
+  assert.throws(()=>directory.vendorSnapshot({firmId:tv.firmId,repId:tv.id},d,'digital'),/media type/);
+  const snapshot=directory.vendorSnapshot({firmId:allie.firmId,repId:allie.id,firmName:'Forged name'},d,'digital')!;
+  assert.equal(snapshot.firmName,'iHeartMedia');
+  allie.name='Changed name';allie.active=false;
+  assert.deepEqual(directory.vendorSnapshot({firmId:allie.firmId,repId:allie.id},d,'digital',snapshot),snapshot);
+  assert.throws(()=>directory.vendorSnapshot({firmId:allie.firmId,repId:allie.id},d,'digital'),/belong/);
+  const campaign={...campaigns.defaults(),id:'order-test',revision:1,budget:100000,start:'2027-03-01',end:'2027-03-28',markets:[{marketId:'custom-test',name:'Test',region:'',start:'',end:'',override:100000,channels:{r8:100000}}]};
+  const store=new MemoryStore([{id:'campaign:order-test',kind:'campaign',payload:campaign}]),service=new Service(store);
+  const opened=await service.get('campaign-order',new URLSearchParams({campaign:'order-test',market:'custom-test'}));
+  opened.details.mediaDetails.r8={vendor:{firmId:allie.firmId,repId:allie.id,firmName:'Forged name'}};
+  const saved=await service.post('campaign-order',opened);
+  assert.equal(saved.source.clientName,'Epic3');assert.equal(saved.source.brand,'Weed Man');
+  assert.equal(saved.lines[0].vendor.firmName,'iHeartMedia');assert.equal(saved.details.mediaDetails.r8.vendor.repName,'Allie Zimmermann');
+  const loaded=await service.get('campaign-order',new URLSearchParams({campaign:'order-test',market:'custom-test'}));
+  assert.equal(loaded.details.mediaDetails.r8.vendor.email,snapshot.email);
+  assert.equal(orders.model(saved.source,saved.details,saved.revision).total,100000);
+});

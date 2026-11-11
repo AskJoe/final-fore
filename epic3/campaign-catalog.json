@@ -1,0 +1,1211 @@
+{
+  "version": 1,
+  "client": {
+    "id": "weed-man",
+    "name": "Weed Man"
+  },
+  "years": [
+    2023,
+    2024,
+    2025,
+    2026
+  ],
+  "defaultYear": 2027,
+  "markets": [
+    {
+      "id": "epic3-arkansas-nwa",
+      "name": "Arkansas NWA",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "South",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": 3000000,
+        "2026": 4370000
+      },
+      "budget2027": 8625000,
+      "households": 575000,
+      "referenceStart": "2026-02-27",
+      "referenceEnd": "2026-05-22",
+      "budgetSourceRow": 3,
+      "datesSourceRow": 6
+    },
+    {
+      "id": "epic3-austin",
+      "name": "Austin",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "South",
+      "history": {
+        "2023": 7825000,
+        "2024": 9500000,
+        "2025": 9226000,
+        "2026": 8950000
+      },
+      "budget2027": 12000000,
+      "households": 670293,
+      "referenceStart": "2026-02-27",
+      "referenceEnd": "2026-05-22",
+      "budgetSourceRow": 2,
+      "datesSourceRow": 4
+    },
+    {
+      "id": "epic3-boise",
+      "name": "Boise",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": 5222000,
+        "2024": 5400000,
+        "2025": 6000500,
+        "2026": 5600000
+      },
+      "budget2027": 6000000,
+      "households": 249945,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 4,
+      "datesSourceRow": 16
+    },
+    {
+      "id": "epic3-colorado-springs",
+      "name": "Colorado Springs",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": 3867500,
+        "2024": 3800000,
+        "2025": 3699000,
+        "2026": 3620000
+      },
+      "budget2027": 4000000,
+      "households": 245287,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 10,
+      "datesSourceRow": 14
+    },
+    {
+      "id": "epic3-denver",
+      "name": "Denver",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": 10472000,
+        "2024": 12400000,
+        "2025": 12220500,
+        "2026": 10300000
+      },
+      "budget2027": 17520100,
+      "households": 1168008,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 12,
+      "datesSourceRow": 13
+    },
+    {
+      "id": "epic3-chicagoland",
+      "name": "Chicagoland",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": 1180000,
+        "2024": 1750000,
+        "2025": 9408000,
+        "2026": 25050000
+      },
+      "budget2027": 25069800,
+      "households": 1671322,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 14,
+      "datesSourceRow": 22
+    },
+    {
+      "id": "epic3-iowa-city-cedar-rapids",
+      "name": "Iowa City / Cedar Rapids",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": 3652000,
+        "2024": 4500000,
+        "2025": 3555500,
+        "2026": 4620000
+      },
+      "budget2027": 4800000,
+      "households": 300008,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 19,
+      "datesSourceRow": 12
+    },
+    {
+      "id": "epic3-davenport",
+      "name": "Davenport",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": null,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": null,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-madison",
+      "name": "Madison",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": 5472600,
+        "2024": 5500000,
+        "2025": 4353900,
+        "2026": 5150000
+      },
+      "budget2027": 6114800,
+      "households": 407651,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 24,
+      "datesSourceRow": 25
+    },
+    {
+      "id": "epic3-milwaukee-racine-kenosha",
+      "name": "Milwaukee / Racine / Kenosha",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": 7780500,
+        "2024": 9500000,
+        "2025": 8594500,
+        "2026": 9450000
+      },
+      "budget2027": 16000000,
+      "households": 756937,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 27,
+      "datesSourceRow": 23
+    },
+    {
+      "id": "epic3-salt-lake-ogden",
+      "name": "Salt Lake / Ogden",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": 9950000,
+        "2024": 11200000,
+        "2025": 10185000,
+        "2026": 10650000
+      },
+      "budget2027": 12500000,
+      "households": 767302,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 33,
+      "datesSourceRow": 24
+    },
+    {
+      "id": "epic3-lincoln",
+      "name": "Lincoln",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": null,
+        "2024": 2000000,
+        "2025": 1855000,
+        "2026": 2670000
+      },
+      "budget2027": 2670000,
+      "households": 83167,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 23,
+      "datesSourceRow": 11
+    },
+    {
+      "id": "epic3-omaha",
+      "name": "Omaha",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": null,
+        "2024": 4000000,
+        "2025": 3695000,
+        "2026": 2670000
+      },
+      "budget2027": 3600000,
+      "households": 222395,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 30,
+      "datesSourceRow": 10
+    },
+    {
+      "id": "epic3-kansas-city",
+      "name": "Kansas City",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": 4000000,
+        "2024": 8000000,
+        "2025": 7384800,
+        "2026": 6550000
+      },
+      "budget2027": 7275500,
+      "households": 485031,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 20,
+      "datesSourceRow": 9
+    },
+    {
+      "id": "epic3-dallas-fort-worth-weatherford",
+      "name": "Dallas / Fort Worth / Weatherford",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "South",
+      "history": {
+        "2023": null,
+        "2024": 5950000,
+        "2025": 7846300,
+        "2026": 8346300
+      },
+      "budget2027": 27841400,
+      "households": 1856096,
+      "referenceStart": "2026-02-27",
+      "referenceEnd": "2026-05-22",
+      "budgetSourceRow": 11,
+      "datesSourceRow": 3
+    },
+    {
+      "id": "epic3-oklahoma-city",
+      "name": "Oklahoma City",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "South",
+      "history": {
+        "2023": 4000000,
+        "2024": 6000000,
+        "2025": 8329300,
+        "2026": 7300000
+      },
+      "budget2027": 7500000,
+      "households": 359796,
+      "referenceStart": "2026-02-27",
+      "referenceEnd": "2026-05-22",
+      "budgetSourceRow": 29,
+      "datesSourceRow": 5
+    },
+    {
+      "id": "epic3-des-moines",
+      "name": "Des Moines",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": 3778000,
+        "2024": 4500000,
+        "2025": 4671000,
+        "2026": 4150000
+      },
+      "budget2027": 5000000,
+      "households": 221318,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 13,
+      "datesSourceRow": 17
+    },
+    {
+      "id": "epic3-springfield-ozarks",
+      "name": "Springfield / Ozarks",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": 2558500,
+        "2024": 3000000,
+        "2025": 2780000,
+        "2026": 2370000
+      },
+      "budget2027": 2580600,
+      "households": 172040,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 34,
+      "datesSourceRow": 15
+    },
+    {
+      "id": "epic3-green-bay-appleton",
+      "name": "Green Bay / Appleton",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": 4468000,
+        "2024": 3200000,
+        "2025": 3712200,
+        "2026": 3870000
+      },
+      "budget2027": 4371500,
+      "households": 291434,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 17,
+      "datesSourceRow": 26
+    },
+    {
+      "id": "epic3-seattle",
+      "name": "Seattle",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": 17500000,
+        "2026": 6050000
+      },
+      "budget2027": 20755500,
+      "households": 1383700,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 32,
+      "datesSourceRow": 21
+    },
+    {
+      "id": "epic3-cleveland",
+      "name": "Cleveland",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "Mid",
+      "history": {
+        "2023": 4914400,
+        "2024": null,
+        "2025": null,
+        "2026": 15500000
+      },
+      "budget2027": 16013900,
+      "households": 1067593,
+      "referenceStart": "2026-03-09",
+      "referenceEnd": "2026-05-30",
+      "budgetSourceRow": 9,
+      "datesSourceRow": 18
+    },
+    {
+      "id": "epic3-fort-wayne",
+      "name": "Fort Wayne",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": 1750000,
+        "2024": null,
+        "2025": null,
+        "2026": 4200000
+      },
+      "budget2027": 4169600,
+      "households": 277975,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 15,
+      "datesSourceRow": 28
+    },
+    {
+      "id": "epic3-merrillville-valparaiso",
+      "name": "Merrillville / Valparaiso",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": 589500,
+        "2024": null,
+        "2025": null,
+        "2026": 3500000
+      },
+      "budget2027": 3498600,
+      "households": 233239,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 26,
+      "datesSourceRow": 29
+    },
+    {
+      "id": "epic3-boston",
+      "name": "Boston",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": 2700000
+      },
+      "budget2027": 22184200,
+      "households": 1478944,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 5,
+      "datesSourceRow": 27
+    },
+    {
+      "id": "epic3-rochester-buffalo",
+      "name": "Rochester / Buffalo",
+      "buyingGroup": "EPIC3",
+      "current": true,
+      "region": "North",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": 6000000
+      },
+      "budget2027": 7561800,
+      "households": 504121,
+      "referenceStart": "2026-03-16",
+      "referenceEnd": "2026-06-07",
+      "budgetSourceRow": 6,
+      "datesSourceRow": 30
+    },
+    {
+      "id": "epic3-charlotte",
+      "name": "Charlotte",
+      "buyingGroup": "EPIC3",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 0,
+      "households": null,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 7,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-hill-cincinnati",
+      "name": "Cincinnati",
+      "buyingGroup": "EPIC3/Hill",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 8035200,
+        "2024": 8035200,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 12750000,
+      "households": 850000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 8,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-hill-fresno-ca",
+      "name": "Fresno, CA",
+      "buyingGroup": "EPIC3/Hill",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 8400000,
+      "households": 560000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 16,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-hill-houston",
+      "name": "Houston",
+      "buyingGroup": "EPIC3/Hill",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 21750000,
+      "households": 1450000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 18,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-hill-knoxville",
+      "name": "Knoxville",
+      "buyingGroup": "EPIC3/Hill",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 7125000,
+      "households": 475000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 21,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-hill-lexington-ky",
+      "name": "Lexington, KY",
+      "buyingGroup": "EPIC3/Hill",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 7297500,
+        "2024": 7297500,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 4245000,
+      "households": 283000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 22,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-hill-memphis",
+      "name": "Memphis",
+      "buyingGroup": "EPIC3/Hill",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 5000000,
+        "2024": 5000000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 6675000,
+      "households": 445000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 25,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-hill-nashville",
+      "name": "Nashville",
+      "buyingGroup": "EPIC3/Hill",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 8825000,
+        "2024": 8825000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 13179000,
+      "households": 878600,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 28,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-hill-san-antonio",
+      "name": "San Antonio",
+      "buyingGroup": "EPIC3/Hill",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 13500000,
+      "households": 900000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 31,
+      "datesSourceRow": null
+    },
+    {
+      "id": "epic3-hill-tampa",
+      "name": "Tampa",
+      "buyingGroup": "EPIC3/Hill",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": 7500000,
+      "households": 500000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 35,
+      "datesSourceRow": null
+    },
+    {
+      "id": "steve-minneapolis",
+      "name": "Minneapolis",
+      "buyingGroup": "Steve",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": null,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 500000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 46,
+      "datesSourceRow": null
+    },
+    {
+      "id": "faulk-dothan",
+      "name": "Dothan",
+      "buyingGroup": "Faulk",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 1143800,
+        "2024": 850000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 56871,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 55,
+      "datesSourceRow": null
+    },
+    {
+      "id": "faulk-huntsville",
+      "name": "Huntsville",
+      "buyingGroup": "Faulk",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 3850900,
+        "2024": 1900000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 123367,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 56,
+      "datesSourceRow": null
+    },
+    {
+      "id": "faulk-montgomery",
+      "name": "Montgomery",
+      "buyingGroup": "Faulk",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 3206000,
+        "2024": 1500000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 97030,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 57,
+      "datesSourceRow": null
+    },
+    {
+      "id": "faulk-auburn",
+      "name": "Auburn",
+      "buyingGroup": "Faulk",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 1180000,
+        "2024": 1000000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 65174,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 58,
+      "datesSourceRow": null
+    },
+    {
+      "id": "faulk-florence",
+      "name": "Florence",
+      "buyingGroup": "Faulk",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 698900,
+        "2024": 800000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 53747,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 59,
+      "datesSourceRow": null
+    },
+    {
+      "id": "faulk-mobile",
+      "name": "Mobile",
+      "buyingGroup": "Faulk",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 2750000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 179365,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 60,
+      "datesSourceRow": null
+    },
+    {
+      "id": "sheppard-richmond",
+      "name": "Richmond",
+      "buyingGroup": "Sheppard",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 400000,
+        "2024": 4500000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 295090,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 63,
+      "datesSourceRow": null
+    },
+    {
+      "id": "sheppard-birmingham",
+      "name": "Birmingham",
+      "buyingGroup": "Sheppard",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": 1960000,
+        "2024": 5000000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 329298,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 64,
+      "datesSourceRow": null
+    },
+    {
+      "id": "sheppard-winchester",
+      "name": "Winchester",
+      "buyingGroup": "Sheppard",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 2650000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 180538,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 65,
+      "datesSourceRow": null
+    },
+    {
+      "id": "sheppard-annapolis",
+      "name": "Annapolis",
+      "buyingGroup": "Sheppard",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 12000000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 984291,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 66,
+      "datesSourceRow": null
+    },
+    {
+      "id": "waskey-group-myrtle-beach",
+      "name": "Myrtle Beach",
+      "buyingGroup": "Waskey Group",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 2800000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 190000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 68,
+      "datesSourceRow": null
+    },
+    {
+      "id": "waskey-group-louisville",
+      "name": "Louisville",
+      "buyingGroup": "Waskey Group",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 8500000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 559000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 69,
+      "datesSourceRow": null
+    },
+    {
+      "id": "fromme-group-bloomington-il",
+      "name": "Bloomington, IL",
+      "buyingGroup": "Fromme Group",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 1000000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 68491,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 71,
+      "datesSourceRow": null
+    },
+    {
+      "id": "fromme-group-champaign-il",
+      "name": "Champaign, IL",
+      "buyingGroup": "Fromme Group",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 1200000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 82467,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 72,
+      "datesSourceRow": null
+    },
+    {
+      "id": "fromme-group-peoria-il",
+      "name": "Peoria, IL",
+      "buyingGroup": "Fromme Group",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 2100000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 144815,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 73,
+      "datesSourceRow": null
+    },
+    {
+      "id": "fromme-group-springfield-il",
+      "name": "Springfield, IL",
+      "buyingGroup": "Fromme Group",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 1300000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 84017,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 74,
+      "datesSourceRow": null
+    },
+    {
+      "id": "fromme-group-lafayette-in",
+      "name": "Lafayette, IN",
+      "buyingGroup": "Fromme Group",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 1100000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 73327,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 75,
+      "datesSourceRow": null
+    },
+    {
+      "id": "fromme-group-indianapolis-in",
+      "name": "Indianapolis, IN",
+      "buyingGroup": "Fromme Group",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 11000000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 752014,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 76,
+      "datesSourceRow": null
+    },
+    {
+      "id": "musselman-fairfax-county",
+      "name": "Fairfax County",
+      "buyingGroup": "Musselman",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 1500000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 99024,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 79,
+      "datesSourceRow": null
+    },
+    {
+      "id": "musselman-prince-william",
+      "name": "Prince William",
+      "buyingGroup": "Musselman",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 2000000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 130068,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 80,
+      "datesSourceRow": null
+    },
+    {
+      "id": "musselman-stafford",
+      "name": "Stafford",
+      "buyingGroup": "Musselman",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 600000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 40000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 81,
+      "datesSourceRow": null
+    },
+    {
+      "id": "turf-ops-houston",
+      "name": "Houston",
+      "buyingGroup": "Turf Ops",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 9700000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 659089,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 83,
+      "datesSourceRow": null
+    },
+    {
+      "id": "turf-ops-san-antonio",
+      "name": "San Antonio",
+      "buyingGroup": "Turf Ops",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 7500000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 500000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 84,
+      "datesSourceRow": null
+    },
+    {
+      "id": "turf-ops-katy",
+      "name": "Katy",
+      "buyingGroup": "Turf Ops",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 2500000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 162454,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 85,
+      "datesSourceRow": null
+    },
+    {
+      "id": "turf-ops-fresno-ca",
+      "name": "Fresno, CA",
+      "buyingGroup": "Turf Ops",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 3500000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 234137,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 86,
+      "datesSourceRow": null
+    },
+    {
+      "id": "mike-fort-collins",
+      "name": "Fort Collins",
+      "buyingGroup": "Mike",
+      "current": false,
+      "region": "",
+      "history": {
+        "2023": null,
+        "2024": 3200000,
+        "2025": null,
+        "2026": null
+      },
+      "budget2027": null,
+      "households": 192000,
+      "referenceStart": "",
+      "referenceEnd": "",
+      "budgetSourceRow": 89,
+      "datesSourceRow": null
+    }
+  ],
+  "regions": [
+    "South",
+    "Mid",
+    "North"
+  ],
+  "sources": [
+    {
+      "file": "FFM Media Analysis - Weed Man JAN2027 - Hshld_Spend (1).csv",
+      "sha256": "7fb24a9c1ea9de9671c3684dd240f4fbd082d2d18040db6b1aca30867621d39f"
+    },
+    {
+      "file": "EPIC3 MARKETS - 2026 Start Dates, Deadlines, Budgets - Dates_NM.csv",
+      "sha256": "ebc33612872e175bcf61f4ac49bb05218ca58642e18d6a30300c6d815848d1f1"
+    }
+  ],
+  "budgetSourceUrl": "https://docs.google.com/spreadsheets/d/1gwXIPhXJ3u4aqqvP7eJLj8f6yZZR_dZJfj-9SJ3dDqA/edit?gid=1892034566",
+  "datesSourceUrl": "https://docs.google.com/spreadsheets/d/1ohLV47kBRRgII4QtLLMvTlxIyw0pRE7sgIHO37rUPt0/edit?gid=1840086066"
+}

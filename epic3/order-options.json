@@ -1,0 +1,814 @@
+{
+  "sources": {
+    "stations": {
+      "spreadsheetId": "1WJETEQPufJuegti9XZTDd8Z7uoB2IVdzb8xmbwamnNY",
+      "sheet": "E3",
+      "range": "A1:C1229",
+      "readDate": "2026-10-23"
+    },
+    "template": "Epic3 Media Order_ (CITY) 2026_(FFM rep initials)  - TEMPLATE MAKE A COPY!! - Purchase order.csv"
+  },
+  "representatives": [],
+  "contacts": [
+    "Final Fore Media"
+  ],
+  "emails": [
+    "Sarah@finalforemedia.com"
+  ],
+  "terms": [
+    "Upon Invoice Receipt"
+  ],
+  "stations": {
+    "5": {
+      "Radio": [
+        {
+          "value": "KKIX-FM Country",
+          "sourceRow": 4
+        },
+        {
+          "value": "KIGL-FM Classic Rock",
+          "sourceRow": 5
+        }
+      ]
+    },
+    "8": {
+      "Radio": [
+        {
+          "value": "KBPA Adult Hits",
+          "sourceRow": 23
+        },
+        {
+          "value": "KLBJ-FM Rock",
+          "sourceRow": 26
+        },
+        {
+          "value": "KLBJ-AM News/talk",
+          "sourceRow": 29
+        },
+        {
+          "value": "KKMJ-FM Adult Contemporary",
+          "sourceRow": 32
+        }
+      ],
+      "TV": [
+        {
+          "value": "KEYE CBS-TV",
+          "sourceRow": 45
+        },
+        {
+          "value": "KXAN NBC-TV",
+          "sourceRow": 48
+        },
+        {
+          "value": "KVUE ABC-TV",
+          "sourceRow": 51
+        }
+      ]
+    },
+    "22": {
+      "TV": [
+        {
+          "value": "KTVB NBC",
+          "sourceRow": 64
+        },
+        {
+          "value": "KIVI ABC-TV",
+          "sourceRow": 67
+        },
+        {
+          "value": "KBOI CBS-TV",
+          "sourceRow": 70
+        }
+      ]
+    },
+    "71": {
+      "Radio": [
+        {
+          "value": "WKGL-FM Classic rock",
+          "sourceRow": 88
+        },
+        {
+          "value": "WXXQ-FM Country",
+          "sourceRow": 89
+        },
+        {
+          "value": "WROK-AM Newstalk",
+          "sourceRow": 90
+        },
+        {
+          "value": "WRTB-FM Country",
+          "sourceRow": 93
+        },
+        {
+          "value": "WXRX-FM Rock",
+          "sourceRow": 94
+        },
+        {
+          "value": "WNTA-AM Sports (matching bonus)",
+          "sourceRow": 95
+        }
+      ],
+      "TV": [
+        {
+          "value": "WGN-TV",
+          "sourceRow": 100
+        },
+        {
+          "value": "WLS ABC",
+          "sourceRow": 101
+        },
+        {
+          "value": "WMAQ NBC",
+          "sourceRow": 102
+        },
+        {
+          "value": "WFLD FOX",
+          "sourceRow": 103
+        }
+      ]
+    },
+    "35": {
+      "Radio": [
+        {
+          "value": "KKFM-FM Classic Rock",
+          "sourceRow": 117
+        },
+        {
+          "value": "KVOR-AM News Talk",
+          "sourceRow": 118
+        },
+        {
+          "value": "KVUU-FM Hot Adult Cont",
+          "sourceRow": 119
+        },
+        {
+          "value": "KILO-FM Active Rock",
+          "sourceRow": 120
+        },
+        {
+          "value": "KKPK-FM Adult Hits",
+          "sourceRow": 121
+        },
+        {
+          "value": "KCCY-FM Country",
+          "sourceRow": 122
+        },
+        {
+          "value": "KCSF-AM Sports",
+          "sourceRow": 123
+        }
+      ],
+      "TV": [
+        {
+          "value": "KKTV CBS-TV",
+          "sourceRow": 134
+        },
+        {
+          "value": "KOAA NBC",
+          "sourceRow": 135
+        },
+        {
+          "value": "KRDO ABC-TV",
+          "sourceRow": 137
+        }
+      ]
+    },
+    "263": {
+      "Radio": [
+        {
+          "value": "WMMS-FM Active Rock",
+          "sourceRow": 143
+        },
+        {
+          "value": "WMJI-FM Classic Hits",
+          "sourceRow": 144
+        },
+        {
+          "value": "WKRK-FM All Sports",
+          "sourceRow": 145
+        }
+      ],
+      "TV": [
+        {
+          "value": "WJW-FOX",
+          "sourceRow": 150
+        },
+        {
+          "value": "WKYC-NBC",
+          "sourceRow": 151
+        }
+      ]
+    },
+    "87": {
+      "TV": [
+        {
+          "value": "KWQC-NBC",
+          "sourceRow": 180
+        }
+      ]
+    },
+    "48": {
+      "Radio": [
+        {
+          "value": "KOA-AM News/talk",
+          "sourceRow": 188
+        },
+        {
+          "value": "KRFX-FM Classic Rock",
+          "sourceRow": 189
+        },
+        {
+          "value": "KALC-FM Modern Adult Cont.",
+          "sourceRow": 191
+        },
+        {
+          "value": "KXKL-FM Classic Hits",
+          "sourceRow": 192
+        },
+        {
+          "value": "KKSE-FM Sports",
+          "sourceRow": 193
+        },
+        {
+          "value": "KOSI-FM Adult Contemporary",
+          "sourceRow": 194
+        }
+      ],
+      "TV": [
+        {
+          "value": "KUSA NBC-TV",
+          "sourceRow": 198
+        },
+        {
+          "value": "KDVR FOX-TV",
+          "sourceRow": 199
+        },
+        {
+          "value": "KCNC CBS-TV",
+          "sourceRow": 200
+        },
+        {
+          "value": "KMGH ABC-TV",
+          "sourceRow": 201
+        }
+      ]
+    },
+    "211": {
+      "Radio": [
+        {
+          "value": "KDRB-FM Adult Hits",
+          "sourceRow": 228
+        },
+        {
+          "value": "KXNO-FM Sports",
+          "sourceRow": 229
+        },
+        {
+          "value": "WHO-AM Newstalk",
+          "sourceRow": 230
+        },
+        {
+          "value": "KAZR-FM Active Rock",
+          "sourceRow": 231
+        },
+        {
+          "value": "KGGO-FM Classic Rock",
+          "sourceRow": 232
+        }
+      ],
+      "TV": [
+        {
+          "value": "WHO NBC 13",
+          "sourceRow": 237
+        },
+        {
+          "value": "KCCI CBS 8",
+          "sourceRow": 238
+        }
+      ]
+    },
+    "266": {
+      "TV": [
+        {
+          "value": "WANE-CBS",
+          "sourceRow": 257
+        }
+      ],
+      "Radio": [
+        {
+          "value": "WOWO-AM News Talk",
+          "sourceRow": 264
+        },
+        {
+          "value": "WXKE-FM Classic Rock",
+          "sourceRow": 265
+        },
+        {
+          "value": "WQHK-FM Country",
+          "sourceRow": 266
+        }
+      ]
+    },
+    "237": {
+      "Radio": [
+        {
+          "value": "WAPL-FM Album Oriented Rock",
+          "sourceRow": 272
+        },
+        {
+          "value": "WDUZ AM-FM Sports",
+          "sourceRow": 273
+        },
+        {
+          "value": "WNCY-FM Country",
+          "sourceRow": 274
+        },
+        {
+          "value": "WIXX-FM Contemporary Hits",
+          "sourceRow": 275
+        }
+      ],
+      "TV": [
+        {
+          "value": "WGBA NBC-TV",
+          "sourceRow": 286
+        },
+        {
+          "value": "WLUK FOX-TV",
+          "sourceRow": 289
+        },
+        {
+          "value": "WFRV CBS-TV",
+          "sourceRow": 292
+        },
+        {
+          "value": "WBAY NBC-TV",
+          "sourceRow": 295
+        }
+      ]
+    },
+    "84": {
+      "TV": [
+        {
+          "value": "KWWL NBC-TV",
+          "sourceRow": 339
+        },
+        {
+          "value": "KCRG ABC-TV",
+          "sourceRow": 342
+        }
+      ]
+    },
+    "172": {
+      "Radio": [
+        {
+          "value": "KCMO-FM Classic Hits",
+          "sourceRow": 348
+        },
+        {
+          "value": "KQRC-FM Album Rock",
+          "sourceRow": 349
+        },
+        {
+          "value": "KMBZ-AM News/talk",
+          "sourceRow": 350
+        },
+        {
+          "value": "KCFX-FM Classic Rock",
+          "sourceRow": 351
+        },
+        {
+          "value": "KFNZ-FM Sports",
+          "sourceRow": 352
+        }
+      ],
+      "TV": [
+        {
+          "value": "KCTV CBS",
+          "sourceRow": 363
+        },
+        {
+          "value": "KSHB NBC",
+          "sourceRow": 364
+        },
+        {
+          "value": "WDAF FOX",
+          "sourceRow": 365
+        }
+      ]
+    },
+    "146": {
+      "Radio": [
+        {
+          "value": "KTGL-FM Classic Rock",
+          "sourceRow": 371
+        },
+        {
+          "value": "KNTK-FM All Sports",
+          "sourceRow": 374
+        }
+      ],
+      "TV": [
+        {
+          "value": "KOLN CBS",
+          "sourceRow": 385
+        }
+      ]
+    },
+    "101": {
+      "Radio": [
+        {
+          "value": "WOLX-FM (Classic Hits)",
+          "sourceRow": 391
+        },
+        {
+          "value": "WIBA-FM Classic Rock",
+          "sourceRow": 394
+        },
+        {
+          "value": "WIBA-AM Newstalk",
+          "sourceRow": 397
+        },
+        {
+          "value": "WJVL (Janesville) Country",
+          "sourceRow": 399
+        },
+        {
+          "value": "WWHG (Janesville) Rock",
+          "sourceRow": 400
+        },
+        {
+          "value": "WWHG (Janesville) Rock VIP Party",
+          "sourceRow": 401
+        }
+      ],
+      "TV": [
+        {
+          "value": "WISC CBS-TV",
+          "sourceRow": 412
+        },
+        {
+          "value": "WMSN FOX-TV",
+          "sourceRow": 415
+        },
+        {
+          "value": "WKOW ABC-TV",
+          "sourceRow": 418
+        },
+        {
+          "value": "WMTV NBC-TV",
+          "sourceRow": 421
+        }
+      ]
+    },
+    "116": {
+      "Radio": [
+        {
+          "value": "WISN-AM News/talk",
+          "sourceRow": 446
+        },
+        {
+          "value": "WMIL-FM Country",
+          "sourceRow": 447
+        },
+        {
+          "value": "WRNW-FM Sports",
+          "sourceRow": 448
+        },
+        {
+          "value": "WRIT-FM Classic Hits",
+          "sourceRow": 449
+        },
+        {
+          "value": "WHQG-FM Album Oriented Rock",
+          "sourceRow": 450
+        },
+        {
+          "value": "WKLH-FM Classic Rock",
+          "sourceRow": 451
+        }
+      ],
+      "TV": [
+        {
+          "value": "WISN ABC-TV",
+          "sourceRow": 456
+        },
+        {
+          "value": "WITI FOX-TV",
+          "sourceRow": 459
+        },
+        {
+          "value": "WTMJ NBC-TV",
+          "sourceRow": 462
+        }
+      ]
+    },
+    "198": {
+      "Radio": [
+        {
+          "value": "KATT-FM Rock",
+          "sourceRow": 475
+        },
+        {
+          "value": "WWLS-FM Sports",
+          "sourceRow": 476
+        },
+        {
+          "value": "KOMA-FM Classic Hits",
+          "sourceRow": 477
+        },
+        {
+          "value": "KMGL Adult Cont",
+          "sourceRow": 478
+        },
+        {
+          "value": "KTST-FM New Country",
+          "sourceRow": 481
+        }
+      ],
+      "TV": [
+        {
+          "value": "KWTV CBS-TV",
+          "sourceRow": 492
+        },
+        {
+          "value": "KFOR NBC-TV",
+          "sourceRow": 495
+        }
+      ]
+    },
+    "159": {
+      "TV": [
+        {
+          "value": "KETV ABC-TV",
+          "sourceRow": 511
+        },
+        {
+          "value": "KMTV-CBS",
+          "sourceRow": 512
+        },
+        {
+          "value": "WOWT-NBC",
+          "sourceRow": 513
+        }
+      ],
+      "Radio": [
+        {
+          "value": "KFAB-AM News/talk",
+          "sourceRow": 518
+        },
+        {
+          "value": "KGOR-FM Classic Hits",
+          "sourceRow": 519
+        },
+        {
+          "value": "KXKT-FM Country",
+          "sourceRow": 520
+        },
+        {
+          "value": "KOZN-AM Sports",
+          "sourceRow": 521
+        },
+        {
+          "value": "KEZO-FM Active Rock",
+          "sourceRow": 522
+        }
+      ]
+    },
+    "281": {
+      "TV": [
+        {
+          "value": "WHAM-ABC",
+          "sourceRow": 536
+        },
+        {
+          "value": "WHEC-NBC",
+          "sourceRow": 537
+        },
+        {
+          "value": "WOWT-NBC",
+          "sourceRow": 538
+        }
+      ],
+      "Radio": [
+        {
+          "value": "WCMF-FM Classic Rock",
+          "sourceRow": 543
+        },
+        {
+          "value": "WHAM-AM News Talk",
+          "sourceRow": 544
+        }
+      ]
+    },
+    "133": {
+      "Radio": [
+        {
+          "value": "KAAZ-FM Classic Rock",
+          "sourceRow": 551
+        },
+        {
+          "value": "KUBL-FM Country",
+          "sourceRow": 552
+        },
+        {
+          "value": "KXRK-FM Alternative",
+          "sourceRow": 553
+        },
+        {
+          "value": "KSFI-FM Adult Contemporary",
+          "sourceRow": 554
+        },
+        {
+          "value": "KBER-FM Classic Rock",
+          "sourceRow": 555
+        },
+        {
+          "value": "KALL-AM Sports",
+          "sourceRow": 556
+        },
+        {
+          "value": "KBEE-FM Adult Contemporary",
+          "sourceRow": 557
+        },
+        {
+          "value": "KRSP-FM Classic Hits",
+          "sourceRow": 558
+        },
+        {
+          "value": "KNRS-FM News Talk",
+          "sourceRow": 559
+        },
+        {
+          "value": "KSOP Country",
+          "sourceRow": 560
+        }
+      ],
+      "TV": [
+        {
+          "value": "KSTU FOX",
+          "sourceRow": 573
+        },
+        {
+          "value": "KSL NBC-TV",
+          "sourceRow": 576
+        },
+        {
+          "value": "KUTV CBS-TV",
+          "sourceRow": 579
+        }
+      ]
+    },
+    "250": {
+      "Radio": [
+        {
+          "value": "KKWF-FM Country",
+          "sourceRow": 585
+        },
+        {
+          "value": "KZOK-FM Classic Rock",
+          "sourceRow": 586
+        },
+        {
+          "value": "KIRO-FM Newstalk",
+          "sourceRow": 587
+        },
+        {
+          "value": "KJR-FM Sports",
+          "sourceRow": 588
+        },
+        {
+          "value": "KISW-FM Active Rock",
+          "sourceRow": 589
+        }
+      ],
+      "TV": [
+        {
+          "value": "KOMO-ABC",
+          "sourceRow": 595
+        },
+        {
+          "value": "KING-NBC",
+          "sourceRow": 599
+        }
+      ]
+    },
+    "224": {
+      "TV": [
+        {
+          "value": "KYTV NBC-TV",
+          "sourceRow": 612
+        },
+        {
+          "value": "KOLR CBS-TV",
+          "sourceRow": 613
+        }
+      ]
+    }
+  },
+  "programs": {
+    "Radio": [
+      "M-F 6-10A",
+      "M-F 6-9A",
+      "M-F 10A-12P",
+      "M-F 7-9A",
+      "M-F 10A-1P",
+      "M-F 2-4P",
+      "M-F 2-6P",
+      "M-F 10A-2P"
+    ],
+    "TV": [
+      "M-F 6P News",
+      "SA 5P News",
+      "SU 5P News",
+      "M-F 10P News",
+      "SA 9P News",
+      "SU 9P News",
+      "SU 8-9:30A",
+      "SA 7A News",
+      "SU 7A News",
+      "SU 10:35P Talkin Sports",
+      "SA 10:35P Talkin Sports"
+    ]
+  },
+  "stationPrograms": {
+    "KXRK": [
+      "M-F 6-10A"
+    ],
+    "KRSP": [
+      "M-F 6-9A",
+      "M-F 10A-12P"
+    ],
+    "KALL": [
+      "M-F 7-9A"
+    ],
+    "KBEE": [
+      "M-F 10A-1P"
+    ],
+    "KSFI": [
+      "M-F 2-4P"
+    ],
+    "KSOP": [
+      "M-F 7-9A",
+      "M-F 2-6P"
+    ],
+    "KAAZ": [
+      "M-F 10A-2P",
+      "M-F 2-4P"
+    ],
+    "KSL": [
+      "M-F 6P News",
+      "SA 5P News",
+      "SU 5P News",
+      "M-F 10P News"
+    ],
+    "KSTU": [
+      "SA 9P News",
+      "SU 9P News"
+    ],
+    "KUTV": [
+      "SU 8-9:30A",
+      "M-F 6P News",
+      "SU 5P News",
+      "SA 7A News",
+      "SU 7A News",
+      "SU 10:35P Talkin Sports",
+      "SA 10:35P Talkin Sports"
+    ]
+  },
+  "runDays": [
+    {
+      "value": "M-Su",
+      "label": "Every day (Mon–Sun)"
+    },
+    {
+      "value": "M-F",
+      "label": "Weekdays (Mon–Fri)"
+    },
+    {
+      "value": "SA",
+      "label": "Saturday"
+    },
+    {
+      "value": "SU",
+      "label": "Sunday"
+    }
+  ],
+  "broadcastLengths": [
+    ":30"
+  ],
+  "formats": {
+    "audio": [
+      ":30 Audio",
+      ":15 or :60 Audio"
+    ],
+    "video": [
+      ":30",
+      ":30 TV",
+      ":30 TV & :15 PreRoll Video"
+    ],
+    "display": [
+      "Ad Sizes: 300x250, 160x600, 728x90, 320x50"
+    ]
+  }
+}

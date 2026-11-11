@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Weed Man Markets | Final Fore</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles.css?v=shared-nav-20261023"><link rel="stylesheet" href="/markets.css?v=shared-nav-20261023">
+  <script src="/markets.js?v=compact-20261023-2" defer></script>
+<style id="workbook-navigation-styles">
+/* One shared left navigation. Page state never changes its dimensions. */
+body{--sidebar-width:164px;padding:0 0 0 var(--sidebar-width);min-width:0}
+body>footer{
+  position:fixed;inset:0 auto 0 0;z-index:20;box-sizing:border-box;
+  width:var(--sidebar-width);height:100dvh;min-height:0;margin:0;padding:14px 10px;
+  display:flex;flex-direction:column;align-items:stretch;gap:0;
+  border:0;border-right:1px solid #dce2eb;background:#f5f7fb;
+  font-family:"Helvetica Neue",Arial,sans-serif;
+}
+.sidebar-brand{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 5px;margin:0 0 23px;color:#294567}
+.sidebar-mark{display:flex;align-items:center;justify-content:center;flex:none;width:27px;height:27px;padding-right:4px;border-radius:4px;background:#26466f;color:white;font:italic 24px Georgia,serif;letter-spacing:-4px}
+.sidebar-brand>div{display:flex;flex-direction:column;gap:1px}
+.sidebar-brand strong{font-size:13px;font-weight:600;line-height:17px;white-space:nowrap}
+.sidebar-brand>div>span{font-size:10px;color:#77879a;line-height:14px}
+.workbook-nav{display:flex;flex-direction:column;align-items:stretch;flex:0 0 auto;gap:3px;width:100%;min-width:0;height:auto;margin:0;padding:0;overflow:visible}
+.workbook-nav .workbook-tab{
+  box-sizing:border-box;display:flex;align-items:center;justify-content:flex-start;gap:9px;
+  flex:none;position:relative;width:100%;height:34px;margin:0;padding:0 9px;
+  border:0;border-radius:4px;font-family:"Helvetica Neue",Arial,sans-serif;
+  font-size:12px;font-weight:500;line-height:18px;letter-spacing:normal;
+  text-decoration:none;white-space:nowrap;color:#536880;background:transparent;
+}
+.workbook-nav .workbook-tab svg{display:block;flex:none;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.workbook-nav .workbook-tab[data-tab=data]{margin-top:15px}
+.workbook-nav .workbook-tab:hover{background:#eaf0f8;color:#284f85}
+.workbook-nav .workbook-tab[aria-current=page]{color:#2d568d;background:#e3ecf8;font-weight:600;box-shadow:inset 2px 0 #4773b2}
+.workbook-nav .workbook-tab:focus-visible{outline:2px solid #2957b7;outline-offset:1px}
+.workbook-status{display:flex;flex-direction:column;justify-content:flex-start;gap:6px;flex:none;min-width:0;margin-top:auto;padding:12px 5px 1px;border-top:1px solid #e1e7ef;font-size:10px;line-height:1.5;color:#77879a;overflow-wrap:anywhere}
+.workbook-status>span{min-width:0;white-space:normal}
+.workbook-status>span:empty{display:none}
+body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.app-header .identity>strong,body>.app-header .identity>.divider{display:none}
+/* Consistent page insets belong to the shared app shell, separate from print. */
+@media screen{
+ body{--page-gutter:24px}
+ body>.app-header,body>.order-toolbar{padding-left:var(--page-gutter);padding-right:var(--page-gutter)}
+ body>main,body>main#workspace,body>main#campaign-main{box-sizing:border-box;width:100%;min-width:0;max-width:none;margin:0;padding:18px var(--page-gutter) 28px}
+ body>main>.toolbar,body>main>.formula-bar,body>main>.workbook-summary,body>main>.cell-info{padding-left:0;padding-right:0}
+ body>main>.sheet-wrap{border:1px solid #dce2eb;margin-top:8px}
+}
+@media(max-width:1050px){
+  body{--sidebar-width:140px;--page-gutter:16px}
+  body>footer{padding-left:7px;padding-right:7px}
+  .sidebar-brand{gap:7px;padding-left:4px}
+  .workbook-nav .workbook-tab{gap:7px;padding:0 7px;font-size:11px}
+}
+@media(max-width:700px){
+  body{--sidebar-width:54px;--page-gutter:12px}
+  body>footer{padding:12px 7px}
+  .sidebar-brand{padding:0;justify-content:center;margin-bottom:20px}
+  .sidebar-brand>div,.workbook-status{display:none}
+  .workbook-nav .workbook-tab{justify-content:center;padding:0;width:40px;height:36px}
+  .workbook-nav .nav-label{display:none}
+  .workbook-nav .workbook-tab:hover .nav-label,.workbook-nav .workbook-tab:focus-visible .nav-label{display:block;position:absolute;left:45px;top:2px;padding:6px 9px;background:white;border:1px solid #d6dfeb;border-radius:3px;color:#294e7a;font-size:12px;font-weight:500;box-shadow:0 2px 8px #20334b12}
+}
+@media print{
+  body{padding:0!important;--sidebar-width:0px}
+  body>footer{display:none!important}
+}
+</style>
+</head>
+<body>
+  <header class="app-header"><div class="identity"><span class="brand-mark" aria-hidden="true">ff</span><span class="brand">Final Fore</span><span class="divider"></span><h1 id="page-title">Markets</h1><span class="document-name">Client: Weed Man · Vendor: EPIC3</span></div><span id="save-status" role="status">Opening workbook…</span></header>
+  <main>
+    <div class="workbook-summary"><p id="guide">Amounts follow the EPIC3 media analysis. Edit dates and billing weeks in Variables.</p><div><span>2026 total due</span><strong id="grand-total"></strong></div></div>
+    <div class="toolbar" aria-label="Table controls">
+      <label>View <select id="view"></select></label><label>Market <select id="market"><option value="">All markets</option></select></label><a id="legacy-variables" href="/markets.html#variables">2026 settings</a>
+      <span class="toolbar-space"></span><label class="check"><input id="show-formulas" type="checkbox">Show formulas</label>
+      <button id="refresh" type="button">Refresh</button><button id="issues-button" type="button" aria-expanded="false">Review dates</button><button id="help-button" type="button" aria-expanded="false">How it works</button>
+    </div>
+    <div class="formula-bar"><label class="sr-only" for="address">Go to cell</label><input id="address" aria-label="Go to cell" spellcheck="false"><span class="fx" aria-hidden="true">fx</span><label class="sr-only" for="formula">Cell value or formula</label><input id="formula" spellcheck="false" autocomplete="off" readonly><button id="save-cell" type="button" disabled>Save variable</button><button id="edit-formula" type="button" disabled>Edit formula</button></div>
+    <div id="message" class="message" role="alert" hidden></div>
+    <div class="sheet-wrap" id="sheet-wrap" tabindex="-1" aria-label="Markets spreadsheet"><div id="loading">Loading linked Markets table…</div><table id="sheet" aria-label="Markets spreadsheet" hidden></table></div>
+    <aside id="issues" hidden><div class="issues-heading"><div><h2>Dates to confirm</h2><p>These values came from the attached workbook. Select an item to edit its variable.</p></div><button id="close-issues" type="button">Close</button></div><div id="issue-list"></div></aside>
+    <aside id="help" hidden><div class="issues-heading"><h2>Where the numbers come from</h2><button id="close-help" type="button">Close</button></div>
+      <p><strong>EPIC3 → Markets:</strong> Paid radio, TV, digital, net media, and their fees update when EPIC3 changes. The 25 active 2026 markets produce 26 market orders because Denver has separate broadcast and digital orders. ESPN and weather each have one additional order.</p>
+      <p><strong>Variables → billing:</strong> Total due ÷ total billing weeks = weekly payment. Each monthly amount = weekly payment × that month’s weeks. Campaign dates and duration are separate scheduling inputs. Amounts retain source precision and display rounded to cents.</p>
+      <p><strong>Denver and Milwaukee:</strong> Denver’s partner allocation splits the broadcast buy; its fee comes from EPIC3 BW36. Milwaukee’s radio trade fee comes from EPIC3 AD6 and is included once. “Shared buy &amp; trade” shows the detail.</p>
+      <p><strong>Source differences:</strong> Linking corrects Milwaukee’s copied digital amount by $0.50 and ESPN’s copied total by $0.237. ESPN’s approved budget still comes from the source reconciliation tab. The full sheet preserves the historical invoice entries, source approval marks, and 150 pre-existing division errors in unfilled detail rows. Those entries do not indicate new approvals or payments.</p>
+      <p><strong>Dates:</strong> The source mixes 2025 and 2026 campaign dates. Review flags identify conflicts; no dates were silently advanced. Selecting a Variables cell shows the separate Dates_NM reference, where available.</p>
+    </aside>
+    <div class="cell-info"><span id="cell-kind">Select a cell.</span><span id="cell-detail"></span><a id="source-link" hidden>Open in EPIC3</a></div>
+  </main>
+  <footer>
+  <div class="sidebar-brand"><span class="sidebar-mark" aria-hidden="true">ff</span><div><strong>Final Fore</strong><span>Weed Man</span></div></div>
+  <nav class="workbook-nav" aria-label="Main navigation">
+    <a class="workbook-tab" href="/" data-tab="epic3" aria-label="EPIC3" title="EPIC3"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M3 8h14M8 3v14M3 12.5h14"/></svg><span class="nav-label">EPIC3</span></a>
+    <a class="workbook-tab" id="markets-tab" href="/markets.html" data-tab="markets" aria-label="Markets" title="Markets" aria-current="page"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 8c0 4-5.5 9-5.5 9S4.5 12 4.5 8a5.5 5.5 0 0 1 11 0Z"/><circle cx="10" cy="8" r="1.8"/></svg><span class="nav-label">Markets</span></a>
+    <a class="workbook-tab" href="/campaign.html" data-tab="campaign" aria-label="Campaign" title="Campaign"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 17V3m0 0h11l-2 4 2 4H4"/></svg><span class="nav-label">Campaign</span></a>
+    <a class="workbook-tab" href="/orders.html" data-tab="orders" aria-label="Orders" title="Orders"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3V17H5zM12 2.5V6h3M7.5 9h5M7.5 12h5M7.5 15h3"/></svg><span class="nav-label">Orders</span></a>
+    <a class="workbook-tab" href="/data.html" data-tab="data" data-view-link="data" aria-label="Reporting data" title="Reporting data"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M3 7h14M7 7v10M10 10h4M10 13.5h4"/></svg><span class="nav-label">Reporting data</span></a>
+    <a class="workbook-tab" href="/dashboard.html" data-tab="dashboard" data-view-link="dashboard" aria-label="Dashboard" title="Dashboard"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3v14h14M6 13V9M10 13V5M14 13V7"/></svg><span class="nav-label">Dashboard</span></a>
+  </nav>
+  <div class="workbook-status"><span id="counts"></span><span id="footer-tip">Calculated amounts</span></div>
+</footer>
+  <dialog id="formula-dialog" aria-labelledby="formula-title">
+    <form id="formula-editor"><h2 id="formula-title">Edit formula</h2><p id="formula-context"></p><label for="formula-expression">Formula</label><textarea id="formula-expression" rows="4" spellcheck="false"></textarea><p>Changes recalculate the workbook. Input cells and grid calculations remain separate.</p><div id="formula-error" role="alert" hidden></div><div class="dialog-actions"><button id="cancel-formula" type="button">Cancel</button><button id="save-formula" type="submit">Save formula</button></div></form>
+  </dialog>
+</body></html>

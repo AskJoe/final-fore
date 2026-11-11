@@ -1,0 +1,1988 @@
+{
+  "sourceFile": "SOP - 1b Media RESEARCH - Email Templates - to Reps (1).docx",
+  "sourceSha256": "34f939ed3f00f1e310f09c976b37da6826b7816ae00e200e7723195358a66d14",
+  "templates": {
+    "radio-multi": {
+      "media": "broadcast-radio",
+      "scope": "multi",
+      "paragraphs": [
+        {
+          "text": "Hi {{first_name}},",
+          "runs": [
+            {
+              "text": "Hi {{first_name}},"
+            }
+          ]
+        },
+        {
+          "text": "We are starting to plan the {{client}} {{campaign_year}} marketing campaigns and need your help! Here is a list of all the markets we are working on and need info for currently. If you have stations in these markets, please send the below info by {{deadline}}. Please also pay close attention to the specifics of what we are requesting, to avoid the hassle and time wasted with having to redo them using the correct info we are needing",
+          "runs": [
+            {
+              "text": "We are starting to plan the"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{client}} {{campaign_year}}",
+              "color": "#6aa84f"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "marketing campaigns and need your help! Here is a list of all the markets we are working on and need info for currently. If you have stations in these markets, please send the below info by"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{deadline}}.",
+              "underline": true,
+              "color": "#ff00ff"
+            },
+            {
+              "text": " Please also pay close attention to the specifics of what we are requesting, to avoid the hassle and time wasted with having to redo them using the correct info we are needing"
+            }
+          ]
+        },
+        {
+          "text": "{{markets}}",
+          "runs": [
+            {
+              "text": "{{markets}}"
+            }
+          ]
+        },
+        {
+          "text": "Please upload the requested research for each market here: {{upload_url}}. You can upload multiple files per market and return to the same link to add more.",
+          "runs": [
+            {
+              "text": "Please upload the requested research for each market here: {{upload_url}}",
+              "underline": true
+            },
+            {
+              "text": ". You can upload multiple files per market and return to the same link to add more."
+            }
+          ]
+        },
+        {
+          "text": "Station Trenders using Comscore Adults 35-64.",
+          "runs": [
+            {
+              "text": "Station Trenders",
+              "bold": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " using ",
+              "bold": true
+            },
+            {
+              "text": "Comscore Adults 35-64",
+              "bold": true,
+              "underline": true
+            },
+            {
+              "text": ".",
+              "bold": true
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+          "runs": [
+            {
+              "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+              "italic": true
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Using Every book {{radio_trender_books}} (or through your latest book) - Do NOT pull as multi-book average; must list each book in individual columns on 1 sheet (not in separate sheets).",
+          "runs": [
+            {
+              "text": "Using "
+            },
+            {
+              "text": "Every book {{radio_trender_books}}",
+              "color": "#cb10be"
+            },
+            {
+              "text": " ",
+              "color": "#9900ff"
+            },
+            {
+              "text": "(or through your latest book) - "
+            },
+            {
+              "text": "Do NOT pull as multi-book average",
+              "color": "#cb10be"
+            },
+            {
+              "text": "; ",
+              "color": "#9900ff"
+            },
+            {
+              "text": "must list each book "
+            },
+            {
+              "text": "in individual columns",
+              "color": "#cb10be"
+            },
+            {
+              "text": " on 1 sheet (not in separate sheets)."
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Broken down by DAYPART (M-F 6A-10A, M-F 10A-3P & M-F 3-7P).",
+          "runs": [
+            {
+              "text": "Broken down by "
+            },
+            {
+              "text": "DAYPART",
+              "underline": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " ",
+              "color": "#9900ff"
+            },
+            {
+              "text": "(M-F 6A-10A, M-F 10A-3P & M-F 3-7P)"
+            },
+            {
+              "text": ".",
+              "color": "#9900ff"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Showing AQH Ave Persons listed first, then Share, then Weekly CUME, then Station Format, then Station Owner - DO NOT SEND AS RATINGS.",
+          "runs": [
+            {
+              "text": "Showing ",
+              "color": "#333333"
+            },
+            {
+              "text": "AQH Ave Persons",
+              "color": "#cb10be"
+            },
+            {
+              "text": " listed first, then ",
+              "color": "#333333"
+            },
+            {
+              "text": "Share",
+              "color": "#cb10be"
+            },
+            {
+              "text": ", then ",
+              "color": "#333333"
+            },
+            {
+              "text": "Weekly CUME",
+              "color": "#cb10be"
+            },
+            {
+              "text": ", then ",
+              "color": "#333333"
+            },
+            {
+              "text": "Station Format",
+              "color": "#cb10be"
+            },
+            {
+              "text": ","
+            },
+            {
+              "text": " ",
+              "color": "#cb10be"
+            },
+            {
+              "text": "then ",
+              "color": "#333333"
+            },
+            {
+              "text": "Station Owner -",
+              "color": "#cb10be"
+            },
+            {
+              "text": " ",
+              "italic": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": "DO NOT SEND AS RATINGS.",
+              "italic": true,
+              "underline": true,
+              "color": "#cb10be"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format.",
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Top 20 Market Ranker using Comscore Adults 35-64.",
+          "runs": [
+            {
+              "text": "Top 20 Market Ranker",
+              "bold": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " using Comscore Adults 35-64.",
+              "bold": true,
+              "color": "#333333"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+          "runs": [
+            {
+              "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+              "italic": true
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Using Books: {{ranker_books}} only - Do NOT pull as multi-book average; must list each book separately, all listed together on 1 sheet (not in separate sheets).",
+          "runs": [
+            {
+              "text": "Using Books: "
+            },
+            {
+              "text": "{{ranker_books}} only",
+              "color": "#db268a"
+            },
+            {
+              "text": " - ",
+              "color": "#0000ff"
+            },
+            {
+              "text": "Do NOT pull as multi-book average",
+              "color": "#db268a"
+            },
+            {
+              "text": ";",
+              "color": "#9900ff"
+            },
+            {
+              "text": " must list each book separately, all listed together on 1 sheet (not in separate sheets).",
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Broken down HOUR BY HOUR (M-F 6A-7P)",
+          "runs": [
+            {
+              "text": "Broken down ",
+              "color": "#333333"
+            },
+            {
+              "text": "HOUR BY HOUR",
+              "underline": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " (M-F 6A-7P)"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Showing AQH Ave Persons listed first, then Share, then Weekly CUME, then Station Format, then Station Owner - DO NOT SEND AS RATINGS.",
+          "runs": [
+            {
+              "text": "Showing"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "AQH Ave Persons",
+              "color": "#db268a"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "listed first, then"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "Share",
+              "color": "#db268a"
+            },
+            {
+              "text": ", then "
+            },
+            {
+              "text": "Weekly CUME",
+              "color": "#db268a"
+            },
+            {
+              "text": ", then"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "Station Format",
+              "color": "#db268a"
+            },
+            {
+              "text": ", then "
+            },
+            {
+              "text": "Station Owner -",
+              "color": "#db268a"
+            },
+            {
+              "text": " ",
+              "italic": true,
+              "color": "#db268a"
+            },
+            {
+              "text": "DO NOT SEND AS RATINGS.",
+              "italic": true,
+              "underline": true,
+              "color": "#db268a"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format.",
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": ":30 Rates",
+          "runs": [
+            {
+              "text": ":30 Rates",
+              "bold": true,
+              "color": "#d8a62a"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#d8a62a"
+          }
+        },
+        {
+          "text": "Submit your best rates upfront for your stations (we do not do rounds). We will allow up to 5% of the ads preempted and made good. For every ad that gets preempted over 5%, we will require the ad to be made good as well as a bonus ad of equal or greater value as part of the makegood offer.",
+          "runs": [
+            {
+              "text": "Submit your "
+            },
+            {
+              "text": "best rates upfront",
+              "color": "#d8a62a"
+            },
+            {
+              "text": " for your stations (we do not do rounds). ",
+              "color": "#333333"
+            },
+            {
+              "text": "We will allow up to 5% of the ads preempted and made good. For every ad that gets preempted over 5%, we will require the ad to be made good as well as a bonus ad of equal or greater value as part of the makegood offer.",
+              "bold": true,
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Flight Dates - {{flight_dates}}.",
+          "runs": [
+            {
+              "text": "Flight Dates - ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{flight_dates}}.",
+              "color": "#d8a62a"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format.",
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Station Coverage Maps",
+          "runs": [
+            {
+              "text": "Station Coverage Maps",
+              "bold": true,
+              "color": "#cb10be"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#cb10be"
+          }
+        },
+        {
+          "text": "Qualitative Data - your most recent data for your stations using Adults 18+:",
+          "runs": [
+            {
+              "text": "Qualitative Data",
+              "bold": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "- your most recent data for your stations using Adults 18+:"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "% Gender (female/male), % Age, % Income, % Homeowners, % Employment with full time and retired listed, % Education, % Occupation.",
+          "runs": [
+            {
+              "text": "% Gender",
+              "color": "#db268a"
+            },
+            {
+              "text": " (female/male), ",
+              "color": "#333333"
+            },
+            {
+              "text": "% Age, % Income, % Homeowners, % Employment",
+              "color": "#db268a"
+            },
+            {
+              "text": " with full time and retired listed, ",
+              "color": "#333333"
+            },
+            {
+              "text": "% Education, % Occupation",
+              "color": "#db268a"
+            },
+            {
+              "text": ".",
+              "color": "#ff00ff"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Market or Station Changes - please list any changes (program line up changes, host changes, etc) that have happened this past year!",
+          "runs": [
+            {
+              "text": "Market or Station Changes",
+              "bold": true,
+              "color": "#d8a62a"
+            },
+            {
+              "text": " - please list any changes (program line up changes, host changes, etc) that have happened this past year!",
+              "color": "#333333"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Please provide the best rates upfront! We don't believe in doing rounds as it's a waste of time for you and us! In full transparency, if your station's CPMs come in high compared to the other stations in the market, then odds are your station will be passed over. We are going to be hustling through these markets, with a goal of placing most if not all by the end of the year, so together we need to be efficient. I hate sounding harsh, but want to be honest so you don't risk the chance of being blindsided and left out. Thank you for your understanding of this!",
+          "runs": [
+            {
+              "text": "Please provide the best rates upfront! We don't believe in doing rounds as it's a waste of time for you and us! In full transparency, "
+            },
+            {
+              "text": "if your station's CPMs come in high compared to the other stations in the market, then odds are your station will be passed over.",
+              "underline": true
+            },
+            {
+              "text": " We are going to be hustling through these markets, with a goal of placing most if not all by the end of the year, so together we need to be efficient. I hate sounding harsh, but want to be honest so you don't risk the chance of being blindsided and left out. Thank you for your understanding of this!"
+            }
+          ]
+        },
+        {
+          "text": "I will be your point of contact for all Weed Man campaigns, this includes preempts & makegoods. Please let me know if you have any questions!",
+          "runs": [
+            {
+              "text": "I will be your point of contact for all Weed Man campaigns, this includes preempts & makegoods. Please let me know if you have any questions!"
+            }
+          ]
+        },
+        {
+          "text": "We look forward to working with you again!",
+          "runs": [
+            {
+              "text": "We look forward to working with you again!"
+            }
+          ]
+        },
+        {
+          "text": "{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media",
+          "runs": [
+            {
+              "text": "{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media"
+            }
+          ]
+        }
+      ]
+    },
+    "radio-single-lincoln": {
+      "media": "broadcast-radio",
+      "scope": "single",
+      "paragraphs": [
+        {
+          "text": "Hi {{first_name}},",
+          "runs": [
+            {
+              "text": "Hi {{first_name}},"
+            }
+          ]
+        },
+        {
+          "text": "We are starting to plan the {{client}} {{campaign_year}} marketing campaigns and need your help! Can you please send the below info for your stations in {{markets_inline}} by {{deadline}}. Please also pay close attention to the specifics of what we are requesting, to avoid the hassle and time wasted with having to redo them using the correct info we are needing!",
+          "runs": [
+            {
+              "text": "We are starting to plan the"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{client}} {{campaign_year}}",
+              "color": "#6aa84f"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "marketing campaigns and need your help! Can you please send the below info for your stations in {{markets_inline}} by"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{deadline}}.",
+              "underline": true,
+              "color": "#ff00ff"
+            },
+            {
+              "text": " Please also pay close attention to the specifics of what we are requesting, to avoid the hassle and time wasted with having to redo them using the correct info we are needing!"
+            }
+          ]
+        },
+        {
+          "text": "Please upload the requested research for each market here: {{upload_url}}. You can upload multiple files per market and return to the same link to add more.",
+          "runs": [
+            {
+              "text": "Please upload the requested research for each market here: {{upload_url}}",
+              "underline": true
+            },
+            {
+              "text": ". You can upload multiple files per market and return to the same link to add more."
+            }
+          ]
+        },
+        {
+          "text": "Station Trenders using Comscore Adults 35-64.",
+          "runs": [
+            {
+              "text": "Station Trenders",
+              "bold": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " using ",
+              "bold": true
+            },
+            {
+              "text": "Comscore Adults 35-64",
+              "bold": true,
+              "underline": true
+            },
+            {
+              "text": ".",
+              "bold": true
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+          "runs": [
+            {
+              "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+              "italic": true
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Using Every book {{radio_trender_books}} (or through your latest book) - Do NOT pull as multi-book average; must list each book in individual columns on 1 sheet (not in separate sheets).",
+          "runs": [
+            {
+              "text": "Using "
+            },
+            {
+              "text": "Every book {{radio_trender_books}}",
+              "color": "#cb10be"
+            },
+            {
+              "text": " ",
+              "color": "#9900ff"
+            },
+            {
+              "text": "(or through your latest book) - "
+            },
+            {
+              "text": "Do NOT pull as multi-book average",
+              "color": "#cb10be"
+            },
+            {
+              "text": "; ",
+              "color": "#9900ff"
+            },
+            {
+              "text": "must list each book "
+            },
+            {
+              "text": "in individual columns",
+              "color": "#cb10be"
+            },
+            {
+              "text": " on 1 sheet (not in separate sheets)."
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Broken down by DAYPART (M-F 6A-10A, M-F 10A-3P & M-F 3-7P).",
+          "runs": [
+            {
+              "text": "Broken down by "
+            },
+            {
+              "text": "DAYPART",
+              "underline": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " ",
+              "color": "#9900ff"
+            },
+            {
+              "text": "(M-F 6A-10A, M-F 10A-3P & M-F 3-7P)"
+            },
+            {
+              "text": ".",
+              "color": "#9900ff"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Showing AQH Ave Persons listed first, then Share, then Weekly CUME, then Station Format, then Station Owner - DO NOT SEND AS RATINGS.",
+          "runs": [
+            {
+              "text": "Showing ",
+              "color": "#333333"
+            },
+            {
+              "text": "AQH Ave Persons",
+              "color": "#cb10be"
+            },
+            {
+              "text": " listed first, then ",
+              "color": "#333333"
+            },
+            {
+              "text": "Share",
+              "color": "#cb10be"
+            },
+            {
+              "text": ", then ",
+              "color": "#333333"
+            },
+            {
+              "text": "Weekly CUME",
+              "color": "#cb10be"
+            },
+            {
+              "text": ", then ",
+              "color": "#333333"
+            },
+            {
+              "text": "Station Format",
+              "color": "#cb10be"
+            },
+            {
+              "text": ","
+            },
+            {
+              "text": " ",
+              "color": "#cb10be"
+            },
+            {
+              "text": "then ",
+              "color": "#333333"
+            },
+            {
+              "text": "Station Owner -",
+              "color": "#cb10be"
+            },
+            {
+              "text": " ",
+              "italic": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": "DO NOT SEND AS RATINGS.",
+              "italic": true,
+              "underline": true,
+              "color": "#cb10be"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format.",
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Top 20 Market Ranker using Comscore Adults 35-64.",
+          "runs": [
+            {
+              "text": "Top 20 Market Ranker",
+              "bold": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " using Comscore Adults 35-64.",
+              "bold": true,
+              "color": "#333333"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+          "runs": [
+            {
+              "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+              "italic": true
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Using Books: {{ranker_books}} only - Do NOT pull as multi-book average; must list each book separately, all listed together on 1 sheet (not in separate sheets).",
+          "runs": [
+            {
+              "text": "Using Books: "
+            },
+            {
+              "text": "{{ranker_books}} only",
+              "color": "#db268a"
+            },
+            {
+              "text": " - ",
+              "color": "#0000ff"
+            },
+            {
+              "text": "Do NOT pull as multi-book average",
+              "color": "#db268a"
+            },
+            {
+              "text": ";",
+              "color": "#9900ff"
+            },
+            {
+              "text": " must list each book separately, all listed together on 1 sheet (not in separate sheets).",
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Broken down HOUR BY HOUR (M-F 6A-7P)",
+          "runs": [
+            {
+              "text": "Broken down ",
+              "color": "#333333"
+            },
+            {
+              "text": "HOUR BY HOUR",
+              "underline": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " (M-F 6A-7P)"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Showing AQH Ave Persons listed first, then Share, then Weekly CUME, then Station Format, then Station Owner - DO NOT SEND AS RATINGS.",
+          "runs": [
+            {
+              "text": "Showing"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "AQH Ave Persons",
+              "color": "#db268a"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "listed first, then"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "Share",
+              "color": "#db268a"
+            },
+            {
+              "text": ", then "
+            },
+            {
+              "text": "Weekly CUME",
+              "color": "#db268a"
+            },
+            {
+              "text": ", then"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "Station Format",
+              "color": "#db268a"
+            },
+            {
+              "text": ", then "
+            },
+            {
+              "text": "Station Owner -",
+              "color": "#db268a"
+            },
+            {
+              "text": " ",
+              "italic": true,
+              "color": "#db268a"
+            },
+            {
+              "text": "DO NOT SEND AS RATINGS.",
+              "italic": true,
+              "underline": true,
+              "color": "#db268a"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format.",
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": ":30 Rates",
+          "runs": [
+            {
+              "text": ":30 Rates",
+              "bold": true,
+              "color": "#d8a62a"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#d8a62a"
+          }
+        },
+        {
+          "text": "Submit your best rates upfront for your stations (we do not do rounds). We will allow up to 5% of the ads preempted and made good.",
+          "runs": [
+            {
+              "text": "Submit your "
+            },
+            {
+              "text": "best rates upfront",
+              "color": "#d8a62a"
+            },
+            {
+              "text": " for your stations (we do not do rounds). ",
+              "color": "#333333"
+            },
+            {
+              "text": "We will allow up to 5% of the ads preempted and made good.",
+              "bold": true,
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Flight Dates - {{flight_dates}}.",
+          "runs": [
+            {
+              "text": "Flight Dates - ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{flight_dates}}.",
+              "color": "#d8a62a"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format.",
+              "color": "#333333"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Station Coverage Maps",
+          "runs": [
+            {
+              "text": "Station Coverage Maps",
+              "bold": true,
+              "color": "#cb10be"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#cb10be"
+          }
+        },
+        {
+          "text": "Qualitative Data - your most recent data for your stations using Adults 18+:",
+          "runs": [
+            {
+              "text": "Qualitative Data",
+              "bold": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " ",
+              "color": "#ff00ff"
+            },
+            {
+              "text": "- your most recent data for your stations using Adults 18+:"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "% Gender (female/male), % Age, % Income, % Homeowners, % Employment with full time and retired listed, % Education, % Occupation.",
+          "runs": [
+            {
+              "text": "% Gender",
+              "color": "#db268a"
+            },
+            {
+              "text": " (female/male), ",
+              "color": "#333333"
+            },
+            {
+              "text": "% Age, % Income, % Homeowners, % Employment",
+              "color": "#db268a"
+            },
+            {
+              "text": " with full time and retired listed, ",
+              "color": "#333333"
+            },
+            {
+              "text": "% Education, % Occupation",
+              "color": "#db268a"
+            },
+            {
+              "text": ".",
+              "color": "#ff00ff"
+            }
+          ],
+          "level": 1,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Market or Station Changes - please list any changes (program line up changes, host changes, etc) that have happened this past year!",
+          "runs": [
+            {
+              "text": "Market or Station Changes",
+              "bold": true,
+              "color": "#d8a62a"
+            },
+            {
+              "text": " - please list any changes (program line up changes, host changes, etc) that have happened this past year!",
+              "color": "#333333"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#333333"
+          }
+        },
+        {
+          "text": "Please provide the best rates upfront! We don't believe in doing rounds as it's a waste of time for you and us! In full transparency, if your station's CPMs come in high compared to the other stations in the market, then odds are your station will be passed over. We are going to be hustling through these markets, with a goal of placing most if not all by the end of the year, so together we need to be efficient. I hate sounding harsh, but want to be honest so you don't risk the chance of being blindsided and left out. Thank you for your understanding of this!",
+          "runs": [
+            {
+              "text": "Please provide the best rates upfront! We don't believe in doing rounds as it's a waste of time for you and us! In full transparency, "
+            },
+            {
+              "text": "if your station's CPMs come in high compared to the other stations in the market, then odds are your station will be passed over.",
+              "underline": true
+            },
+            {
+              "text": " We are going to be hustling through these markets, with a goal of placing most if not all by the end of the year, so together we need to be efficient. I hate sounding harsh, but want to be honest so you don't risk the chance of being blindsided and left out. Thank you for your understanding of this!"
+            }
+          ]
+        },
+        {
+          "text": "I will be your point of contact for all Weed Man campaigns, this includes preempts & makegoods. Please let me know if you have any questions!",
+          "runs": [
+            {
+              "text": "I will be your point of contact for all Weed Man campaigns, this includes preempts & makegoods. Please let me know if you have any questions!"
+            }
+          ]
+        },
+        {
+          "text": "We look forward to working with you again!",
+          "runs": [
+            {
+              "text": "We look forward to working with you again!"
+            }
+          ]
+        },
+        {
+          "text": "{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media",
+          "runs": [
+            {
+              "text": "{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media"
+            }
+          ]
+        }
+      ]
+    },
+    "tv-multi": {
+      "media": "broadcast-tv",
+      "scope": "multi",
+      "paragraphs": [
+        {
+          "text": "Hi {{first_name}},",
+          "runs": [
+            {
+              "text": "Hi {{first_name}},"
+            }
+          ]
+        },
+        {
+          "text": "We are starting to plan the {{client}} {{campaign_year}} marketing campaigns and need your help! Here is a list of all the markets we are working on and need info for currently. If you have stations in these markets, please send the below info by {{deadline}}. Please also pay close attention to the specifics of what we are requesting, to avoid the hassle and time wasted with having to redo them using the correct info we are needing!",
+          "runs": [
+            {
+              "text": "We are starting to plan the"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{client}} {{campaign_year}}",
+              "color": "#6aa84f"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "marketing campaigns and need your help! Here is a list of all the markets we are working on and need info for currently. If you have stations in these markets, please send the below info by"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{deadline}}.",
+              "underline": true,
+              "color": "#ff00ff"
+            },
+            {
+              "text": " Please also pay close attention to the specifics of what we are requesting, to avoid the hassle and time wasted with having to redo them using the correct info we are needing!"
+            }
+          ]
+        },
+        {
+          "text": "{{markets}}",
+          "runs": [
+            {
+              "text": "{{markets}}"
+            }
+          ]
+        },
+        {
+          "text": "Please upload the requested research for each market here: {{upload_url}}. You can upload multiple files per market and return to the same link to add more.",
+          "runs": [
+            {
+              "text": "Please upload the requested research for each market here: {{upload_url}}",
+              "underline": true
+            },
+            {
+              "text": ". You can upload multiple files per market and return to the same link to add more."
+            }
+          ]
+        },
+        {
+          "text": "Trender Report using Comscore A35-64.",
+          "runs": [
+            {
+              "text": "Trender Report",
+              "bold": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " using ",
+              "bold": true
+            },
+            {
+              "text": "Comscore A35-64",
+              "bold": true,
+              "underline": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": ".",
+              "bold": true
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+          "runs": [
+            {
+              "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+              "italic": true
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Use {{tv_books}} - do NOT pull as 3 book average, must list each book individually!",
+          "runs": [
+            {
+              "text": "Use "
+            },
+            {
+              "text": "{{tv_books}} - do NOT pull as 3 book average",
+              "color": "#cb10be"
+            },
+            {
+              "text": ", must list each book individually!"
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Pull it showing 000’s & Share for stations in the market. Do NOT send as Ratings & CPPs.",
+          "runs": [
+            {
+              "text": "Pull it showing"
+            },
+            {
+              "text": " ",
+              "color": "#9900ff"
+            },
+            {
+              "text": "000’s & Share",
+              "color": "#cb10be"
+            },
+            {
+              "text": " for stations in the market. "
+            },
+            {
+              "text": "Do NOT send as Ratings & CPPs",
+              "italic": true,
+              "underline": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": ".",
+              "italic": true,
+              "underline": true,
+              "color": "#9900ff"
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format."
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Avail News only (local and national, weekday and weekend) A35-64",
+          "runs": [
+            {
+              "text": "Avail News only",
+              "bold": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " (local and national, weekday and weekend) A35-64",
+              "bold": true
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "Use {{avail_book}} book (A35-64, 000’s & CPMs). Do NOT send as Ratings & CPPs.",
+          "runs": [
+            {
+              "text": "Use "
+            },
+            {
+              "text": "{{avail_book}} book (A35-64, 000’s & CPMs)",
+              "color": "#db268a"
+            },
+            {
+              "text": ". ",
+              "color": "#0000ff"
+            },
+            {
+              "text": "Do NOT send as Ratings & CPPs.",
+              "italic": true,
+              "underline": true
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": ":30 rates for your stations, with your best rates upfront (we do not do rounds). We will allow up to 5% of the ads preempted and made good.",
+          "runs": [
+            {
+              "text": ":30 rates",
+              "color": "#db268a"
+            },
+            {
+              "text": " for your stations, with "
+            },
+            {
+              "text": "your best rates upfront",
+              "color": "#db268a"
+            },
+            {
+              "text": " (we do not do rounds). "
+            },
+            {
+              "text": "We will allow up to 5% of the ads preempted and made good.",
+              "bold": true
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "{{flight_dates}} Flight.",
+          "runs": [
+            {
+              "text": "{{flight_dates}} Flight.",
+              "color": "#db268a"
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format."
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Station Coverage Maps",
+          "runs": [
+            {
+              "text": "Station Coverage Maps",
+              "bold": true,
+              "color": "#d8a62a"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#d8a62a"
+          }
+        },
+        {
+          "text": "Qualitative Data - your most recent data for your stations using Adults 18+:",
+          "runs": [
+            {
+              "text": "Qualitative Data",
+              "bold": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " ",
+              "color": "#cb10be"
+            },
+            {
+              "text": "- your most recent data for your stations using Adults 18+:"
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "% Gender (female/male), % Age, % Income, % Homeowners, % Employment with full time and retired listed, % Education, % Occupation.",
+          "runs": [
+            {
+              "text": "% Gender",
+              "color": "#cb10be"
+            },
+            {
+              "text": " (female/male), "
+            },
+            {
+              "text": "% Age, % Income, % Homeowners, % Employment ",
+              "color": "#cb10be"
+            },
+            {
+              "text": "with full time and retired listed, "
+            },
+            {
+              "text": "% Education, % Occupation.",
+              "color": "#cb10be"
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Market or Station Changes - please list any changes (program line up changes, host changes, etc) that have happened this past year!",
+          "runs": [
+            {
+              "text": "Market or Station Changes",
+              "bold": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " - please list any changes (program line up changes, host changes, etc) that have happened this past year!"
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "Sqad Goals - average rates for each market, if available",
+          "runs": [
+            {
+              "text": "Sqad Goals",
+              "bold": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " - average rates for each market, if available"
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "Please provide the best rates upfront! We don't believe in doing rounds as it's a waste of time for you and us! In full transparency, if your station's CPMs come in high compared to the other stations in the market, then odds are your station will be passed over. We are going to be hustling through these markets, with a goal of placing most if not all by the end of the year, so together we need to be efficient. I hate sounding harsh, but want to be honest so you don't risk the chance of being blindsided and left out. Thank you for your understanding of this!",
+          "runs": [
+            {
+              "text": "Please provide the best rates upfront! We don't believe in doing rounds as it's a waste of time for you and us! In full transparency, "
+            },
+            {
+              "text": "if your station's CPMs come in high compared to the other stations in the market, then odds are your station will be passed over.",
+              "underline": true
+            },
+            {
+              "text": " We are going to be hustling through these markets, with a goal of placing most if not all by the end of the year, so together we need to be efficient. I hate sounding harsh, but want to be honest so you don't risk the chance of being blindsided and left out. Thank you for your understanding of this!"
+            }
+          ]
+        },
+        {
+          "text": "I will be your point of contact for all Weed Man campaigns, this includes preempts & makegoods. Please let me know if you have any questions!",
+          "runs": [
+            {
+              "text": "I will be your point of contact for all Weed Man campaigns, this includes preempts & makegoods. Please let me know if you have any questions!"
+            }
+          ]
+        },
+        {
+          "text": "We look forward to working with you again!",
+          "runs": [
+            {
+              "text": "We look forward to working with you again!"
+            }
+          ]
+        },
+        {
+          "text": "{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media",
+          "runs": [
+            {
+              "text": "{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media"
+            }
+          ]
+        }
+      ]
+    },
+    "tv-single-madison": {
+      "media": "broadcast-tv",
+      "scope": "single",
+      "paragraphs": [
+        {
+          "text": "Hi {{first_name}},",
+          "runs": [
+            {
+              "text": "Hi {{first_name}},"
+            }
+          ]
+        },
+        {
+          "text": "We are starting to plan the {{client}} {{campaign_year}} marketing campaigns and need your help! Can you please send the below info for your stations in {{markets_inline}} by {{deadline}}. Please also pay close attention to the specifics of what we are requesting, to avoid the hassle and time wasted with having to redo them using the correct info we are needing!",
+          "runs": [
+            {
+              "text": "We are starting to plan the"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{client}} {{campaign_year}}",
+              "color": "#6aa84f"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "marketing campaigns and need your help! Can you please send the below info for your stations in {{markets_inline}} by"
+            },
+            {
+              "text": " ",
+              "color": "#333333"
+            },
+            {
+              "text": "{{deadline}}.",
+              "underline": true,
+              "color": "#ff00ff"
+            },
+            {
+              "text": " Please also pay close attention to the specifics of what we are requesting, to avoid the hassle and time wasted with having to redo them using the correct info we are needing!"
+            }
+          ]
+        },
+        {
+          "text": "Please upload the requested research for each market here: {{upload_url}}. You can upload multiple files per market and return to the same link to add more.",
+          "runs": [
+            {
+              "text": "Please upload the requested research for each market here: {{upload_url}}",
+              "underline": true
+            },
+            {
+              "text": ". You can upload multiple files per market and return to the same link to add more."
+            }
+          ]
+        },
+        {
+          "text": "Trender Report using Comscore A35-64.",
+          "runs": [
+            {
+              "text": "Trender Report",
+              "bold": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " using ",
+              "bold": true
+            },
+            {
+              "text": "Comscore A35-64",
+              "bold": true,
+              "underline": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": ".",
+              "bold": true
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+          "runs": [
+            {
+              "text": "If you only subscribe to Nielsen then please send the Nielsen data and be sure to let us know it's coming with Nielsen data and not Comscore.",
+              "italic": true
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Use {{tv_books}} - do NOT pull as 3 book average, must list each book individually!",
+          "runs": [
+            {
+              "text": "Use "
+            },
+            {
+              "text": "{{tv_books}} - do NOT pull as 3 book average",
+              "color": "#cb10be"
+            },
+            {
+              "text": ", must list each book individually!"
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Pull it showing 000’s & Share for stations in the market. Do NOT send as Ratings & CPPs.",
+          "runs": [
+            {
+              "text": "Pull it showing"
+            },
+            {
+              "text": " ",
+              "color": "#9900ff"
+            },
+            {
+              "text": "000’s & Share",
+              "color": "#cb10be"
+            },
+            {
+              "text": " for stations in the market. "
+            },
+            {
+              "text": "Do NOT send as Ratings & CPPs",
+              "italic": true,
+              "underline": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": ".",
+              "italic": true,
+              "underline": true,
+              "color": "#9900ff"
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format."
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Avail News only (local and national, weekday and weekend) A35-64",
+          "runs": [
+            {
+              "text": "Avail News only",
+              "bold": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " (local and national, weekday and weekend) A35-64",
+              "bold": true
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "Use {{avail_book}} book (A35-64, 000’s & CPMs). Do NOT send as Ratings & CPPs.",
+          "runs": [
+            {
+              "text": "Use "
+            },
+            {
+              "text": "{{avail_book}} book (A35-64, 000’s & CPMs)",
+              "color": "#db268a"
+            },
+            {
+              "text": ". ",
+              "color": "#0000ff"
+            },
+            {
+              "text": "Do NOT send as Ratings & CPPs.",
+              "italic": true,
+              "underline": true
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": ":30 rates for your stations, with your best rates upfront (we do not do rounds). We will allow up to 5% of the ads preempted and made good.",
+          "runs": [
+            {
+              "text": ":30 rates",
+              "color": "#db268a"
+            },
+            {
+              "text": " for your stations, with "
+            },
+            {
+              "text": "your best rates upfront",
+              "color": "#db268a"
+            },
+            {
+              "text": " (we do not do rounds). "
+            },
+            {
+              "text": "We will allow up to 5% of the ads preempted and made good.",
+              "bold": true
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "{{flight_dates}} Flight.",
+          "runs": [
+            {
+              "text": "{{flight_dates}} Flight.",
+              "color": "#db268a"
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Pull via Excel format.",
+          "runs": [
+            {
+              "text": "Pull via Excel format."
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Station Coverage Maps",
+          "runs": [
+            {
+              "text": "Station Coverage Maps",
+              "bold": true,
+              "color": "#d8a62a"
+            }
+          ],
+          "level": 0,
+          "marker": {
+            "color": "#d8a62a"
+          }
+        },
+        {
+          "text": "Qualitative Data - your most recent data for your stations using Adults 18+:",
+          "runs": [
+            {
+              "text": "Qualitative Data",
+              "bold": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " ",
+              "color": "#cb10be"
+            },
+            {
+              "text": "- your most recent data for your stations using Adults 18+:"
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "% Gender (female/male), % Age, % Income, % Homeowners, % Employment with full time and retired listed, % Education, % Occupation.",
+          "runs": [
+            {
+              "text": "% Gender",
+              "color": "#cb10be"
+            },
+            {
+              "text": " (female/male), "
+            },
+            {
+              "text": "% Age, % Income, % Homeowners, % Employment ",
+              "color": "#cb10be"
+            },
+            {
+              "text": "with full time and retired listed, "
+            },
+            {
+              "text": "% Education, % Occupation.",
+              "color": "#cb10be"
+            }
+          ],
+          "level": 1,
+          "marker": {}
+        },
+        {
+          "text": "Market or Station Changes - please list any changes (program line up changes, host changes, etc) that have happened this past year!",
+          "runs": [
+            {
+              "text": "Market or Station Changes",
+              "bold": true,
+              "color": "#db268a"
+            },
+            {
+              "text": " - please list any changes (program line up changes, host changes, etc) that have happened this past year!"
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "Sqad Goals - average rates for each market, if available",
+          "runs": [
+            {
+              "text": "Sqad Goals",
+              "bold": true,
+              "color": "#cb10be"
+            },
+            {
+              "text": " - average rates for each market, if available"
+            }
+          ],
+          "level": 0,
+          "marker": {}
+        },
+        {
+          "text": "Please provide the best rates upfront! We don't believe in doing rounds as it's a waste of time for you and us! In full transparency, if your station's CPMs come in high compared to the other stations in the market, then odds are your station will be passed over. We are going to be hustling through these markets, with a goal of placing most if not all by the end of the year, so together we need to be efficient. I hate sounding harsh, but want to be honest so you don't risk the chance of being blindsided and left out. Thank you for your understanding of this!",
+          "runs": [
+            {
+              "text": "Please provide the best rates upfront! We don't believe in doing rounds as it's a waste of time for you and us! In full transparency, "
+            },
+            {
+              "text": "if your station's CPMs come in high compared to the other stations in the market, then odds are your station will be passed over.",
+              "underline": true
+            },
+            {
+              "text": " We are going to be hustling through these markets, with a goal of placing most if not all by the end of the year, so together we need to be efficient. I hate sounding harsh, but want to be honest so you don't risk the chance of being blindsided and left out. Thank you for your understanding of this!"
+            }
+          ]
+        },
+        {
+          "text": "I will be your point of contact for all Weed Man campaigns, this includes preempts & makegoods. Please let me know if you have any questions!",
+          "runs": [
+            {
+              "text": "I will be your point of contact for all Weed Man campaigns, this includes preempts & makegoods. Please let me know if you have any questions!"
+            }
+          ]
+        },
+        {
+          "text": "We look forward to working with you again!",
+          "runs": [
+            {
+              "text": "We look forward to working with you again!"
+            }
+          ]
+        },
+        {
+          "text": "{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media",
+          "runs": [
+            {
+              "text": "{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

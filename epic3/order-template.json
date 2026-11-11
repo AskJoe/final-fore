@@ -1,0 +1,65 @@
+{
+  "source": "/Users/joemacpro/Downloads/Epic3 Media Order_ (CITY) 2026_(FFM rep initials)  - TEMPLATE MAKE A COPY!! - Purchase order.csv",
+  "client": "Weed Man",
+  "vendor": "EPIC3",
+  "roleSource": "User clarification on 2026-10-23: Weed Man is the client of the media-analysis workbook; EPIC3 is the vendor. This overrides the CSV example client label.",
+  "contact": "Final Fore Media",
+  "email": "Sarah@finalforemedia.com",
+  "terms": "Upon Invoice Receipt",
+  "rateNote": "Rates are based on availability and are subject to change. ",
+  "acceptance": "Please sign and date below. By signing the FFM Media Order, the Client's (Advertiser's) Representative is acting on behalf of the Client (Advertiser), and signifies the Client's (Advertiser's) knowledge and acceptance of the FFM Media Order. This signature authorizes the ad placements conducted by FFM with Media Vendors on behalf of the Client (Advertiser), and Client (Advertiser) agrees to payment terms of the FFM Media Order.",
+  "zipAcceptance": "I verify that my zip code list in link above for this market is correct. __________________",
+  "stationNote": "All ads must have 1 hour separation.",
+  "digital": {
+    "8": {
+      "description": "Streaming radio ads - Audience Homeowner Targeting across iHM App, and all Smart Speakers (Alexa, Google Home), Desktop and Phone.",
+      "length": ":30 Audio",
+      "runDays": "M-Su"
+    },
+    "10": {
+      "description": "Pure CTV-TV ads running alongside longform programming only, prioritized to the largest screen in the home, blended with content gated pre-roll ads on 98% of all websites and mobile apps. Targeting homeowners in this market.",
+      "length": ":30 TV & :15 PreRoll Video",
+      "runDays": "M-Su"
+    },
+    "12": {
+      "description": "Amazon CTV - Geo Targeting:",
+      "length": "",
+      "runDays": "M-Su"
+    },
+    "14": {
+      "description": "70% Live OTT on largest screen in the home, 30% on Live OTT web/mobile/tablet/desktop. Time restrained to run during March Madness dates in live sports. ",
+      "length": ":30 TV",
+      "runDays": "M-Su"
+    },
+    "15": {
+      "description": "Display ads on 92% of websites, targeting A35-64 & homeowners in this market.",
+      "length": "Ad Sizes: 300x250, 160x600, 728x90, 320x50",
+      "runDays": "M-Su"
+    },
+    "17": {
+      "description": "Amazon Display Ads:",
+      "length": "",
+      "runDays": "M-Su"
+    },
+    "19": {
+      "description": "Reaching engaged listeners on iHM National Podcast Network, targeting Homeowners by city & using below iHM psychographs that meet the Weed Man demo.",
+      "length": "",
+      "runDays": "M-Su"
+    },
+    "22": {
+      "description": "Hulu/Disney+/ESPN+ CTV",
+      "length": ":30",
+      "runDays": "M-Su"
+    },
+    "23": {
+      "description": "Hulu/Disney+/ESPN+ OTT - NCAA",
+      "length": ":30",
+      "runDays": "M-Su"
+    },
+    "26": {
+      "description": "CTV: Premium Networks",
+      "length": ":30",
+      "runDays": "M-Su"
+    }
+  }
+}

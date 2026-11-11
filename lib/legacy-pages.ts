@@ -1,0 +1,53 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+const workbookFiles = ['clients.html','vendors.html','directory.js','directory.css','index.html','markets.html','campaign.html','orders.html','legacy-orders.html','app.js','styles.css','markets.js','markets.css','campaign.js','campaign.css','orders.js','orders.css','orders-print.css','legacy-orders.js','legacy-orders.css','favicon.svg'];
+const reportFiles = ['data.html','dashboard.html','reporting.js','reporting-model.js','reporting.css'];
+export const available = new Set([...workbookFiles,...reportFiles]);
+// Keep the existing DOM, keyboard handlers, recovery storage, and print CSS intact.
+// This adapter changes only status wording and adds an explicit sign-out action.
+export async function legacyAsset(name:string) {
+  const loaders: Record<string, () => Promise<string>> = {
+    'clients.html': () => readFile(path.join(process.cwd(), 'epic3/web/directory.html'), 'utf8'),
+    'vendors.html': () => readFile(path.join(process.cwd(), 'epic3/web/directory.html'), 'utf8'),
+    'directory.js': () => readFile(path.join(process.cwd(), 'epic3/web/directory.js'), 'utf8'),
+    'directory.css': () => readFile(path.join(process.cwd(), 'epic3/web/directory.css'), 'utf8'),
+    'index.html': () => readFile(path.join(process.cwd(), 'epic3/web/index.html'), 'utf8'),
+    'markets.html': () => readFile(path.join(process.cwd(), 'epic3/web/markets.html'), 'utf8'),
+    'campaign.html': () => readFile(path.join(process.cwd(), 'epic3/web/campaign.html'), 'utf8'),
+    'orders.html': () => readFile(path.join(process.cwd(), 'epic3/web/orders.html'), 'utf8'),
+    'legacy-orders.html': () => readFile(path.join(process.cwd(), 'epic3/web/legacy-orders.html'), 'utf8'),
+    'app.js': () => readFile(path.join(process.cwd(), 'epic3/web/app.js'), 'utf8'),
+    'styles.css': () => readFile(path.join(process.cwd(), 'epic3/web/styles.css'), 'utf8'),
+    'markets.js': () => readFile(path.join(process.cwd(), 'epic3/web/markets.js'), 'utf8'),
+    'markets.css': () => readFile(path.join(process.cwd(), 'epic3/web/markets.css'), 'utf8'),
+    'campaign.js': () => readFile(path.join(process.cwd(), 'epic3/web/campaign.js'), 'utf8'),
+    'campaign.css': () => readFile(path.join(process.cwd(), 'epic3/web/campaign.css'), 'utf8'),
+    'orders.js': () => readFile(path.join(process.cwd(), 'epic3/web/orders.js'), 'utf8'),
+    'orders.css': () => readFile(path.join(process.cwd(), 'epic3/web/orders.css'), 'utf8'),
+    'orders-print.css': () => readFile(path.join(process.cwd(), 'epic3/web/orders-print.css'), 'utf8'),
+    'legacy-orders.js': () => readFile(path.join(process.cwd(), 'epic3/web/legacy-orders.js'), 'utf8'),
+    'legacy-orders.css': () => readFile(path.join(process.cwd(), 'epic3/web/legacy-orders.css'), 'utf8'),
+    'favicon.svg': () => readFile(path.join(process.cwd(), 'epic3/web/favicon.svg'), 'utf8'),
+    'data.html': () => readFile(path.join(process.cwd(), 'epic3/reporting/web/data.html'), 'utf8'),
+    'dashboard.html': () => readFile(path.join(process.cwd(), 'epic3/reporting/web/dashboard.html'), 'utf8'),
+    'reporting.js': () => readFile(path.join(process.cwd(), 'epic3/reporting/web/reporting.js'), 'utf8'),
+    'reporting-model.js': () => readFile(path.join(process.cwd(), 'epic3/reporting/web/reporting-model.js'), 'utf8'),
+    'reporting.css': () => readFile(path.join(process.cwd(), 'epic3/reporting/web/reporting.css'), 'utf8'),
+  };
+  let content = await loaders[name]();
+  if (name==='clients.html'||name==='vendors.html') {
+    const shell=await readFile(path.join(process.cwd(),'epic3/web/campaign.html'),'utf8');
+    content=content.replace('<!--SHARED_NAV_STYLE-->',shell.match(/<style id="workbook-navigation-styles">[\s\S]*?<\/style>/)![0]);
+    content=content.replace('<!--SHARED_NAV-->',shell.match(/<footer>[\s\S]*?<\/footer>/)![0].replace(' aria-current="page"','').replace('Draft campaign · saved on this computer','Client and vendor directory'));
+  }
+  if(name.endsWith('.html')) {
+    const links=[['clients','Clients'],['vendors','Vendors']].map(([id,label])=>`<a class="workbook-tab" href="/${id}.html" aria-label="${label}" title="${label}"${name===id+'.html'?' aria-current="page"':''}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17V6l7-3 7 3v11H3M7 8v1M13 8v1M7 12v1M13 12v1"/></svg><span class="nav-label">${label}</span></a>`).join('')+'<a class="workbook-tab" href="/research/new" aria-label="Research" title="Research"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5h16v11H2zM2 5l8 6 8-6"/></svg><span class="nav-label">Research</span></a>';
+    content=content.replace(/(<nav class="workbook-nav"[^>]*>[\s\S]*?)(<\/nav>)/,(_,navigation,close)=>navigation+links+close);
+    content=content.replace('<strong>Final Fore</strong><span>Weed Man</span>','<strong>Final Fore</strong><span>Media planning</span>');
+    content=content.replace('aria-label="EPIC3" title="EPIC3"','aria-label="Media planning" title="Media planning"').replace('<span class="nav-label">EPIC3</span>','<span class="nav-label">Media planning</span>');
+  }
+  if (/\.(html|js)$/.test(name)) content=content.replaceAll('Saved locally','Saved to Supabase').replaceAll('saved locally','saved to Supabase').replaceAll('saved on this computer','saved to Supabase').replaceAll('Opening local table…','Opening workbook…').replaceAll('Unable to open the local database.','Unable to open the workbook. Sign in again or confirm the data import is complete.').replaceAll('The local app could not be reached.','Final Fore could not be reached.').replaceAll('Reload after the local app update.','Confirm the workbook import is complete.');
+  if (name.endsWith('.html')) content=content.replace('</footer>','<form action="/logout" method="post" style="margin:12px 5px"><button type="submit" style="font:inherit;font-size:11px">Sign out</button></form></footer>');
+  const type = name.endsWith('.html')?'text/html':name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'image/svg+xml';
+  return {content,type};
+}

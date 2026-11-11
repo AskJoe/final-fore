@@ -1,0 +1,285 @@
+[
+  {
+    "label": "Austin, TX",
+    "marketId": "epic3-austin",
+    "candidates": [
+      "epic3-austin"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Bentonville/Fayetteville, AR",
+    "marketId": "epic3-arkansas-nwa",
+    "candidates": [
+      "epic3-arkansas-nwa"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Boise, ID",
+    "marketId": "epic3-boise",
+    "candidates": [
+      "epic3-boise"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Boston, MA (+NH)",
+    "marketId": "epic3-boston",
+    "candidates": [
+      "epic3-boston"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Cincinnati, OH",
+    "marketId": null,
+    "candidates": [
+      "epic3-hill-cincinnati"
+    ],
+    "needsLink": true
+  },
+  {
+    "label": "Cleveland, OH",
+    "marketId": "epic3-cleveland",
+    "candidates": [
+      "epic3-cleveland"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "CO Springs, CO",
+    "marketId": "epic3-colorado-springs",
+    "candidates": [
+      "epic3-colorado-springs"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Dallas/Fort Worth, TX",
+    "marketId": "epic3-dallas-fort-worth-weatherford",
+    "candidates": [
+      "epic3-dallas-fort-worth-weatherford"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Davenport, IA",
+    "marketId": "epic3-davenport",
+    "candidates": [
+      "epic3-davenport"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Denver, CO",
+    "marketId": "epic3-denver",
+    "candidates": [
+      "epic3-denver"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Des Moines, IA",
+    "marketId": "epic3-des-moines",
+    "candidates": [
+      "epic3-des-moines"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Chicago, IL",
+    "marketId": "epic3-chicagoland",
+    "candidates": [
+      "epic3-chicagoland"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Fort Wayne, IN",
+    "marketId": "epic3-fort-wayne",
+    "candidates": [
+      "epic3-fort-wayne"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Fresno, CA",
+    "marketId": null,
+    "candidates": [
+      "epic3-hill-fresno-ca",
+      "turf-ops-fresno-ca"
+    ],
+    "needsLink": true
+  },
+  {
+    "label": "Green Bay, WI",
+    "marketId": "epic3-green-bay-appleton",
+    "candidates": [
+      "epic3-green-bay-appleton"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Houston, TX",
+    "marketId": null,
+    "candidates": [
+      "epic3-hill-houston",
+      "turf-ops-houston"
+    ],
+    "needsLink": true
+  },
+  {
+    "label": "Iowa City/Cedar Rapids, IA",
+    "marketId": "epic3-iowa-city-cedar-rapids",
+    "candidates": [
+      "epic3-iowa-city-cedar-rapids"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Kansas City, MO",
+    "marketId": "epic3-kansas-city",
+    "candidates": [
+      "epic3-kansas-city"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Knoxville, TN",
+    "marketId": null,
+    "candidates": [
+      "epic3-hill-knoxville"
+    ],
+    "needsLink": true
+  },
+  {
+    "label": "Lexington, KY",
+    "marketId": null,
+    "candidates": [
+      "epic3-hill-lexington-ky"
+    ],
+    "needsLink": true
+  },
+  {
+    "label": "Lincoln, NE",
+    "marketId": "epic3-lincoln",
+    "candidates": [
+      "epic3-lincoln"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Madison, WI",
+    "marketId": "epic3-madison",
+    "candidates": [
+      "epic3-madison"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Memphis, TN",
+    "marketId": null,
+    "candidates": [
+      "epic3-hill-memphis"
+    ],
+    "needsLink": true
+  },
+  {
+    "label": "Merrillville, Valparaiso, IN",
+    "marketId": "epic3-merrillville-valparaiso",
+    "candidates": [
+      "epic3-merrillville-valparaiso"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Milwaukee, WI",
+    "marketId": "epic3-milwaukee-racine-kenosha",
+    "candidates": [
+      "epic3-milwaukee-racine-kenosha"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Minneapolis, MN",
+    "marketId": null,
+    "candidates": [
+      "steve-minneapolis"
+    ],
+    "needsLink": true
+  },
+  {
+    "label": "Nashville, TN",
+    "marketId": null,
+    "candidates": [
+      "epic3-hill-nashville"
+    ],
+    "needsLink": true
+  },
+  {
+    "label": "Oklahoma City, OK",
+    "marketId": "epic3-oklahoma-city",
+    "candidates": [
+      "epic3-oklahoma-city"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Omaha, NE",
+    "marketId": "epic3-omaha",
+    "candidates": [
+      "epic3-omaha"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Rochester & Buffalo, NY",
+    "marketId": "epic3-rochester-buffalo",
+    "candidates": [
+      "epic3-rochester-buffalo"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "San Antonio, TX",
+    "marketId": null,
+    "candidates": [
+      "epic3-hill-san-antonio",
+      "turf-ops-san-antonio"
+    ],
+    "needsLink": true
+  },
+  {
+    "label": "Seattle, WA",
+    "marketId": "epic3-seattle",
+    "candidates": [
+      "epic3-seattle"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Salt Lake City, UT",
+    "marketId": "epic3-salt-lake-ogden",
+    "candidates": [
+      "epic3-salt-lake-ogden"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Springfield (Ozarks), MO",
+    "marketId": "epic3-springfield-ozarks",
+    "candidates": [
+      "epic3-springfield-ozarks"
+    ],
+    "needsLink": false
+  },
+  {
+    "label": "Tampa, FL",
+    "marketId": null,
+    "candidates": [
+      "epic3-hill-tampa"
+    ],
+    "needsLink": true
+  }
+]

@@ -1,0 +1,728 @@
+{
+  "contacts": [
+    "Final Fore Media"
+  ],
+  "emails": [
+    "Sarah@finalforemedia.com"
+  ],
+  "terms": [
+    "Upon Invoice Receipt"
+  ],
+  "stations": {
+    "epic3-arkansas-nwa": {
+      "Radio": [
+        {
+          "value": "KKIX-FM Country",
+          "sourceRow": 4
+        },
+        {
+          "value": "KIGL-FM Classic Rock",
+          "sourceRow": 5
+        }
+      ]
+    },
+    "epic3-austin": {
+      "Radio": [
+        {
+          "value": "KBPA Adult Hits",
+          "sourceRow": 23
+        },
+        {
+          "value": "KLBJ-FM Rock",
+          "sourceRow": 26
+        },
+        {
+          "value": "KLBJ-AM News/talk",
+          "sourceRow": 29
+        },
+        {
+          "value": "KKMJ-FM Adult Contemporary",
+          "sourceRow": 32
+        }
+      ],
+      "TV": [
+        {
+          "value": "KEYE CBS-TV",
+          "sourceRow": 45
+        },
+        {
+          "value": "KXAN NBC-TV",
+          "sourceRow": 48
+        },
+        {
+          "value": "KVUE ABC-TV",
+          "sourceRow": 51
+        }
+      ]
+    },
+    "epic3-boise": {
+      "TV": [
+        {
+          "value": "KTVB NBC",
+          "sourceRow": 64
+        },
+        {
+          "value": "KIVI ABC-TV",
+          "sourceRow": 67
+        },
+        {
+          "value": "KBOI CBS-TV",
+          "sourceRow": 70
+        }
+      ]
+    },
+    "epic3-colorado-springs": {
+      "Radio": [
+        {
+          "value": "KKFM-FM Classic Rock",
+          "sourceRow": 117
+        },
+        {
+          "value": "KVOR-AM News Talk",
+          "sourceRow": 118
+        },
+        {
+          "value": "KVUU-FM Hot Adult Cont",
+          "sourceRow": 119
+        },
+        {
+          "value": "KILO-FM Active Rock",
+          "sourceRow": 120
+        },
+        {
+          "value": "KKPK-FM Adult Hits",
+          "sourceRow": 121
+        },
+        {
+          "value": "KCCY-FM Country",
+          "sourceRow": 122
+        },
+        {
+          "value": "KCSF-AM Sports",
+          "sourceRow": 123
+        }
+      ],
+      "TV": [
+        {
+          "value": "KKTV CBS-TV",
+          "sourceRow": 134
+        },
+        {
+          "value": "KOAA NBC",
+          "sourceRow": 135
+        },
+        {
+          "value": "KRDO ABC-TV",
+          "sourceRow": 137
+        }
+      ]
+    },
+    "epic3-denver": {},
+    "epic3-chicagoland": {
+      "Radio": [
+        {
+          "value": "WKGL-FM Classic rock",
+          "sourceRow": 88
+        },
+        {
+          "value": "WXXQ-FM Country",
+          "sourceRow": 89
+        },
+        {
+          "value": "WROK-AM Newstalk",
+          "sourceRow": 90
+        },
+        {
+          "value": "WRTB-FM Country",
+          "sourceRow": 93
+        },
+        {
+          "value": "WXRX-FM Rock",
+          "sourceRow": 94
+        },
+        {
+          "value": "WNTA-AM Sports (matching bonus)",
+          "sourceRow": 95
+        }
+      ],
+      "TV": [
+        {
+          "value": "WGN-TV",
+          "sourceRow": 100
+        },
+        {
+          "value": "WLS ABC",
+          "sourceRow": 101
+        },
+        {
+          "value": "WMAQ NBC",
+          "sourceRow": 102
+        },
+        {
+          "value": "WFLD FOX",
+          "sourceRow": 103
+        }
+      ]
+    },
+    "epic3-iowa-city-cedar-rapids": {
+      "TV": [
+        {
+          "value": "KWWL NBC-TV",
+          "sourceRow": 339
+        },
+        {
+          "value": "KCRG ABC-TV",
+          "sourceRow": 342
+        }
+      ]
+    },
+    "epic3-davenport": {
+      "TV": [
+        {
+          "value": "KWQC-NBC",
+          "sourceRow": 180
+        }
+      ]
+    },
+    "epic3-madison": {
+      "Radio": [
+        {
+          "value": "WOLX-FM (Classic Hits)",
+          "sourceRow": 391
+        },
+        {
+          "value": "WIBA-FM Classic Rock",
+          "sourceRow": 394
+        },
+        {
+          "value": "WIBA-AM Newstalk",
+          "sourceRow": 397
+        },
+        {
+          "value": "WJVL (Janesville) Country",
+          "sourceRow": 399
+        },
+        {
+          "value": "WWHG (Janesville) Rock",
+          "sourceRow": 400
+        },
+        {
+          "value": "WWHG (Janesville) Rock VIP Party",
+          "sourceRow": 401
+        }
+      ],
+      "TV": [
+        {
+          "value": "WISC CBS-TV",
+          "sourceRow": 412
+        },
+        {
+          "value": "WMSN FOX-TV",
+          "sourceRow": 415
+        },
+        {
+          "value": "WKOW ABC-TV",
+          "sourceRow": 418
+        },
+        {
+          "value": "WMTV NBC-TV",
+          "sourceRow": 421
+        }
+      ]
+    },
+    "epic3-milwaukee-racine-kenosha": {
+      "Radio": [
+        {
+          "value": "WISN-AM News/talk",
+          "sourceRow": 446
+        },
+        {
+          "value": "WMIL-FM Country",
+          "sourceRow": 447
+        },
+        {
+          "value": "WRNW-FM Sports",
+          "sourceRow": 448
+        },
+        {
+          "value": "WRIT-FM Classic Hits",
+          "sourceRow": 449
+        },
+        {
+          "value": "WHQG-FM Album Oriented Rock",
+          "sourceRow": 450
+        },
+        {
+          "value": "WKLH-FM Classic Rock",
+          "sourceRow": 451
+        }
+      ],
+      "TV": [
+        {
+          "value": "WISN ABC-TV",
+          "sourceRow": 456
+        },
+        {
+          "value": "WITI FOX-TV",
+          "sourceRow": 459
+        },
+        {
+          "value": "WTMJ NBC-TV",
+          "sourceRow": 462
+        }
+      ]
+    },
+    "epic3-salt-lake-ogden": {
+      "Radio": [
+        {
+          "value": "KAAZ-FM Classic Rock",
+          "sourceRow": 551
+        },
+        {
+          "value": "KUBL-FM Country",
+          "sourceRow": 552
+        },
+        {
+          "value": "KXRK-FM Alternative",
+          "sourceRow": 553
+        },
+        {
+          "value": "KSFI-FM Adult Contemporary",
+          "sourceRow": 554
+        },
+        {
+          "value": "KBER-FM Classic Rock",
+          "sourceRow": 555
+        },
+        {
+          "value": "KALL-AM Sports",
+          "sourceRow": 556
+        },
+        {
+          "value": "KBEE-FM Adult Contemporary",
+          "sourceRow": 557
+        },
+        {
+          "value": "KRSP-FM Classic Hits",
+          "sourceRow": 558
+        },
+        {
+          "value": "KNRS-FM News Talk",
+          "sourceRow": 559
+        },
+        {
+          "value": "KSOP Country",
+          "sourceRow": 560
+        }
+      ],
+      "TV": [
+        {
+          "value": "KSTU FOX",
+          "sourceRow": 573
+        },
+        {
+          "value": "KSL NBC-TV",
+          "sourceRow": 576
+        },
+        {
+          "value": "KUTV CBS-TV",
+          "sourceRow": 579
+        }
+      ]
+    },
+    "epic3-lincoln": {
+      "Radio": [
+        {
+          "value": "KTGL-FM Classic Rock",
+          "sourceRow": 371
+        },
+        {
+          "value": "KNTK-FM All Sports",
+          "sourceRow": 374
+        }
+      ],
+      "TV": [
+        {
+          "value": "KOLN CBS",
+          "sourceRow": 385
+        }
+      ]
+    },
+    "epic3-omaha": {
+      "TV": [
+        {
+          "value": "KETV ABC-TV",
+          "sourceRow": 511
+        },
+        {
+          "value": "KMTV-CBS",
+          "sourceRow": 512
+        },
+        {
+          "value": "WOWT-NBC",
+          "sourceRow": 513
+        }
+      ],
+      "Radio": [
+        {
+          "value": "KFAB-AM News/talk",
+          "sourceRow": 518
+        },
+        {
+          "value": "KGOR-FM Classic Hits",
+          "sourceRow": 519
+        },
+        {
+          "value": "KXKT-FM Country",
+          "sourceRow": 520
+        },
+        {
+          "value": "KOZN-AM Sports",
+          "sourceRow": 521
+        },
+        {
+          "value": "KEZO-FM Active Rock",
+          "sourceRow": 522
+        }
+      ]
+    },
+    "epic3-kansas-city": {
+      "Radio": [
+        {
+          "value": "KCMO-FM Classic Hits",
+          "sourceRow": 348
+        },
+        {
+          "value": "KQRC-FM Album Rock",
+          "sourceRow": 349
+        },
+        {
+          "value": "KMBZ-AM News/talk",
+          "sourceRow": 350
+        },
+        {
+          "value": "KCFX-FM Classic Rock",
+          "sourceRow": 351
+        },
+        {
+          "value": "KFNZ-FM Sports",
+          "sourceRow": 352
+        }
+      ],
+      "TV": [
+        {
+          "value": "KCTV CBS",
+          "sourceRow": 363
+        },
+        {
+          "value": "KSHB NBC",
+          "sourceRow": 364
+        },
+        {
+          "value": "WDAF FOX",
+          "sourceRow": 365
+        }
+      ]
+    },
+    "epic3-dallas-fort-worth-weatherford": {},
+    "epic3-oklahoma-city": {
+      "Radio": [
+        {
+          "value": "KATT-FM Rock",
+          "sourceRow": 475
+        },
+        {
+          "value": "WWLS-FM Sports",
+          "sourceRow": 476
+        },
+        {
+          "value": "KOMA-FM Classic Hits",
+          "sourceRow": 477
+        },
+        {
+          "value": "KMGL Adult Cont",
+          "sourceRow": 478
+        },
+        {
+          "value": "KTST-FM New Country",
+          "sourceRow": 481
+        }
+      ],
+      "TV": [
+        {
+          "value": "KWTV CBS-TV",
+          "sourceRow": 492
+        },
+        {
+          "value": "KFOR NBC-TV",
+          "sourceRow": 495
+        }
+      ]
+    },
+    "epic3-des-moines": {
+      "Radio": [
+        {
+          "value": "KDRB-FM Adult Hits",
+          "sourceRow": 228
+        },
+        {
+          "value": "KXNO-FM Sports",
+          "sourceRow": 229
+        },
+        {
+          "value": "WHO-AM Newstalk",
+          "sourceRow": 230
+        },
+        {
+          "value": "KAZR-FM Active Rock",
+          "sourceRow": 231
+        },
+        {
+          "value": "KGGO-FM Classic Rock",
+          "sourceRow": 232
+        }
+      ],
+      "TV": [
+        {
+          "value": "WHO NBC 13",
+          "sourceRow": 237
+        },
+        {
+          "value": "KCCI CBS 8",
+          "sourceRow": 238
+        }
+      ]
+    },
+    "epic3-springfield-ozarks": {
+      "TV": [
+        {
+          "value": "KYTV NBC-TV",
+          "sourceRow": 612
+        },
+        {
+          "value": "KOLR CBS-TV",
+          "sourceRow": 613
+        }
+      ]
+    },
+    "epic3-green-bay-appleton": {
+      "Radio": [
+        {
+          "value": "WAPL-FM Album Oriented Rock",
+          "sourceRow": 272
+        },
+        {
+          "value": "WDUZ AM-FM Sports",
+          "sourceRow": 273
+        },
+        {
+          "value": "WNCY-FM Country",
+          "sourceRow": 274
+        },
+        {
+          "value": "WIXX-FM Contemporary Hits",
+          "sourceRow": 275
+        }
+      ],
+      "TV": [
+        {
+          "value": "WGBA NBC-TV",
+          "sourceRow": 286
+        },
+        {
+          "value": "WLUK FOX-TV",
+          "sourceRow": 289
+        },
+        {
+          "value": "WFRV CBS-TV",
+          "sourceRow": 292
+        },
+        {
+          "value": "WBAY NBC-TV",
+          "sourceRow": 295
+        }
+      ]
+    },
+    "epic3-seattle": {
+      "Radio": [
+        {
+          "value": "KKWF-FM Country",
+          "sourceRow": 585
+        },
+        {
+          "value": "KZOK-FM Classic Rock",
+          "sourceRow": 586
+        },
+        {
+          "value": "KIRO-FM Newstalk",
+          "sourceRow": 587
+        },
+        {
+          "value": "KJR-FM Sports",
+          "sourceRow": 588
+        },
+        {
+          "value": "KISW-FM Active Rock",
+          "sourceRow": 589
+        }
+      ],
+      "TV": [
+        {
+          "value": "KOMO-ABC",
+          "sourceRow": 595
+        },
+        {
+          "value": "KING-NBC",
+          "sourceRow": 599
+        }
+      ]
+    },
+    "epic3-cleveland": {
+      "Radio": [
+        {
+          "value": "WMMS-FM Active Rock",
+          "sourceRow": 143
+        },
+        {
+          "value": "WMJI-FM Classic Hits",
+          "sourceRow": 144
+        },
+        {
+          "value": "WKRK-FM All Sports",
+          "sourceRow": 145
+        }
+      ],
+      "TV": [
+        {
+          "value": "WJW-FOX",
+          "sourceRow": 150
+        },
+        {
+          "value": "WKYC-NBC",
+          "sourceRow": 151
+        }
+      ]
+    },
+    "epic3-fort-wayne": {
+      "TV": [
+        {
+          "value": "WANE-CBS",
+          "sourceRow": 257
+        }
+      ],
+      "Radio": [
+        {
+          "value": "WOWO-AM News Talk",
+          "sourceRow": 264
+        },
+        {
+          "value": "WXKE-FM Classic Rock",
+          "sourceRow": 265
+        },
+        {
+          "value": "WQHK-FM Country",
+          "sourceRow": 266
+        }
+      ]
+    },
+    "epic3-merrillville-valparaiso": {},
+    "epic3-boston": {},
+    "epic3-rochester-buffalo": {
+      "TV": [
+        {
+          "value": "WHAM-ABC",
+          "sourceRow": 536
+        },
+        {
+          "value": "WHEC-NBC",
+          "sourceRow": 537
+        },
+        {
+          "value": "WOWT-NBC",
+          "sourceRow": 538
+        }
+      ],
+      "Radio": [
+        {
+          "value": "WCMF-FM Classic Rock",
+          "sourceRow": 543
+        },
+        {
+          "value": "WHAM-AM News Talk",
+          "sourceRow": 544
+        }
+      ]
+    }
+  },
+  "psychographs": [
+    {
+      "name": "Nest",
+      "description": "Demo: Older, wealthy, married, suburban, Adults 35-54, $100K or more income, kids in household.  Behavior: Owns investments, homeowner, likely to own 2nd home and or real estate property, has publically traded stocks, enjoys home improvement."
+    },
+    {
+      "name": "Vivacious",
+      "description": "Demo: Parents/Grandparents, retired, financially secure, Adults 55+, $100k or more income.  Behavior: Watches movies, travel enthusiast, avid reader, enjoys DIY/home projects/gardening & lawn care."
+    },
+    {
+      "name": "Intrepid",
+      "description": "Demo: Parents, white collar, wealthy, Adults 25-54, $100k or more income, have children under age 18 in the house, employed full time.  Behavior: Quality seeker, shops at Whole Foods and eats at upscale restaurants, tech adopter (owns smart speakers & smart watches), planning for big purchases in the next 12 months (vehicle, house, condo, etc.), outdoor enthusiast (grilling, jogging/running), sports fan."
+    }
+  ],
+  "programs": {
+    "Radio": [
+      "M-F 6-10A",
+      "M-F 6-9A",
+      "M-F 10A-12P",
+      "M-F 7-9A",
+      "M-F 10A-1P",
+      "M-F 2-4P",
+      "M-F 2-6P",
+      "M-F 10A-2P"
+    ],
+    "TV": [
+      "M-F 6P News",
+      "SA 5P News",
+      "SU 5P News",
+      "M-F 10P News",
+      "SA 9P News",
+      "SU 9P News",
+      "SU 8-9:30A",
+      "SA 7A News",
+      "SU 7A News",
+      "SU 10:35P Talkin Sports",
+      "SA 10:35P Talkin Sports"
+    ]
+  },
+  "runDays": [
+    {
+      "value": "M-Su",
+      "label": "Every day (Mon\u2013Sun)"
+    },
+    {
+      "value": "M-F",
+      "label": "Weekdays (Mon\u2013Fri)"
+    },
+    {
+      "value": "SA",
+      "label": "Saturday"
+    },
+    {
+      "value": "SU",
+      "label": "Sunday"
+    }
+  ],
+  "formats": {
+    "audio": [
+      ":30 Audio",
+      ":15 or :60 Audio"
+    ],
+    "video": [
+      ":30",
+      ":30 TV",
+      ":30 TV & :15 PreRoll Video"
+    ],
+    "display": [
+      "Ad Sizes: 300x250, 160x600, 728x90, 320x50"
+    ]
+  }
+}

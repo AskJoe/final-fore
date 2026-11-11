@@ -1,0 +1,10 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import type { Data } from './types';
+export const CATALOG:Data=JSON.parse(readFileSync(path.join(process.cwd(),'epic3/campaign-catalog.json'),'utf8'));
+export const CHANNEL_CATALOG:Data=JSON.parse(readFileSync(path.join(process.cwd(),'epic3/channel-catalog.json'),'utf8'));
+export const TEMPLATE:Data=JSON.parse(readFileSync(path.join(process.cwd(),'epic3/order-template.json'),'utf8'));
+export const OPTIONS:Data=JSON.parse(readFileSync(path.join(process.cwd(),'epic3/campaign-order-options.json'),'utf8'));
+export const MARKETS:Record<string,Data>=Object.fromEntries(CATALOG.markets.map((m:Data)=>[m.id,m]));
+export const CHANNELS:Record<string,Data>=Object.fromEntries(CHANNEL_CATALOG.channels.map((c:Data)=>[c.id,c]));
+export const VERSION=CHANNEL_CATALOG.version+'-v1';

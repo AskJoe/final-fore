@@ -1,0 +1,406 @@
+'use strict';
+const $=id=>document.getElementById(id);
+const make=(tag,value='',cls='')=>{const node=document.createElement(tag);node.textContent=value;if(cls)node.className=cls;return node;};
+const currency=c=>c==null?'':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);
+const percent=n=>n==null?'':new Intl.NumberFormat('en-US',{style:'percent',minimumFractionDigits:1,maximumFractionDigits:1}).format(n);
+const dateText=s=>s?`${Number(s.slice(5,7))}/${Number(s.slice(8,10))}/${s.slice(2,4)}`:'';
+const clone=x=>JSON.parse(JSON.stringify(x));
+let catalog,draft,view,blankDraft,dirty=false,saving=false,valid=true,sequence=0,pending=false;
+let expanded=new Set(),invalidInputs=new Map();
+const inputKey=input=>input.id||input.getAttribute('aria-label');
+const recoveryPrefix='ffm.campaign.recovery.v1.',activeCampaignKey='ffm.campaign.active.v1';
+let autosaveTimer,saveTask=null,editVersion=0,recoveryAvailable=true,lastRecalculation=Promise.resolve();
+
+async function api(path,body){
+ const response=await fetch(path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ let data;try{data=await response.json();}catch{throw Error('The app could not be reached. Your edits are still on this page.');}
+ if(!response.ok)throw Error(data.error||'Unable to complete the request.');return data;
+}
+function message(value){$('message').textContent=value;$('message').hidden=!value;}
+function status(value){$('save-status').textContent=value;}
+function buttons(){
+ $('save-campaign').disabled=saving||!valid||!!invalidInputs.size||!dirty;
+ $('new-campaign').disabled=saving;$('campaign-picker').disabled=saving;
+ $('campaign-main').inert=false;
+}
+function rememberCampaign(id){try{localStorage.setItem(activeCampaignKey,id||'new');}catch{}}
+function recoveryKey(id){return recoveryPrefix+(id||'new');}
+function pendingEditor(){
+ const input=document.activeElement;if(!input||!('value' in input)||!input.dataset.userEdited)return null;
+ const settings={'campaign-name':'name','campaign-year':'year','campaign-budget':'budget','campaign-start':'start','campaign-end':'end'};
+ if(settings[input.id])return {kind:'setting',key:settings[input.id],inputKey:inputKey(input),value:input.value};
+ if(input.dataset.channelFocus){const [marketId,channelId]=input.dataset.channelFocus.split(':');return {kind:'channel',marketId,key:channelId,inputKey:input.dataset.channelFocus,value:input.value};}
+ const market=input.closest('[data-market]');
+ if(market&&input.dataset.key)return {kind:'market',marketId:market.dataset.market,key:input.dataset.key,inputKey:inputKey(input),value:input.value};
+ if(input.closest('#regions'))return {kind:'region',region:input.closest('section').querySelector('strong').textContent,key:input.getAttribute('aria-label').endsWith(' start')?'start':'end',inputKey:inputKey(input),value:input.value};
+ return null;
+}
+function applyPendingEditor(edit){
+ if(!edit)return;
+ try{
+  const value=edit.key==='budget'||edit.key==='override'||edit.kind==='channel'?readMoney(edit.value):edit.key==='year'?Number(edit.value):edit.value;
+  if(edit.kind==='setting')draft[edit.key]=value;
+  else if(edit.kind==='region'){draft.regions[edit.region]??={start:'',end:''};draft.regions[edit.region][edit.key]=value;}
+  else{
+   const market=draft.markets.find(m=>m.marketId===edit.marketId);if(!market)return;
+   if(edit.kind==='channel'){market.channels??={};market.channels[edit.key]=value;}else market[edit.key]=value;
+  }
+  invalidInputs.delete(edit.inputKey);
+ }catch(error){invalidInputs.set(edit.inputKey,edit.value);throw error;}
+}
+function cacheRecovery(){
+ if(!draft||!dirty)return true;
+ try{
+  localStorage.setItem(recoveryKey(draft.id),JSON.stringify({details:draft,base:view.details,pending:pendingEditor(),invalid:[...invalidInputs],updatedAt:Date.now()}));
+  rememberCampaign(draft.id);recoveryAvailable=true;return true;
+ }catch{recoveryAvailable=false;return false;}
+}
+function readRecovery(id){try{return JSON.parse(localStorage.getItem(recoveryKey(id))||'null');}catch{return null;}}
+function removeRecovery(id){try{localStorage.removeItem(recoveryKey(id));}catch{}}
+function cacheCampaignView(){
+ if(!draft)return;
+ try{localStorage.setItem('ffm.campaign.view.v1.'+(draft.id||'new'),JSON.stringify({expanded:[...expanded],search:$('market-search').value,region:$('region-filter').value}));}catch{}
+}
+function restoreCampaignView(fresh=false){
+ let saved=null;try{if(!fresh)saved=JSON.parse(localStorage.getItem('ffm.campaign.view.v1.'+(draft.id||'new'))||'null');}catch{}
+ expanded=new Set(saved?.expanded||[]);$('market-search').value=saved?.search||'';$('region-filter').value=saved?.region||'';renderRows();
+}
+function queueAutosave(){clearTimeout(autosaveTimer);autosaveTimer=setTimeout(()=>saveCampaign(),700);}
+function markDirty(){dirty=true;editVersion++;status('Saving…');buttons();queueMicrotask(cacheRecovery);queueAutosave();}
+function readMoney(value){
+ const cleaned=value.trim().replaceAll('$','').replaceAll(',','');
+ if(!cleaned)return null;
+ if(!/^\d+(?:\.\d{0,2})?$/.test(cleaned))throw Error('Enter a nonnegative dollar amount with at most two decimal places.');
+ const [whole,fraction='']=cleaned.split('.');const result=Number(whole)*100+Number(fraction.padEnd(2,'0'));
+ if(!Number.isSafeInteger(result)||result>100000000000)throw Error('Enter a smaller dollar amount.');return result;
+}
+function inputError(input,error){invalidInputs.set(inputKey(input),input.value);input.setAttribute('aria-invalid','true');message(error.message);markDirty();}
+function clearInputError(input){invalidInputs.delete(inputKey(input));input.removeAttribute('aria-invalid');}
+async function calculatePreview(rebuild=false){
+ const token=++sequence;pending=true;buttons();
+ try{
+  const result=await api('/api/campaign/preview',draft);
+  if(token!==sequence)return;
+  view=result;valid=true;if(!invalidInputs.size)message('');
+  if(rebuild)renderRows();else updateRows();
+  renderSummary();
+ }catch(error){if(token!==sequence)return;valid=false;message(error.message);}
+ finally{if(token===sequence){pending=false;buttons();}}
+}
+function recalculate(rebuild=false){lastRecalculation=calculatePreview(rebuild);return lastRecalculation;}
+function selectOptions(select,values,emptyLabel){
+ select.replaceChildren();if(emptyLabel!==undefined){const o=make('option',emptyLabel);o.value='';select.append(o);}
+ for(const value of values){const o=make('option',value);o.value=value;select.append(o);}
+}
+function settings(){
+ const clientId=draft.clientId==='weed-man'?'epic3':draft.clientId;
+ $('client').replaceChildren();for(const c of catalog.clients.filter(c=>c.active||c.id===clientId))$('client').append(new Option(c.name+(c.active?'':' (inactive)'),c.id));$('client').value=clientId;
+ $('client-brand').value=catalog.clients.find(c=>c.id===clientId)?.brand||'';
+ $('campaign-name').value=draft.name;$('campaign-year').value=draft.year;$('campaign-budget').value=currency(draft.budget);
+ $('campaign-start').value=draft.start;$('campaign-end').value=draft.end;
+ $('regions').replaceChildren();
+ for(const region of catalog.regions){
+  const section=make('section');section.append(make('strong',region));
+  for(const key of ['start','end']){
+   const label=make('label',key==='start'?'Start':'End');const input=make('input');input.type='date';input.value=draft.regions[region]?.[key]||'';
+   input.setAttribute('aria-label',`${region} ${key}`);
+   input.addEventListener('input',markDirty);
+   input.addEventListener('change',()=>{draft.regions[region]??={start:'',end:''};draft.regions[region][key]=input.value;markDirty();recalculate();});
+   label.append(input);section.append(label);
+  }
+  const source=catalog.markets.find(m=>m.region===region&&m.referenceStart);
+  if(source)section.append(make('small',`2026 reference: ${dateText(source.referenceStart)}–${dateText(source.referenceEnd)}`));
+  $('regions').append(section);
+ }
+}
+function renderSummary(){
+ $('market-count').textContent=draft.markets.length;$('allocated').textContent=currency(view.allocated);
+ $('remaining').textContent=view.remaining==null?'':currency(Math.abs(view.remaining));
+ $('remaining-wrap').firstChild.textContent=view.remaining<0?'Over budget ':'Remaining ';
+ $('remaining-wrap').classList.toggle('over',view.remaining<0);
+ const needs=[];
+ if(draft.budget==null)needs.push('Enter total budget to fill allocations');
+ else if(view.needsAllocation)needs.push(`${view.needsAllocation} ${view.needsAllocation===1?'market needs':'markets need'} an allocation`);
+ if(draft.budget!=null&&view.needsDates)needs.push(`${view.needsDates} ${view.needsDates===1?'market needs':'markets need'} dates`);
+ $('incomplete').textContent=needs.join(' · ');
+ $('history-label').textContent=view.years.length?`History ${view.years[0]}–${view.years.at(-1)}`:'No earlier budget history';
+ $('counts').textContent=`${draft.markets.length} markets`;
+}
+function field(row,key,label,type='text'){
+ const input=make('input','','inline-input');input.type=type;input.dataset.key=key;input.setAttribute('aria-label',`${row.name} ${label}`);
+ if(type==='date')input.value=row[key]||'';
+ else{input.inputMode='decimal';input.value=currency(row.allocation);input.dataset.displayed=input.value;}
+ if(invalidInputs.has(inputKey(input))){input.value=invalidInputs.get(inputKey(input));input.setAttribute('aria-invalid','true');}
+ input.addEventListener('input',markDirty);
+ input.addEventListener('keydown',event=>{
+  if(event.key==='Enter'){event.preventDefault();input.blur();}
+  if(event.key==='Escape'){
+   const stored=view.rows.find(r=>r.marketId===row.marketId);input.value=key==='override'?currency(stored.allocation):stored[key];
+   clearInputError(input);input.blur();buttons();
+  }
+ });
+ const commit=()=>{
+  const target=draft.markets.find(r=>r.marketId===row.marketId);
+  try{
+   if(key==='override'){
+    if(input.value===input.dataset.displayed)return;
+    target.override=readMoney(input.value);
+    input.value=currency(target.override);input.dataset.displayed=input.value;
+   }else target[key]=input.value;
+   clearInputError(input);markDirty();recalculate();
+  }catch(error){inputError(input,error);}
+ };
+ input.addEventListener('change',commit);
+ input.addEventListener('blur',()=>{
+  if(key==='override')commit();
+ });
+ return input;
+}
+function detailRow(row){
+ const tr=make('tr','','channel-expansion');tr.dataset.detail=row.marketId;
+ const td=make('td');td.colSpan=8;tr.append(td);
+ const top=make('div','','channel-summary');
+ top.append(make('strong',row.name),make('span',`Allocated ${currency(row.channelPlan.allocated)}`));
+ const balance=make('span',`${row.channelPlan.remaining<0?'Over budget':'Remaining'} ${currency(Math.abs(row.channelPlan.remaining||0))}`);balance.classList.toggle('over',row.channelPlan.remaining<0);top.append(balance);
+ const history=make('details','','market-history');history.append(make('summary','History'));
+ const old=marketHistoryRow(row);history.append(old.querySelector('.history-content'));top.append(history);
+ const order=make('button','Create / open order','text-action');order.type='button';
+ order.addEventListener('click',async()=>{await flushCampaign();if(!draft.id||dirty){message('The campaign must finish saving before opening its order.');$('save-campaign').focus();return;}location.href='/orders.html?campaign='+encodeURIComponent(draft.id)+'&market='+encodeURIComponent(row.marketId);});top.append(order);td.append(top);
+ const table=make('table','','channel-table');table.setAttribute('aria-label',row.name+' channel allocations');
+ const head=make('thead'),hr=make('tr');for(const label of ['Channel','Historical avg.','Allocation $','Budget %','Est. impressions'])hr.append(make('th',label));head.append(hr);table.append(head);
+ const body=make('tbody');table.append(body);
+ const target=draft.markets.find(m=>m.marketId===row.marketId);target.channels??={};
+ // The source list stays visible even when a market has never bought a channel.
+ // Zero spend does not create an override or a forecast rate.
+ const planned=new Map(row.channelPlan.rows.map(channel=>[channel.id,channel]));
+ const hasHistory=row.channelPlan.rows.some(channel=>channel.history.length);
+ for(const sourceChannel of catalog.channels){
+  const existing=planned.get(sourceChannel.id);
+  const channel=existing?{...existing,
+   allocation:existing.automatic&&row.allocation!=null?(existing.allocation??0):existing.allocation,
+   share:existing.share??(row.allocation>0?0:null)}:{...sourceChannel,automatic:true,average:hasHistory?0:null,
+   allocation:row.allocation==null?null:0,share:row.allocation>0?0:null,history:[],impressions:null};
+  const line=make('tr');line.dataset.channel=channel.id;
+  const label=make('td');label.append(make('span',channel.name));
+  const more=make('details','','channel-history');more.append(make('summary','History'));
+  const text=make('div');
+  for(const year of channel.history){const a=make('a',`${year.year}: ${percent(year.share)}`);a.href=row.channelPlan.sourceUrl+'&range='+encodeURIComponent(year.sources[0]||'A1');a.target='_blank';a.rel='noopener';a.title=year.headers.join('; ');text.append(a);}
+  if(channel.cpm)text.append(make('span',`Estimate: $${channel.cpm.toFixed(2)} CPM · ${channel.rateSource}`));
+  if(channel.feeRate)text.append(make('span',`${percent(channel.feeRate)} fee on media included`));
+  more.append(text);if(channel.history.length)label.append(more);line.append(label);
+  line.append(make('td',percent(channel.average),'number'));
+  const amount=make('td','','number'),wrap=make('div','','channel-amount');amount.append(wrap);
+  const key=`${row.marketId}:${channel.id}`,editLabel=`${row.name} ${channel.name} allocation`;
+  const button=make('button',invalidInputs.has(key)?invalidInputs.get(key):currency(channel.allocation),'amount-edit');button.type='button';button.dataset.channelFocus=key;button.setAttribute('aria-label',editLabel);if(invalidInputs.has(key))button.setAttribute('aria-invalid','true');
+  function edit(){
+   const input=make('input','','channel-dollar');input.inputMode='decimal';input.setAttribute('aria-label',editLabel);input.dataset.channelFocus=key;
+   input.value=invalidInputs.get(key)??(channel.allocation==null?'':(channel.allocation/100).toFixed(2));if(invalidInputs.has(key))input.setAttribute('aria-invalid','true');
+   button.replaceWith(input);input.focus();input.select();let committed=false;
+   async function commit(next=false){
+    if(committed)return;
+    try{
+     const amount=readMoney(input.value);invalidInputs.delete(key);committed=true;
+     if(amount===channel.allocation){input.replaceWith(button);buttons();}
+     else{target.channels[channel.id]=amount;markDirty();await recalculate();}
+     const fields=[...document.querySelectorAll('.amount-edit')];const index=fields.findIndex(b=>b.dataset.channelFocus===key);(fields[index+(next===-1?-1:next?1:0)]||fields[index])?.focus();
+    }catch(error){invalidInputs.set(key,input.value);input.setAttribute('aria-invalid','true');message(error.message);markDirty();}
+   }
+   input.addEventListener('input',()=>{markDirty();invalidInputs.set(key,input.value);buttons();});
+   input.addEventListener('blur',()=>commit());
+   input.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();commit(e.key==='Tab'?(e.shiftKey?-1:1):false);}if(e.key==='Escape'){committed=true;invalidInputs.delete(key);input.replaceWith(button);message('');buttons();button.focus();}});
+  }
+  button.addEventListener('click',edit);wrap.append(button);
+  if(!channel.automatic){const reset=make('button','Reset','text-action reset-channel');reset.type='button';reset.setAttribute('aria-label',`Reset ${row.name} ${channel.name}`);reset.onclick=()=>{target.channels[channel.id]=null;invalidInputs.delete(key);markDirty();recalculate();};wrap.append(reset);}
+  line.append(amount,make('td',percent(channel.share),'number'),make('td',channel.impressions==null?'':channel.impressions.toLocaleString('en-US'),'number'));body.append(line);
+ }
+ td.append(table);return tr;
+}
+
+function marketHistoryRow(row){
+ const tr=make('tr','','history-row');tr.dataset.detail=row.marketId;
+ const td=make('td');td.colSpan=8;const content=make('div','','history-content');
+ const left=make('div');
+ if(row.history.some(h=>h.budget!=null)){
+  const table=make('table');table.setAttribute('aria-label',row.name+' budget history');
+  const head=make('thead'),headRow=make('tr');headRow.append(make('th',''));
+  for(const h of row.history)headRow.append(make('th',h.year));headRow.append(make('th','Average'));head.append(headRow);table.append(head);
+  const body=make('tbody');
+  for(const key of ['budget','share']){
+   const line=make('tr');line.append(make('th',key==='budget'?'Gross budget':'Market share'));
+   for(const h of row.history)line.append(make('td',key==='budget'?currency(h.budget):percent(h.share)));
+   line.append(make('td',key==='share'?percent(row.average):''));body.append(line);
+  }
+  table.append(body);left.append(table);
+  left.append(make('p','Each year compares the markets in this campaign. Missing years are excluded from the average. Automatic amounts are scaled to the remaining budget.'));
+ }else left.append(make('p','No gross-budget history in the budget source. Enter an allocation for this market.'));
+ const right=make('div');const budget=make('p','2027 budget reference','reference');budget.append(make('strong',row.budget2027==null?'Not supplied':currency(row.budget2027)));right.append(budget);
+ if(row.referenceStart)right.append(make('p',`2026 regional dates: ${dateText(row.referenceStart)}–${dateText(row.referenceEnd)}`));
+ if(row.buyingGroup)right.append(make('p',`Buying group: ${row.buyingGroup}`));
+ if(row.budgetSourceRow){const a=make('a','View budget source');a.href=catalog.budgetSourceUrl+'&range=A'+row.budgetSourceRow+':N'+row.budgetSourceRow;a.target='_blank';a.rel='noopener';right.append(a);}
+ if(row.startOverride||row.endOverride){
+  const reset=make('button','Use inherited dates');reset.type='button';reset.style.marginLeft='12px';
+  reset.addEventListener('click',()=>{const target=draft.markets.find(r=>r.marketId===row.marketId);target.start='';target.end='';markDirty();recalculate();});right.append(reset);
+ }
+ content.append(left,right);td.append(content);tr.append(td);return tr;
+}
+function rowMatches(row){const q=$('market-search').value.trim().toLowerCase(),region=$('region-filter').value;return (!q||row.name.toLowerCase().includes(q))&&(!region||(region==='unassigned'?!row.region:row.region===region));}
+function renderRows(){
+ const body=$('market-rows');body.replaceChildren();const rows=view.rows.filter(rowMatches);
+ for(const row of rows){
+  const tr=make('tr');tr.dataset.market=row.marketId;
+  const cell=(label,cls='')=>{const td=make('td','',cls);td.dataset.label=label;tr.append(td);return td;};
+  const name=make('button',row.name,'market-name');name.type='button';name.setAttribute('aria-expanded',expanded.has(row.marketId));name.setAttribute('aria-label',`${row.name} channels`);
+  name.addEventListener('click',()=>{
+   if(expanded.has(row.marketId)){expanded.delete(row.marketId);tr.nextElementSibling?.dataset.detail===row.marketId&&tr.nextElementSibling.remove();}
+   else{expanded.add(row.marketId);tr.after(detailRow(view.rows.find(r=>r.marketId===row.marketId)));}
+   name.setAttribute('aria-expanded',expanded.has(row.marketId));
+   cacheCampaignView();
+  });cell('Market').append(name);
+  const region=make('select','','inline-input');selectOptions(region,catalog.regions,'');region.value=row.region;region.setAttribute('aria-label',row.name+' region');
+  region.addEventListener('change',()=>{draft.markets.find(r=>r.marketId===row.marketId).region=region.value;markDirty();recalculate();});cell('Region').append(region);
+  cell('Start').append(field(row,'start','start','date'));cell('End').append(field(row,'end','end','date'));
+  const avg=cell('History avg.','number average');avg.textContent=percent(row.average);avg.classList.toggle('blank-result',row.average==null);
+  const amount=make('div','','amount-cell');amount.classList.toggle('manual',!row.automatic);amount.append(field(row,'override','allocation'));
+  const reset=make('button','Reset','reset-budget');reset.type='button';reset.hidden=row.automatic;reset.setAttribute('aria-label',`Reset ${row.name} allocation`);reset.title='Use the automatic allocation';
+  reset.addEventListener('click',()=>{draft.markets.find(r=>r.marketId===row.marketId).override=null;markDirty();recalculate();});amount.append(reset);cell('Allocation','number').append(amount);
+  const share=cell('Budget %','number share');share.textContent=percent(row.share);share.classList.toggle('blank-result',row.share==null);
+  const remove=make('button','×','remove');remove.type='button';remove.setAttribute('aria-label',`Remove ${row.name}`);
+  remove.addEventListener('click',()=>{draft.markets=draft.markets.filter(r=>r.marketId!==row.marketId);expanded.delete(row.marketId);for(const n of tr.querySelectorAll('input'))invalidInputs.delete(inputKey(n));markDirty();recalculate(true);});cell('Remove').append(remove);
+  body.append(tr);if(expanded.has(row.marketId))body.append(detailRow(row));
+ }
+ $('empty-filter').hidden=!!rows.length;$('visible-count').textContent=rows.length===view.rows.length?'':`${rows.length} of ${view.rows.length} markets · totals include all`;
+}
+function updateRows(){
+ for(const row of view.rows){
+  const tr=[...$('market-rows').children].find(n=>n.dataset.market===row.marketId);if(!tr)continue;
+  const amount=tr.querySelector('.amount-cell');amount.classList.toggle('manual',!row.automatic);amount.querySelector('button').hidden=row.automatic;
+  for(const input of tr.querySelectorAll('input')){
+   if(input===document.activeElement||invalidInputs.has(inputKey(input)))continue;
+   input.value=input.dataset.key==='override'?currency(row.allocation):row[input.dataset.key]||'';input.dataset.displayed=input.value;
+  }
+  tr.querySelector('.average').textContent=percent(row.average);tr.querySelector('.average').classList.toggle('blank-result',row.average==null);
+  tr.querySelector('.share').textContent=percent(row.share);tr.querySelector('.share').classList.toggle('blank-result',row.share==null);
+  if(expanded.has(row.marketId)&&tr.nextElementSibling?.dataset.detail===row.marketId)tr.nextElementSibling.replaceWith(detailRow(row));
+ }
+}
+function adopt(result){
+ clearTimeout(autosaveTimer);
+ sequence++;pending=false;view=result;draft=clone(result.details);dirty=false;valid=true;invalidInputs.clear();expanded.clear();
+ settings();renderRows();renderSummary();message('');status(draft.id?'Saved locally':'New campaign');buttons();
+ $('campaign-picker').value=draft.id||'';
+ rememberCampaign(draft.id);
+}
+async function campaignList(){
+ const data=await api('/api/campaigns');const select=$('campaign-picker');select.replaceChildren();const fresh=make('option','New campaign');fresh.value='';select.append(fresh);
+ for(const c of data.campaigns){const o=make('option',c.name);o.value=c.id;select.append(o);}select.value=draft?.id||'';
+}
+function discard(){return !dirty||window.confirm('Leave this campaign without saving your changes?');}
+async function openCampaign(id,{fresh=false}={}){
+ const recovery=fresh?null:readRecovery(id);
+ const result=id?await api('/api/campaign?id='+encodeURIComponent(id)):clone(blankDraft);adopt(result);
+ if(recovery?.details){
+  draft=clone(recovery.details);invalidInputs=new Map(recovery.invalid||[]);
+  try{applyPendingEditor(recovery.pending);}catch{}
+  try{view=await api('/api/campaign/preview',draft);valid=true;}
+  catch(error){valid=false;message(error.message);if(recovery.base)try{view=await api('/api/campaign/preview',recovery.base);}catch{}}
+  dirty=true;editVersion++;settings();renderRows();renderSummary();status('Recovered changes');buttons();
+  if(recovery.pending&&invalidInputs.has(recovery.pending.inputKey)){
+   const input=[...document.querySelectorAll('input')].find(e=>inputKey(e)===recovery.pending.inputKey);
+   if(input){input.value=recovery.pending.value;input.setAttribute('aria-invalid','true');}
+  }
+  cacheRecovery();if(valid&&!invalidInputs.size)queueAutosave();
+ }
+ restoreCampaignView(fresh);
+ history.replaceState(null,'',id?'/campaign.html?id='+encodeURIComponent(id):'/campaign.html');
+}
+async function saveCampaign(){
+ clearTimeout(autosaveTimer);
+ if(saveTask)return saveTask;
+ if(!dirty)return true;
+ // Keep inline channel editing in place until Enter, Tab, or blur commits it.
+ if(document.activeElement?.classList.contains('channel-dollar')){cacheRecovery();return false;}
+ try{applyPendingEditor(pendingEditor());}catch(error){message(error.message);status('Check amount');cacheRecovery();buttons();return false;}
+ if(!valid||invalidInputs.size){status('Changes kept on this computer');cacheRecovery();return false;}
+ const submitted=clone(draft),version=editVersion,oldId=draft.id;
+ cacheRecovery();saving=true;status('Saving…');buttons();
+ saveTask=(async()=>{
+  try{
+   const result=await api('/api/campaign',submitted);
+   draft.id=result.details.id;draft.revision=result.details.revision;draft.channelVersion=result.details.channelVersion;
+   rememberCampaign(draft.id);cacheCampaignView();history.replaceState(null,'','/campaign.html?id='+encodeURIComponent(draft.id));
+   if(version===editVersion){
+    sequence++;pending=false;view=result;draft=clone(result.details);dirty=false;
+    for(const input of document.querySelectorAll('input'))delete input.dataset.userEdited;
+    removeRecovery(oldId);removeRecovery(draft.id);updateRows();renderSummary();message('');status('Saved locally');
+   }else{if(oldId!==draft.id)removeRecovery(oldId);cacheRecovery();status('Saving…');}
+   await campaignList();return true;
+  }catch(error){message(error.message+' Your changes are kept on this computer.');status('Not saved to database');cacheRecovery();return false;}
+  finally{saving=false;saveTask=null;buttons();if(dirty&&version!==editVersion&&valid&&!invalidInputs.size)queueAutosave();}
+ })();
+ return saveTask;
+}
+async function flushCampaign(){
+ if(document.activeElement?.matches('input,select'))document.activeElement.blur();
+ await lastRecalculation;
+ if(saveTask)await saveTask;
+ return saveCampaign();
+}
+document.addEventListener('input',event=>{if(event.target.matches('input'))event.target.dataset.userEdited='true';},true);
+$('campaign-settings').addEventListener('submit',event=>event.preventDefault());
+$('client').addEventListener('change',()=>{
+ const client=catalog.clients.find(c=>c.id===$('client').value);if(!client)return;
+ const oldId=draft.clientId==='weed-man'?'epic3':draft.clientId;
+ if(draft.markets.length&&!confirm('Change the campaign client? Existing market allocations remain; review that they belong in this client’s campaign.')){$('client').value=oldId;return;}
+ draft.clientId=client.id;draft.clientName=client.name;draft.brand=client.brand;$('client-brand').value=client.brand;
+ if(!draft.markets.length)draft.markets=catalog.markets.filter(m=>client.marketIds.includes(m.id)).map(m=>({marketId:m.id,region:m.region,start:'',end:'',override:null}));
+ markDirty();recalculate(true);
+});
+for(const [id,key] of [['campaign-name','name'],['campaign-year','year'],['campaign-budget','budget'],['campaign-start','start'],['campaign-end','end']]){
+ const input=$(id);input.addEventListener('input',()=>{if(key==='name')draft.name=input.value;markDirty();});
+ const commit=()=>{try{
+  const oldYear=draft.year;const value=key==='budget'?readMoney(input.value):key==='year'?Number(input.value):input.value;
+  const changed=draft[key]!==value;draft[key]=value;
+  if(key==='budget')input.value=currency(value);
+  if(key==='year'&&draft.name===`Weed Man ${oldYear}`){draft.name=`Weed Man ${draft.year}`;$('campaign-name').value=draft.name;}
+  clearInputError(input);if(changed){markDirty();recalculate();}else buttons();
+ }catch(error){inputError(input,error);}};
+ input.addEventListener('change',commit);
+ if(key==='budget')input.addEventListener('blur',commit);
+}
+$('market-search').addEventListener('input',()=>{renderRows();cacheCampaignView();});$('region-filter').addEventListener('change',()=>{renderRows();cacheCampaignView();});
+$('new-campaign').addEventListener('click',async()=>{await flushCampaign();if(discard()){removeRecovery(null);openCampaign('',{fresh:true}).catch(e=>message(e.message));}});
+$('campaign-picker').addEventListener('change',async()=>{const id=$('campaign-picker').value;await flushCampaign();if(dirty&&!cacheRecovery()){$('campaign-picker').value=draft.id||'';return;}try{await openCampaign(id);}catch(error){message(error.message);$('campaign-picker').value=draft.id||'';}});
+$('save-campaign').addEventListener('click',flushCampaign);
+document.querySelector('.workbook-nav').addEventListener('click',async event=>{
+ const link=event.target.closest('a');if(!link||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+ event.preventDefault();cacheCampaignView();await flushCampaign();
+ if(dirty&&!cacheRecovery()){message('Unable to save this draft. Keep this page open and try Save draft again.');return;}
+ location.href=link.href;
+});
+$('add-market').addEventListener('click',()=>{
+ const selected=new Set(draft.markets.map(r=>r.marketId));const choice=$('market-choice');choice.replaceChildren();
+ for(const m of catalog.markets.filter(m=>!selected.has(m.id)).sort((a,b)=>a.name.localeCompare(b.name))){const o=make('option',`${m.name} (${m.buyingGroup})`);o.value=m.id;choice.append(o);}
+ const custom=make('option','Create a new market…');custom.value='custom';choice.append(custom);$('custom-name').value='';$('add-error').hidden=true;
+ changeMarketChoice();$('add-dialog').showModal();choice.focus();
+});
+function changeMarketChoice(){const id=$('market-choice').value;$('custom-name-label').hidden=id!=='custom';$('new-region').value=catalog.markets.find(m=>m.id===id)?.region||'';}
+$('market-choice').addEventListener('change',changeMarketChoice);
+$('cancel-add').addEventListener('click',()=>$('add-dialog').close());
+$('add-form').addEventListener('submit',event=>{
+ event.preventDefault();const id=$('market-choice').value;
+ if(id==='custom'&&!$('custom-name').value.trim()){$('add-error').textContent='Enter a market name.';$('add-error').hidden=false;return;}
+ const row={marketId:id==='custom'?'custom-'+crypto.randomUUID():id,region:$('new-region').value,start:'',end:'',override:null};
+ if(id==='custom')row.name=$('custom-name').value.trim();draft.markets.push(row);$('add-dialog').close();$('market-search').value='';$('region-filter').value='';markDirty();recalculate(true);
+});
+window.addEventListener('beforeunload',event=>{cacheCampaignView();if(dirty&&!cacheRecovery()){event.preventDefault();event.returnValue='';}});
+async function initialize(){
+ try{
+  const data=await api('/api/campaign/catalog');catalog=data.catalog;blankDraft=data.draft;
+  await campaignList();let remembered='';try{remembered=localStorage.getItem(activeCampaignKey)||'';}catch{}
+  const requested=new URLSearchParams(location.search).get('id');
+  const id=requested||(remembered!=='new'&&[...$('campaign-picker').options].some(o=>o.value===remembered)?remembered:'');
+  await openCampaign(id||'');
+  $('campaign-main').hidden=false;$('loading').hidden=true;
+ }catch(error){$('loading').textContent=error.message;status('Unable to load');}
+}
+initialize();

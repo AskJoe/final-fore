@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Campaign Orders | Final Fore</title><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/orders.css?v=screen-spacing-20261024-restored"><script src="/orders.js?v=campaign-orders-1" defer></script><style id="workbook-navigation-styles">
+/* One shared left navigation. Page state never changes its dimensions. */
+body{--sidebar-width:164px;padding:0 0 0 var(--sidebar-width);min-width:0}
+body>footer{
+  position:fixed;inset:0 auto 0 0;z-index:20;box-sizing:border-box;
+  width:var(--sidebar-width);height:100dvh;min-height:0;margin:0;padding:14px 10px;
+  display:flex;flex-direction:column;align-items:stretch;gap:0;
+  border:0;border-right:1px solid #dce2eb;background:#f5f7fb;
+  font-family:"Helvetica Neue",Arial,sans-serif;
+}
+.sidebar-brand{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 5px;margin:0 0 23px;color:#294567}
+.sidebar-mark{display:flex;align-items:center;justify-content:center;flex:none;width:27px;height:27px;padding-right:4px;border-radius:4px;background:#26466f;color:white;font:italic 24px Georgia,serif;letter-spacing:-4px}
+.sidebar-brand>div{display:flex;flex-direction:column;gap:1px}
+.sidebar-brand strong{font-size:13px;font-weight:600;line-height:17px;white-space:nowrap}
+.sidebar-brand>div>span{font-size:10px;color:#77879a;line-height:14px}
+.workbook-nav{display:flex;flex-direction:column;align-items:stretch;flex:0 0 auto;gap:3px;width:100%;min-width:0;height:auto;margin:0;padding:0;overflow:visible}
+.workbook-nav .workbook-tab{
+  box-sizing:border-box;display:flex;align-items:center;justify-content:flex-start;gap:9px;
+  flex:none;position:relative;width:100%;height:34px;margin:0;padding:0 9px;
+  border:0;border-radius:4px;font-family:"Helvetica Neue",Arial,sans-serif;
+  font-size:12px;font-weight:500;line-height:18px;letter-spacing:normal;
+  text-decoration:none;white-space:nowrap;color:#536880;background:transparent;
+}
+.workbook-nav .workbook-tab svg{display:block;flex:none;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.workbook-nav .workbook-tab[data-tab=data]{margin-top:15px}
+.workbook-nav .workbook-tab:hover{background:#eaf0f8;color:#284f85}
+.workbook-nav .workbook-tab[aria-current=page]{color:#2d568d;background:#e3ecf8;font-weight:600;box-shadow:inset 2px 0 #4773b2}
+.workbook-nav .workbook-tab:focus-visible{outline:2px solid #2957b7;outline-offset:1px}
+.workbook-status{display:flex;flex-direction:column;justify-content:flex-start;gap:6px;flex:none;min-width:0;margin-top:auto;padding:12px 5px 1px;border-top:1px solid #e1e7ef;font-size:10px;line-height:1.5;color:#77879a;overflow-wrap:anywhere}
+.workbook-status>span{min-width:0;white-space:normal}
+.workbook-status>span:empty{display:none}
+body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.app-header .identity>strong,body>.app-header .identity>.divider{display:none}
+/* Consistent page insets belong to the shared app shell, separate from print. */
+@media screen{
+ body{--page-gutter:24px}
+ body>.app-header,body>.order-toolbar{padding-left:var(--page-gutter);padding-right:var(--page-gutter)}
+ body>main,body>main#workspace,body>main#campaign-main{box-sizing:border-box;width:100%;min-width:0;max-width:none;margin:0;padding:18px var(--page-gutter) 28px}
+ body>main>.toolbar,body>main>.formula-bar,body>main>.workbook-summary,body>main>.cell-info{padding-left:0;padding-right:0}
+ body>main>.sheet-wrap{border:1px solid #dce2eb;margin-top:8px}
+}
+@media(max-width:1050px){
+  body{--sidebar-width:140px;--page-gutter:16px}
+  body>footer{padding-left:7px;padding-right:7px}
+  .sidebar-brand{gap:7px;padding-left:4px}
+  .workbook-nav .workbook-tab{gap:7px;padding:0 7px;font-size:11px}
+}
+@media(max-width:700px){
+  body{--sidebar-width:54px;--page-gutter:12px}
+  body>footer{padding:12px 7px}
+  .sidebar-brand{padding:0;justify-content:center;margin-bottom:20px}
+  .sidebar-brand>div,.workbook-status{display:none}
+  .workbook-nav .workbook-tab{justify-content:center;padding:0;width:40px;height:36px}
+  .workbook-nav .nav-label{display:none}
+  .workbook-nav .workbook-tab:hover .nav-label,.workbook-nav .workbook-tab:focus-visible .nav-label{display:block;position:absolute;left:45px;top:2px;padding:6px 9px;background:white;border:1px solid #d6dfeb;border-radius:3px;color:#294e7a;font-size:12px;font-weight:500;box-shadow:0 2px 8px #20334b12}
+}
+@media print{
+  body{padding:0!important;--sidebar-width:0px}
+  body>footer{display:none!important}
+}
+</style></head><body>
+<header class="app-header"><div class="identity"><span class="brand-mark" aria-hidden="true">ff</span><strong>Final Fore</strong><span class="divider"></span><h1>Orders</h1></div><span id="status" role="status">Choose a campaign</span></header>
+<div class="order-toolbar"><label>Campaign <select id="campaign" aria-label="Campaign"></select></label><label>Market <select id="market" aria-label="Market"></select></label><button id="open" class="primary">Create / open order</button><a class="legacy-link" href="/legacy-orders.html">Earlier orders</a><div class="actions"><button id="refresh" class="text-action" disabled>Refresh from campaign</button><button id="save" disabled>Save draft</button><button id="preview" disabled>Preview order</button><button id="edit" hidden>Back to details</button><button id="print" hidden>Print / Save PDF</button></div></div>
+<main id="workspace"><div id="message" role="alert" hidden></div><p id="empty">Choose a saved campaign and market to create an order.</p><div id="editor" hidden></div><article id="paper" aria-label="Order preview" hidden></article></main>
+<dialog id="date-dialog"><form id="date-form"><h2>Override dates</h2><div class="date-pair"><label>Start<input id="date-start" type="date" required></label><label>End<input id="date-end" type="date" required></label></div><p id="date-error" role="alert" hidden></p><div class="dialog-actions"><button id="date-reset" type="button" class="text-action">Use campaign dates</button><span class="grow"></span><button id="date-cancel" type="button">Cancel</button><button class="primary">Apply</button></div></form></dialog>
+<footer>
+  <div class="sidebar-brand"><span class="sidebar-mark" aria-hidden="true">ff</span><div><strong>Final Fore</strong><span>Weed Man</span></div></div>
+  <nav class="workbook-nav" aria-label="Main navigation">
+    <a class="workbook-tab" href="/" data-tab="epic3" aria-label="EPIC3" title="EPIC3"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M3 8h14M8 3v14M3 12.5h14"/></svg><span class="nav-label">EPIC3</span></a>
+    <a class="workbook-tab" id="markets-tab" href="/markets.html" data-tab="markets" aria-label="Markets" title="Markets"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 8c0 4-5.5 9-5.5 9S4.5 12 4.5 8a5.5 5.5 0 0 1 11 0Z"/><circle cx="10" cy="8" r="1.8"/></svg><span class="nav-label">Markets</span></a>
+    <a class="workbook-tab" href="/campaign.html" data-tab="campaign" aria-label="Campaign" title="Campaign"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 17V3m0 0h11l-2 4 2 4H4"/></svg><span class="nav-label">Campaign</span></a>
+    <a class="workbook-tab" href="/orders.html" data-tab="orders" aria-label="Orders" title="Orders" aria-current="page"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3V17H5zM12 2.5V6h3M7.5 9h5M7.5 12h5M7.5 15h3"/></svg><span class="nav-label">Orders</span></a>
+    <a class="workbook-tab" href="/data.html" data-tab="data" data-view-link="data" aria-label="Reporting data" title="Reporting data"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M3 7h14M7 7v10M10 10h4M10 13.5h4"/></svg><span class="nav-label">Reporting data</span></a>
+    <a class="workbook-tab" href="/dashboard.html" data-tab="dashboard" data-view-link="dashboard" aria-label="Dashboard" title="Dashboard"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3v14h14M6 13V9M10 13V5M14 13V7"/></svg><span class="nav-label">Dashboard</span></a>
+  </nav>
+  <div class="workbook-status"><span id="counts"></span><span id="footer-tip">Draft orders · saved on this computer</span></div>
+</footer></body></html>

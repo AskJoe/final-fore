@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.env*
+!.env.example
+.local-migration/
+test-results/
+playwright-report/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.next-local-test/

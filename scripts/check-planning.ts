@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import { expect, type Page, type BrowserContext } from '@playwright/test';
+import type { MemoryStore } from '../tests/memory-store';
+import { recalculate } from '../lib/domain/workbook';
+import type { Workbook } from '../lib/domain/types';
+
+export async function checkPlanning(page:Page,context:BrowserContext,base:string,store:MemoryStore,pass:(label:string)=>void){
+  const directory=(await store.get('directory'))!;
+  directory.payload.clients.push({id:'planning-test',name:'Planning Test Client',brand:'Test Brand',active:true,marketIds:[],notes:'',source:'Isolated browser fixture'});
+  await store.save('directory','directory',directory.payload,directory.version);
+  const original=(await store.get('workbook'))!,second=structuredClone(original.payload) as Workbook;
+  second.metadata.clientId='planning-test';second.sheets.EPIC3.DP8.input=9876;recalculate(second);
+  await store.save('workbook:planning-test','workbook',second,0);
+  const read=async()=>{const r=await context.request.get(base+'/api/planning');assert.equal(r.status(),200);return r.json();};
+  await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/index.html');await expect(page.locator('#save-status')).toHaveText('Saved to Supabase');
+  await expect(page.getByRole('heading',{name:'Media planning',exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Media planning',exact:true})).toBeVisible();await expect(page.locator('#planning-client')).toHaveValue('');
+  await expect(page.locator('#sheet thead')).toContainText('Epic3');await expect(page.locator('#sheet thead')).toContainText('Planning Test Client');
+  await page.screenshot({path:'.local-migration/planning-all-clients.png'});pass('one combined media grid shows both clients with distinct column groups');
+  await page.locator('#planning-client').selectOption('planning-test');await expect(page.locator('#sheet thead')).not.toContainText('Epic3');await expect(page.locator('#sheet thead')).toContainText('Planning Test Client');
+  let grid=await read();let virtual=Object.keys(grid.targets).find(a=>grid.targets[a].clientId==='planning-test'&&grid.targets[a].address==='DP8')!;
+  const staleTarget=grid.targets[virtual];await page.locator('#address').fill(virtual);await page.locator('#address').press('Enter');await expect(page.locator('#formula')).toHaveValue('9876');
+  await page.locator('#formula').fill('4321');await page.locator('#save-cell').click();await expect(page.locator('#save-status')).toHaveText('Saved to Supabase');
+  assert.equal((await store.get('workbook:planning-test'))!.payload.sheets.EPIC3.DP8.value,4321);assert.deepEqual(await store.get('workbook'),original);
+  const stale=await context.request.post(base+'/api/planning/cell',{headers:{origin:base},data:{...staleTarget,text:'999'}});assert.equal(stale.status(),409);
+  const mismatch=await context.request.post(base+'/api/planning/cell',{headers:{origin:base},data:{...staleTarget,clientId:'epic3',text:'999'}});assert.equal(mismatch.status(),400);
+  pass('filtered grid saves only its client workbook and rejects stale or wrong-client writes');
+  grid=await read();virtual=Object.keys(grid.targets).find(a=>grid.targets[a].clientId==='planning-test'&&grid.targets[a].address==='DP21')!;
+  await page.locator('#address').fill(virtual);await page.locator('#address').press('Enter');await page.locator('#edit-formula').click();await expect(page.locator('#formula-context')).toContainText('Planning Test Client · DP21');await page.locator('#formula-expression').fill('=DP8*2');await page.locator('#save-formula').click();await expect(page.locator('#formula-dialog')).not.toBeVisible();
+  assert.equal((await store.get('workbook:planning-test'))!.payload.sheets.EPIC3.DP21.value,8642);assert.deepEqual(await store.get('workbook'),original);
+  pass('formula edits use the selected client’s original workbook coordinates');
+  await page.reload();await expect(page.locator('#save-status')).toHaveText('Saved to Supabase');await expect(page.locator('#planning-client')).toHaveValue('planning-test');await expect(page.locator('#sheet thead')).not.toContainText('Epic3');
+  const empty=directory.payload.clients.find((c:any)=>c.name==='Browser Test Client');assert.ok(empty);
+  await page.locator('#planning-client').selectOption(empty.id);await expect(page.locator('#planning-empty')).toContainText('No workbook data for Browser Test Client');await expect(page.locator('#sheet')).toBeHidden();await expect(page.locator('#formula-bar')).toBeHidden();
+  await page.locator('#planning-client').selectOption('');await expect(page.locator('#sheet')).toBeVisible();await expect(page.locator('#sheet thead')).toContainText('Epic3');await expect(page.locator('#sheet thead')).toContainText('Planning Test Client');
+  pass('client filter survives reload; clients without workbooks show an empty state');
+  await page.setViewportSize({width:876,height:850});await page.screenshot({path:'.local-migration/planning-876.png'});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'.local-migration/planning-mobile.png'});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.locator('#sheet-wrap').evaluate(wrap=>{wrap.scrollLeft=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rate'));});
+  const mobileAmount=await page.locator('#sheet td.input-cell:not(.frozen-rate)').first().boundingBox(),mobileLabel=await page.locator('#sheet tbody .frozen-label').first().boundingBox(),mobileGrid=await page.locator('#sheet-wrap').boundingBox();
+  assert.ok(mobileAmount&&mobileLabel&&mobileGrid);assert.ok(mobileAmount.x>=mobileLabel.x+mobileLabel.width-1);assert.ok(mobileAmount.x+mobileAmount.width<=mobileGrid.x+mobileGrid.width);
+  await page.screenshot({path:'.local-migration/planning-mobile-scrolled.png'});
+  pass('combined planning controls fit the reported viewport and a phone viewport');
+}

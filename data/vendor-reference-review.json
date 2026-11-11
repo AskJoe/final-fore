@@ -1,0 +1,20 @@
+{
+  "source": "2026 Market Planner - Stations By Rep Firm.xlsx",
+  "sha256": "d2d4eb1e0a6b38aaed8f5972ac6e442af6655c3e77cd558041286759002069a3",
+  "counts": {
+    "clients": 1,
+    "firms": 111,
+    "reps": 39,
+    "stations": 1303
+  },
+  "skippedStationRows": [
+    227,
+    228,
+    229,
+    230,
+    816
+  ],
+  "olderStationContactsImported": false,
+  "digitalTabImported": false,
+  "databaseModified": false
+}

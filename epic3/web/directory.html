@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Directory | Final Fore</title><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/directory.css"><script src="/directory.js" defer></script><!--SHARED_NAV_STYLE--></head>
+<body>
+<header class="app-header"><div class="identity"><h1 id="page-title">Directory</h1></div></header>
+<main>
+  <p id="intro"></p>
+  <nav id="directory-tabs" class="directory-tabs" aria-label="Vendor directory" hidden></nav>
+  <p id="reference-note" class="reference-note" hidden>Starting reference from the market planner. Contact and station assignments need verification before use.</p>
+  <div class="directory-tools"><label>Find <input id="search" type="search" placeholder="Search names, markets, or email"></label><label id="media-label">Media type<select id="media-filter"><option value="">All media types</option></select></label><label id="firm-label">Firm<select id="firm-filter"><option value="">All firms</option></select></label><label>Status<select id="active-filter"><option value="active">Active</option><option value="all">All records</option><option value="inactive">Inactive</option></select></label><button id="add-record" class="primary" disabled>Add record</button></div>
+  <p id="message" role="alert" hidden></p><p id="status" role="status">Loading directory…</p>
+  <div class="table-scroll"><table id="directory-table"><thead id="table-head"></thead><tbody id="table-body"></tbody></table></div>
+  <div class="pagination"><button id="previous" disabled>Previous</button><span id="page-count"></span><button id="next" disabled>Next</button></div>
+</main>
+<!--SHARED_NAV-->
+<dialog id="record-dialog" aria-labelledby="record-title"><form id="record-form"><h2 id="record-title"></h2><div id="record-fields" class="record-fields"></div><p id="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" id="cancel">Cancel</button><button type="submit" id="save-record" class="primary">Save</button></div></form></dialog>
+</body></html>
