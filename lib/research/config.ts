@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { StorageError } from '../store';
-export type ResearchConfig={origin:string;replyDomain:string;from:string;sarahEmail:string;secretKey:Buffer};
+import { researchTestOnly,testEmailIdentity } from './send-policy';
+export type ResearchConfig={origin:string;replyDomain:string;from:string;sarahEmail:string;secretKey:Buffer;testAccount?:string};
 export function researchConfig():ResearchConfig {
   const origin=process.env.FINAL_FORE_RESEARCH_ORIGIN,replyDomain=process.env.FINAL_FORE_RESEARCH_REPLY_DOMAIN,from=process.env.FINAL_FORE_RESEARCH_FROM,sarahEmail=process.env.FINAL_FORE_RESEARCH_SARAH_EMAIL??'sarah@finalforemedia.com';
   const rawKey=process.env.FINAL_FORE_RESEARCH_SECRET_KEY??'';
@@ -8,7 +9,9 @@ export function researchConfig():ResearchConfig {
   const url=new URL(origin);
   if(url.protocol!=='https:'&&!(['127.0.0.1','localhost'].includes(url.hostname)&&url.protocol==='http:'))throw new StorageError('Research links require a secure app address.');
   if(url.pathname!=='/'||url.search||url.hash||url.username||url.password||!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(replyDomain)||/[\r\n]/.test(from)||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sarahEmail))throw new StorageError('Invalid research email configuration.');
-  return {origin:url.origin,replyDomain:replyDomain.toLowerCase(),from,sarahEmail:sarahEmail.toLowerCase(),secretKey:Buffer.from(rawKey,'hex')};
+  const testAccount=process.env.FINAL_FORE_RESEARCH_RESEND_TEST_ACCOUNT;
+  const temporary=testEmailIdentity(sarahEmail,researchTestOnly(),testAccount);
+  return {origin:url.origin,replyDomain:replyDomain.toLowerCase(),from,sarahEmail:sarahEmail.toLowerCase(),secretKey:Buffer.from(rawKey,'hex'),...(temporary.allowedRecipient?{testAccount:temporary.allowedRecipient}:{})};
 }
 export function researchAdmin(){
   if(typeof window!=='undefined')throw new Error('Research service credentials are server-only.');

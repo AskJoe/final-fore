@@ -39,7 +39,7 @@ export function resendTransport(client:Resend,enabled:()=>boolean):MailTransport
   return {async send(payload,key){
     if(!enabled())throw new Error('Real email sending is disabled.');
     let mail:Omit<MailPayload,'testRecipients'>;
-    try{mail=providerPayload(payload,researchTestOnly(),process.env.FINAL_FORE_RESEARCH_SARAH_EMAIL??'sarah@finalforemedia.com');}
+    try{mail=providerPayload(payload,researchTestOnly(),process.env.FINAL_FORE_RESEARCH_SARAH_EMAIL??'sarah@finalforemedia.com',process.env.FINAL_FORE_RESEARCH_RESEND_TEST_ACCOUNT);}
     catch(error){return {error:error instanceof Error?error.message:'Email blocked by test mode.',status:403};}
     const {data,error}=await client.emails.send(mail as CreateEmailOptions,{idempotencyKey:key,signal:AbortSignal.timeout(60000)});
     return error?{error:error.message,status:error.statusCode}: {id:data.id};
