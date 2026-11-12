@@ -104,7 +104,13 @@ for number, row in stations.items():
     outlets.append({"id": f"station-source-{number}", "name": row["D"], "mediaType": media, "market": row["B"], "network": row.get("E", ""), "ownerFirmId": firm(row["F"], "station-owner") if row.get("F") else "", "repFirmId": firm(row["G"], "rep-firm") if row.get("G") else "", "active": True, "notes": "Station representation is a workbook reference, not a confirmed current rep assignment. " + ("Media type inferred from TV sheet/network; source Media cell is blank." if not row.get("C") else ""), "source": f"TV Stations  Owner!B{number}:L{number}"})
 
 catalog = json.loads((root / "epic3/campaign-catalog.json").read_text())
-result = {"clients": [{"id": "epic3", "name": "Epic3", "brand": "Weed Man", "marketIds": [m["id"] for m in catalog["markets"] if m["current"] and m["buyingGroup"] == "EPIC3"], "active": True, "notes": "Client owns Weed Man franchises. Current EPIC3 markets are the initial franchise locations; historical/shared markets remain in the planning catalog.", "source": "Joe's clarification, 2026-11-10; existing market catalog"}], "firms": list(firms.values()), "reps": list(reps.values()), "stations": outlets}
+# Research includes nine EPIC3/Hill markets absent from the older digital-current list.
+# Limit the addition to records explicitly mapped on the research templates.
+templates = json.loads((root / "data/research-template-seed.json").read_text())
+research_ids = {m["marketId"] for t in templates if t["clientId"] == "epic3" for m in t["markets"] if m["marketId"]}
+client_market_ids = [m["id"] for m in catalog["markets"] if m["current"] and m["buyingGroup"] == "EPIC3"]
+client_market_ids += [m["id"] for m in catalog["markets"] if m["buyingGroup"] == "EPIC3/Hill" and m["id"] in research_ids and m["id"] not in client_market_ids]
+result = {"clients": [{"id": "epic3", "name": "Epic3", "brand": "Weed Man", "marketIds": client_market_ids, "active": True, "notes": "Client owns Weed Man franchises. Includes the EPIC3/Hill markets listed in the 2027 Weed Man research templates and budget source.", "source": "Joe's clarification, 2026-11-10; existing market catalog; 2027 household/spend source rows 8, 16, 18, 21, 22, 25, 28, 31, 35"}], "firms": list(firms.values()), "reps": list(reps.values()), "stations": outlets}
 dest = root / "data/vendor-reference.json"
 dest.parent.mkdir(exist_ok=True)
 dest.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")

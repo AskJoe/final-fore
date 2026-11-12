@@ -10,7 +10,7 @@ import * as orders from '../lib/domain/campaign-orders';
 test('reference graph separates clients, brands, owners, rep firms, reps and media coverage', () => {
   const data=directory.initial();
   for(const kind of directory.COLLECTIONS)for(const row of data[kind])directory.cleanEntity(kind,row,data);
-  const client=data.clients[0];assert.equal(client.id,'epic3');assert.equal(client.brand,'Weed Man');assert.equal(client.marketIds.length,25);
+  const client=data.clients[0];assert.equal(client.id,'epic3');assert.equal(client.brand,'Weed Man');assert.equal(client.marketIds.length,34);
   const kt=data.stations.find(s=>s.name==='KTAB')!;
   assert.equal(data.firms.find(f=>f.id===kt.ownerFirmId)?.name,'Nexstar');
   assert.equal(data.firms.find(f=>f.id===kt.repFirmId)?.name,'Katz TV');

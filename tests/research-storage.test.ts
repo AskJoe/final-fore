@@ -31,7 +31,9 @@ test('template saves preserve city ownership and reject stale edits',async()=>{
 });
 test('publishing requires all platform links and snapshots survive subsequent template edits',async()=>{
   const repo=new MemoryResearch(),svc=new ResearchService(repo,initial(),0,MARKETS,true);
+  repo.templates.find(t=>t.id==='tv-multi')!.markets.find(m=>m.displayName==='Cincinnati, OH')!.marketId=null;
   await assert.rejects(svc.publish('tv-multi',0),/Confirm the platform record/);
+  assert.equal(repo.versions.length,0);
   const version=await svc.publish('radio-single-lincoln',0);
   const originalText=version.body;
   const current=(await repo.listTemplates()).templates.find(t=>t.id===version.id)!;

@@ -29,11 +29,20 @@
         "epic3-fort-wayne",
         "epic3-merrillville-valparaiso",
         "epic3-boston",
-        "epic3-rochester-buffalo"
+        "epic3-rochester-buffalo",
+        "epic3-hill-cincinnati",
+        "epic3-hill-fresno-ca",
+        "epic3-hill-houston",
+        "epic3-hill-knoxville",
+        "epic3-hill-lexington-ky",
+        "epic3-hill-memphis",
+        "epic3-hill-nashville",
+        "epic3-hill-san-antonio",
+        "epic3-hill-tampa"
       ],
       "active": true,
-      "notes": "Client owns Weed Man franchises. Current EPIC3 markets are the initial franchise locations; historical/shared markets remain in the planning catalog.",
-      "source": "Joe's clarification, 2026-11-10; existing market catalog"
+      "notes": "Client owns Weed Man franchises. Includes the EPIC3/Hill markets listed in the 2027 Weed Man research templates and budget source.",
+      "source": "Joe's clarification, 2026-11-10; existing market catalog; 2027 household/spend source rows 8, 16, 18, 21, 22, 25, 28, 31, 35"
     }
   ],
   "firms": [

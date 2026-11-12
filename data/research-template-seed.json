@@ -25,7 +25,7 @@
       },
       {
         "displayName": "Cincinnati, OH",
-        "marketId": null
+        "marketId": "epic3-hill-cincinnati"
       },
       {
         "displayName": "Cleveland, OH",
@@ -61,7 +61,7 @@
       },
       {
         "displayName": "Fresno, CA",
-        "marketId": null
+        "marketId": "epic3-hill-fresno-ca"
       },
       {
         "displayName": "Green Bay, WI",
@@ -69,7 +69,7 @@
       },
       {
         "displayName": "Houston, TX",
-        "marketId": null
+        "marketId": "epic3-hill-houston"
       },
       {
         "displayName": "Kansas City, MO",
@@ -77,11 +77,11 @@
       },
       {
         "displayName": "Knoxville, TN",
-        "marketId": null
+        "marketId": "epic3-hill-knoxville"
       },
       {
         "displayName": "Lexington, KY",
-        "marketId": null
+        "marketId": "epic3-hill-lexington-ky"
       },
       {
         "displayName": "Madison, WI",
@@ -89,7 +89,7 @@
       },
       {
         "displayName": "Memphis, TN",
-        "marketId": null
+        "marketId": "epic3-hill-memphis"
       },
       {
         "displayName": "Milwaukee, WI",
@@ -97,7 +97,7 @@
       },
       {
         "displayName": "Nashville, TN",
-        "marketId": null
+        "marketId": "epic3-hill-nashville"
       },
       {
         "displayName": "Oklahoma City, OK",
@@ -113,7 +113,7 @@
       },
       {
         "displayName": "San Antonio, TX",
-        "marketId": null
+        "marketId": "epic3-hill-san-antonio"
       },
       {
         "displayName": "Seattle, WA",
@@ -125,7 +125,7 @@
       },
       {
         "displayName": "Tampa, FL",
-        "marketId": null
+        "marketId": "epic3-hill-tampa"
       }
     ],
     "defaults": {
@@ -203,7 +203,7 @@
       },
       {
         "displayName": "Cincinnati, OH",
-        "marketId": null
+        "marketId": "epic3-hill-cincinnati"
       },
       {
         "displayName": "Cleveland, OH",
@@ -239,7 +239,7 @@
       },
       {
         "displayName": "Fresno, CA",
-        "marketId": null
+        "marketId": "epic3-hill-fresno-ca"
       },
       {
         "displayName": "Green Bay, WI",
@@ -247,7 +247,7 @@
       },
       {
         "displayName": "Houston, TX",
-        "marketId": null
+        "marketId": "epic3-hill-houston"
       },
       {
         "displayName": "Iowa City/Cedar Rapids, IA",
@@ -259,11 +259,11 @@
       },
       {
         "displayName": "Knoxville, TN",
-        "marketId": null
+        "marketId": "epic3-hill-knoxville"
       },
       {
         "displayName": "Lexington, KY",
-        "marketId": null
+        "marketId": "epic3-hill-lexington-ky"
       },
       {
         "displayName": "Madison, WI",
@@ -271,7 +271,7 @@
       },
       {
         "displayName": "Memphis, TN",
-        "marketId": null
+        "marketId": "epic3-hill-memphis"
       },
       {
         "displayName": "Milwaukee, WI",
@@ -279,7 +279,7 @@
       },
       {
         "displayName": "Nashville, TN",
-        "marketId": null
+        "marketId": "epic3-hill-nashville"
       },
       {
         "displayName": "Oklahoma City, OK",
@@ -295,7 +295,7 @@
       },
       {
         "displayName": "San Antonio, TX",
-        "marketId": null
+        "marketId": "epic3-hill-san-antonio"
       },
       {
         "displayName": "Seattle, WA",
@@ -311,7 +311,7 @@
       },
       {
         "displayName": "Tampa, FL",
-        "marketId": null
+        "marketId": "epic3-hill-tampa"
       }
     ],
     "defaults": {

@@ -33,11 +33,11 @@
   },
   {
     "label": "Cincinnati, OH",
-    "marketId": null,
+    "marketId": "epic3-hill-cincinnati",
     "candidates": [
       "epic3-hill-cincinnati"
     ],
-    "needsLink": true
+    "needsLink": false
   },
   {
     "label": "Cleveland, OH",
@@ -105,12 +105,12 @@
   },
   {
     "label": "Fresno, CA",
-    "marketId": null,
+    "marketId": "epic3-hill-fresno-ca",
     "candidates": [
       "epic3-hill-fresno-ca",
       "turf-ops-fresno-ca"
     ],
-    "needsLink": true
+    "needsLink": false
   },
   {
     "label": "Green Bay, WI",
@@ -122,12 +122,12 @@
   },
   {
     "label": "Houston, TX",
-    "marketId": null,
+    "marketId": "epic3-hill-houston",
     "candidates": [
       "epic3-hill-houston",
       "turf-ops-houston"
     ],
-    "needsLink": true
+    "needsLink": false
   },
   {
     "label": "Iowa City/Cedar Rapids, IA",
@@ -147,19 +147,19 @@
   },
   {
     "label": "Knoxville, TN",
-    "marketId": null,
+    "marketId": "epic3-hill-knoxville",
     "candidates": [
       "epic3-hill-knoxville"
     ],
-    "needsLink": true
+    "needsLink": false
   },
   {
     "label": "Lexington, KY",
-    "marketId": null,
+    "marketId": "epic3-hill-lexington-ky",
     "candidates": [
       "epic3-hill-lexington-ky"
     ],
-    "needsLink": true
+    "needsLink": false
   },
   {
     "label": "Lincoln, NE",
@@ -179,11 +179,11 @@
   },
   {
     "label": "Memphis, TN",
-    "marketId": null,
+    "marketId": "epic3-hill-memphis",
     "candidates": [
       "epic3-hill-memphis"
     ],
-    "needsLink": true
+    "needsLink": false
   },
   {
     "label": "Merrillville, Valparaiso, IN",
@@ -211,11 +211,11 @@
   },
   {
     "label": "Nashville, TN",
-    "marketId": null,
+    "marketId": "epic3-hill-nashville",
     "candidates": [
       "epic3-hill-nashville"
     ],
-    "needsLink": true
+    "needsLink": false
   },
   {
     "label": "Oklahoma City, OK",
@@ -243,12 +243,12 @@
   },
   {
     "label": "San Antonio, TX",
-    "marketId": null,
+    "marketId": "epic3-hill-san-antonio",
     "candidates": [
       "epic3-hill-san-antonio",
       "turf-ops-san-antonio"
     ],
-    "needsLink": true
+    "needsLink": false
   },
   {
     "label": "Seattle, WA",
@@ -276,10 +276,10 @@
   },
   {
     "label": "Tampa, FL",
-    "marketId": null,
+    "marketId": "epic3-hill-tampa",
     "candidates": [
       "epic3-hill-tampa"
     ],
-    "needsLink": true
+    "needsLink": false
   }
 ]

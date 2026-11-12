@@ -29,8 +29,10 @@ test('source bodies retain research instructions and replace only the Drive para
 
 test('unresolved and cross-client market links remain explicit and prevent publishing', () => {
   const d=initial(), template=sourceTemplates().find(t=>t.id==='tv-multi')!;
-  assert.equal(template.markets.filter(m=>!m.marketId).length,9);
-  assert.equal(validateTemplate(template,d,MARKETS).filter(i=>i.code==='market-link').length,9);
+  assert.equal(template.markets.filter(m=>!m.marketId).length,0);
+  assert.deepEqual(validateTemplate(template,d,MARKETS),[]);
+  template.markets.find(m=>m.displayName==='Cincinnati, OH')!.marketId=null;
+  assert.deepEqual(validateTemplate(template,d,MARKETS).filter(i=>i.code==='market-link').map(i=>i.marketName),['Cincinnati, OH']);
   const single=sourceTemplates().find(t=>t.id==='radio-single-lincoln')!;
   assert.equal(validateTemplate(single,d,MARKETS).length,0);
   single.markets[0].marketId='steve-minneapolis';
