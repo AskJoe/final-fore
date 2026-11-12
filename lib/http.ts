@@ -1,6 +1,7 @@
 import { AccessError } from './access';
 import { Conflict, InputError } from './domain/types';
 import { StorageError } from './store';
+import { requestOrigin } from './request-origin';
 export const privateHeaders = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'same-origin' };
 export function json(value: unknown, status = 200) { return Response.json(value, { status, headers: privateHeaders }); }
 export function failure(error: unknown) {
@@ -14,7 +15,5 @@ export function failure(error: unknown) {
 export function sameOrigin(request: Request) {
   const origin = request.headers.get('origin');
   // API writes are browser-only. Do not trust forwarded host headers for this check.
-  const url = new URL(request.url);
-  const host = request.headers.get('host') ?? url.host;
-  return origin === url.protocol + '//' + host && request.headers.get('sec-fetch-site') !== 'cross-site';
+  return origin === requestOrigin(request) && request.headers.get('sec-fetch-site') !== 'cross-site';
 }

@@ -11,8 +11,8 @@ import { researchTestOnly } from './send-policy';
 
 export async function loadResearchWorkspace(){
   const {supabase,user}=await requireMember();
-  const directory=await new Service(new SupabaseStore(supabase)).directory();
-  const repository=new SupabaseResearchStore(supabase),source=await repository.listTemplates();
+  const repository=new SupabaseResearchStore(supabase);
+  const [directory,source]=await Promise.all([new Service(new SupabaseStore(supabase)).directory(),repository.listTemplates()]);
   const assignments:AssignmentContext={overrides:[],directoryRevision:directory.record?.version??0};
   if(source.installed){const result=await supabase.from('ff_research_assignments').select('payload');if(result.error)researchStorageError(result.error);assignments.overrides=(result.data??[]).map(r=>r.payload as AssignmentOverride);}
   const testOnly=researchTestOnly();

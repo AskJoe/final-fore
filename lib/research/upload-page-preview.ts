@@ -1,8 +1,9 @@
 import {escapeEmailText} from './email-format';
 import type {PreviewInput} from './types';
+import {requestOrigin} from '../request-origin';
 /** Preserve the browser-facing host/port, including a custom local server port. */
 export function previewRequestOrigin(request:Request){
-  const url=new URL(request.url);url.host=request.headers.get('host')??url.host;return url.origin;
+  return requestOrigin(request);
 }
 /** Staff-only preview route. No public token or collection is created by inspection. */
 export function uploadPagePreviewUrl(input:PreviewInput,origin:string){

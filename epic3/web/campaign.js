@@ -395,8 +395,8 @@ $('add-form').addEventListener('submit',event=>{
 window.addEventListener('beforeunload',event=>{cacheCampaignView();if(dirty&&!cacheRecovery()){event.preventDefault();event.returnValue='';}});
 async function initialize(){
  try{
-  const data=await api('/api/campaign/catalog');catalog=data.catalog;blankDraft=data.draft;
-  await campaignList();let remembered='';try{remembered=localStorage.getItem(activeCampaignKey)||'';}catch{}
+  const [data]=await Promise.all([api('/api/campaign/catalog'),campaignList()]);catalog=data.catalog;blankDraft=data.draft;
+  let remembered='';try{remembered=localStorage.getItem(activeCampaignKey)||'';}catch{}
   const requested=new URLSearchParams(location.search).get('id');
   const id=requested||(remembered!=='new'&&[...$('campaign-picker').options].some(o=>o.value===remembered)?remembered:'');
   await openCampaign(id||'');

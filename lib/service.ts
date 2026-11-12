@@ -18,7 +18,7 @@ export class Service {
   }
   async required(id: string) { const row = await this.store.get(id); if (!row) throw new StorageError('The requested record is not available. Confirm the reviewed data import has been completed.'); return row; }
   async get(path: string, query: URLSearchParams): Promise<Data> {
-    if(path==='planning')return planning.combined(await this.store.list('workbook'),(await this.directory()).data);
+    if(path==='planning'){const [workbooks,parties]=await Promise.all([this.store.list('workbook'),this.directory()]);return planning.combined(workbooks,parties.data);}
     if (path === 'directory') { const {record,data}=await this.directory();return {directory:data,revision:record?.version??0,referenceOnly:!record,...directory.catalog()}; }
     if (path === 'campaign/catalog') {
       const {data}=await this.directory(),result=campaigns.catalog();
@@ -91,8 +91,8 @@ export class Service {
     await this.store.save('workbook', 'workbook', w, record.version); return result;
   }
   async report() {
-    const manifest = (await this.required('reporting')).payload;
-    const chunks = await this.store.list('report_chunk');
+    const [record,chunks] = await Promise.all([this.required('reporting'),this.store.list('report_chunk')]);
+    const manifest = record.payload;
     check(chunks.length === manifest.chunkCount, 'Reporting import is incomplete.');
     const records = chunks.flatMap(c => c.payload.records);
     check(records.length === manifest.recordCount, 'Reporting import is incomplete.');

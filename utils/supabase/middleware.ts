@@ -12,9 +12,9 @@ export async function updateSession(request: NextRequest) {
       for (const { name, value, options } of values) response.cookies.set(name, value, options);
     },
   } });
-  // getUser validates with Auth and refreshes expired sessions through the SSR cookie adapter.
-  // Authorization is enforced again by every data route and by RLS.
-  await supabase.auth.getUser();
+  // Verify the signature and refresh expired sessions. Protected routes still use
+  // getUser plus a fresh membership query; no authorization decision is cached here.
+  await supabase.auth.getClaims();
   response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }
