@@ -14,3 +14,10 @@ export type Selection = { repId: string; templateId: string };
 export type Recipient = Selection & { firmId: string; name: string; firmName: string; to: string; cc: string[] };
 export type RenderedEmail = { subject: string; text: string; html: string; renderHash: string; missing: string[] };
 export type PreviewInput = { templateId: string; repId: string; deadline: string };
+export type BatchDelivery = {
+  conversationId: string;
+  recipient: string;
+  cc: string[];
+  state: 'queued' | 'sending' | 'retry' | 'uncertain' | 'sent' | 'delivered' | 'bounced' | 'failed' | 'needs-review';
+  error: string | null;
+};

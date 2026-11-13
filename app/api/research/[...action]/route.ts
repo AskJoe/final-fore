@@ -34,9 +34,10 @@ export async function GET(request:Request,context:Context){
       return json({email:inspectTemplate(template,recipient,input.deadline,uploadPagePreviewUrl(input,previewRequestOrigin(request))),recipient});
     }
     const {user}=await requireMember();
-    if(!['threads','thread','files','files/download'].includes(action))return json({error:'Not found.'},404);
+    if(!['batch-status','threads','thread','files','files/download'].includes(action))return json({error:'Not found.'},404);
     if(!researchWritesEnabled())return json({enabled:false,conversations:[],groups:[],next:null});
     const inbox=new ResearchInbox(researchAdmin(),user.id),params=new URL(request.url).searchParams;
+    if(action==='batch-status')return json({deliveries:await inbox.batchStatus(params.get('id')??'')});
     if(action==='threads')return json({enabled:true,...await inbox.list(params.get('before')??undefined)});
     if(action==='files')return json({enabled:true,...await inbox.incoming(params.get('before')??undefined)});
     if(action==='thread')return json({enabled:true,...await inbox.thread(params.get('id')??'')});

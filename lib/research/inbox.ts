@@ -10,7 +10,7 @@ import { buildRelayPayload, type ReceivedMessage } from './relay';
 import { seal } from './secrets';
 import { RESEARCH_BUCKET, type ResearchFile } from './uploads';
 import type { ResearchManifest } from './requests';
-import type { Recipient } from './types';
+import type { BatchDelivery, Recipient } from './types';
 import { readAll } from './read-all';
 import { researchTestOnly } from './send-policy';
 
@@ -18,6 +18,42 @@ export type ResearchMessage={id:string;author_kind:'rep'|'staff'|'system';sender
 export type DeliverySummary={id:string;message_id:string;leg:string;state:string;error:string|null};
 export class ResearchInbox {
   constructor(private db:SupabaseClient,private memberId:string){}
+  async batchStatus(id: string): Promise<BatchDelivery[]> {
+    if (!/^[a-f0-9-]{36}$/i.test(id)) throw new InputError('Send batch not found.');
+    const request = await this.db.from('ff_research_requests').select('id')
+      .eq('id', id).eq('member_id', this.memberId).maybeSingle();
+    if (request.error) researchStorageError(request.error);
+    if (!request.data) throw new InputError('Send batch not found.');
+
+    const conversations = await this.db.from('ff_research_conversations').select('id,recipient,created_at')
+      .eq('request_id', id).eq('mode', 'live').order('id');
+    if (conversations.error) researchStorageError(conversations.error);
+    if (!conversations.data?.length) return [];
+    const ids = conversations.data.map(row => row.id);
+    const messages = await this.db.from('ff_research_messages').select('id,conversation_id,created_at')
+      .in('conversation_id', ids).eq('author_kind', 'staff').order('created_at').order('id');
+    if (messages.error) researchStorageError(messages.error);
+    // The batch creates the first staff message for each new conversation.
+    const initial = new Map<string, string>();
+    for (const message of messages.data ?? []) {
+      if (!initial.has(message.conversation_id)) initial.set(message.conversation_id, message.id);
+    }
+    const deliveries = await this.db.from('ff_research_deliveries').select('message_id,state,error')
+      .eq('leg', 'vendor').in('message_id', [...initial.values()]);
+    if (deliveries.error) researchStorageError(deliveries.error);
+    const byMessage = new Map(deliveries.data?.map(row => [row.message_id, row]));
+    return conversations.data.map(row => {
+      const contact = row.recipient as Recipient;
+      const delivery = byMessage.get(initial.get(row.id) ?? '');
+      return {
+        conversationId: row.id,
+        recipient: contact.name,
+        cc: contact.cc,
+        state: (delivery?.state ?? 'queued') as BatchDelivery['state'],
+        error: delivery?.error ?? null,
+      };
+    });
+  }
   async list(before?:string,includeTests=false){
     let query=this.db.from('ff_research_conversations').select('*').order('updated_at',{ascending:false}).order('id',{ascending:false}).limit(100);
     if(!includeTests)query=query.eq('mode','live');

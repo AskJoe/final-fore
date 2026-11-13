@@ -15,6 +15,11 @@ body:has(.research-app){margin:0;background:#fff}.research-app *{box-sizing:bord
 .research-select-toolbar>span{align-self:center;white-space:nowrap;font-size:12px}
 .research-select-toolbar>label,.research-preview-toolbar>label{font-size:11px}
 .research-select-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.research-send-feedback:not(:empty){margin:0 0 16px;padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:var(--surface);font-size:13px;overflow-wrap:anywhere}
+.research-send-feedback p{margin:0}
+.research-send-feedback p+p,.research-send-feedback details{margin-top:6px}
+.research-send-feedback summary{cursor:pointer}
+.research-send-feedback ul{margin:8px 0 0;padding-left:20px}
 .research-preview-toolbar{display:flex;align-items:end;gap:16px;margin-bottom:16px}
 .research-preview-toolbar>label{max-width:440px;flex:1;min-width:0}
 .research-preview-toolbar>a{margin-left:auto;font-size:12px;white-space:nowrap}
