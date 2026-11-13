@@ -10,7 +10,11 @@ const key=Buffer.alloc(32,8),now=new Date('2026-11-11T12:00:00Z');
 const config={origin:'https://research.example.test',replyDomain:'reply.example.test',from:'Sarah <research@example.test>',sarahEmail:'sarah@example.test',secretKey:key};
 function version():TemplateVersion {
   const t=sourceTemplates().find(t=>t.id==='radio-single-lincoln')!;
-  return {...t,status:'published',revision:1,version:1,versionId:'version-1',markets:t.markets as {marketId:string;displayName:string}[],defaults:{...t.defaults,radio_trender_books:'Spring 2025–Fall 2026',ranker_books:'Fall 2026',flight_dates:'March–October 2027'}};
+  const body = t.body
+    .replace('Feb ’26 through Sept ‘26', '{{radio_trender_books}}')
+    .replace("Mar ‘26, July '26 AND Sept '26", '{{ranker_books}}')
+    .replace('Feb-May ’27', '{{flight_dates}}');
+  return {...t,body,status:'published',revision:1,version:1,versionId:'version-1',markets:t.markets as {marketId:string;displayName:string}[],defaults:{...t.defaults,radio_trender_books:'',ranker_books:'Fall 2026',flight_dates:'March–October 2027'}};
 }
 class Repo implements RequestRepository {
   previews:PreparedPreview[]=[];queued=0;
@@ -23,6 +27,10 @@ test('prepared preview freezes template markets, email, recipient and portal lin
   const p=await prepareRequest({templateId:v.id,repId:rep.id,deadline:'2026-12-01'},v,directory,2,'member-1',repo,config,now);
   assert.deepEqual(p.manifest.markets,[{marketId:'epic3-lincoln',displayName:'Lincoln, NE'}]);
   assert.match(p.email.text,/Lincoln, NE/);assert.ok(p.email.text.includes('/research-upload/'));
+  assert.match(p.email.text,/Feb ’26 through Sept ‘26/);
+  assert.match(p.email.text,/Using Books: Fall 2026 only/);
+  assert.match(p.email.text,/Flight Dates - March–October 2027/);
+  assert.match(p.email.text,/2026-12-01/);
   assert.equal(p.email.missing.length,0);assert.notEqual(p.externalReplyHash,p.staffReplyHash);
   assert.equal(repo.previews.length,1);v.markets[0].displayName='Changed';assert.equal(repo.previews[0].manifest.markets[0].displayName,'Lincoln, NE');
   const secrets=unseal<{portalToken:string;externalToken:string;staffToken:string}>(p.secrets,config.secretKey);

@@ -12,7 +12,7 @@ async function main(){
     await page.route('**/*',route=>{external.push(route.request().url());return route.abort();});
     for(const t of sourceTemplates()){
       const rep:Recipient={repId:'review',templateId:t.id,firmId:'review',firmName:'Example firm',name:'Example Rep',to:'rep@example.test',cc:[]};
-      const email=renderEmail(t,rep,{deadline:'2026-11-13',flight_dates:'Feb-May ’27',radio_trender_books:'Feb ’26 through Sept ‘26',ranker_books:"Mar ‘26, July '26 AND Sept '26",tv_books:'Mar ’26, Jul ‘26 & Sept ‘26',avail_book:'Mar ‘26'},'https://example.test/upload');
+      const email=renderEmail(t,rep,{deadline:'2026-11-13'},'https://example.test/upload');
       await page.setViewportSize({width:950,height:1000});await page.setContent('<html><head><meta charset="utf-8"></head><body style="padding:28px;margin:0">'+email.html+'</body></html>');
       await expect(page.locator('ol > li')).toHaveCount(6);
       for(const el of await page.locator('ul').all())assert.equal(await el.evaluate(n=>getComputedStyle(n).listStyleType),'circle');

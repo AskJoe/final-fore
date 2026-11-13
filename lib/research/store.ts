@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { Conflict } from '../domain/types';
 import { StorageError } from '../store';
 import { sourceTemplates } from './templates';
+import { inlineTemplateSchedule } from './template-schedule';
 import type { ResearchRepository } from './service';
 import type { TemplateDraft, TemplateVersion } from './types';
 
@@ -17,7 +18,7 @@ export class SupabaseResearchStore implements ResearchRepository {
       if(['42P01','PGRST205'].includes(error.code))return {templates:sourceTemplates(),installed:false};
       fail(error);
     }
-    const stored=(data??[]).map(r=>r.payload as TemplateDraft),ids=new Set(stored.map(t=>t.id));
+    const stored=(data??[]).map(r=>inlineTemplateSchedule(r.payload as TemplateDraft)),ids=new Set(stored.map(t=>t.id));
     return {templates:[...stored,...sourceTemplates().filter(t=>!ids.has(t.id))],installed:true};
   }
   async saveTemplate(template:TemplateDraft,expectedRevision:number,directoryRevision:number){

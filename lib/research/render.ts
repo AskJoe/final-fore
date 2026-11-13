@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { formatEmailBody } from './email-format';
+import { inlineTemplateSchedule } from './template-schedule';
 import { InputError } from '../domain/types';
 import type { PreviewInput, Recipient, RenderedEmail, TemplateDraft } from './types';
 
@@ -16,7 +17,8 @@ function parseInput(raw:unknown,allowEmptyDeadline=false): PreviewInput {
 export function parsePreviewInput(raw:unknown){return parseInput(raw);}
 export function parseTemplatePreviewInput(raw:unknown){return parseInput(raw,true);}
 
-export function renderEmail(template:TemplateDraft, recipient:Recipient, mergeValues:Record<string,string>, portalUrl:string): RenderedEmail {
+export function renderEmail(draft:TemplateDraft, recipient:Recipient, mergeValues:Record<string,string>, portalUrl:string): RenderedEmail {
+  const template = inlineTemplateSchedule(draft);
   let url:URL;
   try {url=new URL(portalUrl);} catch {throw new InputError('Use a valid upload URL.');}
   if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname))) throw new InputError('Use a secure upload URL.');

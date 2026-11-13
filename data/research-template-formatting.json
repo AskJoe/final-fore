@@ -110,13 +110,13 @@
           }
         },
         {
-          "text": "Using Every book {{radio_trender_books}} (or through your latest book) - Do NOT pull as multi-book average; must list each book in individual columns on 1 sheet (not in separate sheets).",
+          "text": "Using Every book Feb ’26 through Sept ‘26 (or through your latest book) - Do NOT pull as multi-book average; must list each book in individual columns on 1 sheet (not in separate sheets).",
           "runs": [
             {
               "text": "Using "
             },
             {
-              "text": "Every book {{radio_trender_books}}",
+              "text": "Every book Feb ’26 through Sept ‘26",
               "color": "#cb10be"
             },
             {
@@ -291,13 +291,13 @@
           }
         },
         {
-          "text": "Using Books: {{ranker_books}} only - Do NOT pull as multi-book average; must list each book separately, all listed together on 1 sheet (not in separate sheets).",
+          "text": "Using Books: Mar ‘26, July '26 AND Sept '26 only - Do NOT pull as multi-book average; must list each book separately, all listed together on 1 sheet (not in separate sheets).",
           "runs": [
             {
               "text": "Using Books: "
             },
             {
-              "text": "{{ranker_books}} only",
+              "text": "Mar ‘26, July '26 AND Sept '26 only",
               "color": "#db268a"
             },
             {
@@ -467,14 +467,14 @@
           }
         },
         {
-          "text": "Flight Dates - {{flight_dates}}.",
+          "text": "Flight Dates - Feb-May ’27.",
           "runs": [
             {
               "text": "Flight Dates - ",
               "color": "#333333"
             },
             {
-              "text": "{{flight_dates}}.",
+              "text": "Feb-May ’27.",
               "color": "#d8a62a"
             }
           ],
@@ -724,13 +724,13 @@
           }
         },
         {
-          "text": "Using Every book {{radio_trender_books}} (or through your latest book) - Do NOT pull as multi-book average; must list each book in individual columns on 1 sheet (not in separate sheets).",
+          "text": "Using Every book Feb ’26 through Sept ‘26 (or through your latest book) - Do NOT pull as multi-book average; must list each book in individual columns on 1 sheet (not in separate sheets).",
           "runs": [
             {
               "text": "Using "
             },
             {
-              "text": "Every book {{radio_trender_books}}",
+              "text": "Every book Feb ’26 through Sept ‘26",
               "color": "#cb10be"
             },
             {
@@ -905,13 +905,13 @@
           }
         },
         {
-          "text": "Using Books: {{ranker_books}} only - Do NOT pull as multi-book average; must list each book separately, all listed together on 1 sheet (not in separate sheets).",
+          "text": "Using Books: Mar ‘26, July '26 AND Sept '26 only - Do NOT pull as multi-book average; must list each book separately, all listed together on 1 sheet (not in separate sheets).",
           "runs": [
             {
               "text": "Using Books: "
             },
             {
-              "text": "{{ranker_books}} only",
+              "text": "Mar ‘26, July '26 AND Sept '26 only",
               "color": "#db268a"
             },
             {
@@ -1081,14 +1081,14 @@
           }
         },
         {
-          "text": "Flight Dates - {{flight_dates}}.",
+          "text": "Flight Dates - Feb-May ’27.",
           "runs": [
             {
               "text": "Flight Dates - ",
               "color": "#333333"
             },
             {
-              "text": "{{flight_dates}}.",
+              "text": "Feb-May ’27.",
               "color": "#d8a62a"
             }
           ],
@@ -1347,13 +1347,13 @@
           "marker": {}
         },
         {
-          "text": "Use {{tv_books}} - do NOT pull as 3 book average, must list each book individually!",
+          "text": "Use Mar ’26, Jul ‘26 & Sept ‘26 - do NOT pull as 3 book average, must list each book individually!",
           "runs": [
             {
               "text": "Use "
             },
             {
-              "text": "{{tv_books}} - do NOT pull as 3 book average",
+              "text": "Mar ’26, Jul ‘26 & Sept ‘26 - do NOT pull as 3 book average",
               "color": "#cb10be"
             },
             {
@@ -1423,13 +1423,13 @@
           "marker": {}
         },
         {
-          "text": "Use {{avail_book}} book (A35-64, 000’s & CPMs). Do NOT send as Ratings & CPPs.",
+          "text": "Use Mar ‘26 book (A35-64, 000’s & CPMs). Do NOT send as Ratings & CPPs.",
           "runs": [
             {
               "text": "Use "
             },
             {
-              "text": "{{avail_book}} book (A35-64, 000’s & CPMs)",
+              "text": "Mar ‘26 book (A35-64, 000’s & CPMs)",
               "color": "#db268a"
             },
             {
@@ -1471,10 +1471,10 @@
           "marker": {}
         },
         {
-          "text": "{{flight_dates}} Flight.",
+          "text": "Feb-May ’27 Flight.",
           "runs": [
             {
-              "text": "{{flight_dates}} Flight.",
+              "text": "Feb-May ’27 Flight.",
               "color": "#db268a"
             }
           ],
@@ -1722,13 +1722,13 @@
           "marker": {}
         },
         {
-          "text": "Use {{tv_books}} - do NOT pull as 3 book average, must list each book individually!",
+          "text": "Use Mar ’26, Jul ‘26 & Sept ‘26 - do NOT pull as 3 book average, must list each book individually!",
           "runs": [
             {
               "text": "Use "
             },
             {
-              "text": "{{tv_books}} - do NOT pull as 3 book average",
+              "text": "Mar ’26, Jul ‘26 & Sept ‘26 - do NOT pull as 3 book average",
               "color": "#cb10be"
             },
             {
@@ -1798,13 +1798,13 @@
           "marker": {}
         },
         {
-          "text": "Use {{avail_book}} book (A35-64, 000’s & CPMs). Do NOT send as Ratings & CPPs.",
+          "text": "Use Mar ‘26 book (A35-64, 000’s & CPMs). Do NOT send as Ratings & CPPs.",
           "runs": [
             {
               "text": "Use "
             },
             {
-              "text": "{{avail_book}} book (A35-64, 000’s & CPMs)",
+              "text": "Mar ‘26 book (A35-64, 000’s & CPMs)",
               "color": "#db268a"
             },
             {
@@ -1846,10 +1846,10 @@
           "marker": {}
         },
         {
-          "text": "{{flight_dates}} Flight.",
+          "text": "Feb-May ’27 Flight.",
           "runs": [
             {
-              "text": "{{flight_dates}} Flight.",
+              "text": "Feb-May ’27 Flight.",
               "color": "#db268a"
             }
           ],
@@ -2100,13 +2100,13 @@
           }
         },
         {
-          "text": "Using Every book {{radio_trender_books}} (or through your latest book) - Do NOT pull as multi-book average; must list each book in individual columns on 1 sheet (not in separate sheets).",
+          "text": "Using Every book Feb ’26 through Sept ‘26 (or through your latest book) - Do NOT pull as multi-book average; must list each book in individual columns on 1 sheet (not in separate sheets).",
           "runs": [
             {
               "text": "Using "
             },
             {
-              "text": "Every book {{radio_trender_books}}",
+              "text": "Every book Feb ’26 through Sept ‘26",
               "color": "#cb10be"
             },
             {
@@ -2281,13 +2281,13 @@
           }
         },
         {
-          "text": "Using Books: {{ranker_books}} only - Do NOT pull as multi-book average; must list each book separately, all listed together on 1 sheet (not in separate sheets).",
+          "text": "Using Books: Mar ‘26, July '26 AND Sept '26 only - Do NOT pull as multi-book average; must list each book separately, all listed together on 1 sheet (not in separate sheets).",
           "runs": [
             {
               "text": "Using Books: "
             },
             {
-              "text": "{{ranker_books}} only",
+              "text": "Mar ‘26, July '26 AND Sept '26 only",
               "color": "#db268a"
             },
             {
@@ -2457,14 +2457,14 @@
           }
         },
         {
-          "text": "Flight Dates - {{flight_dates}}.",
+          "text": "Flight Dates - Feb-May ’27.",
           "runs": [
             {
               "text": "Flight Dates - ",
               "color": "#333333"
             },
             {
-              "text": "{{flight_dates}}.",
+              "text": "Feb-May ’27.",
               "color": "#d8a62a"
             }
           ],

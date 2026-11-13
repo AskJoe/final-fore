@@ -1,6 +1,7 @@
 import { Conflict, InputError, type Data } from '../domain/types';
 import type { Directory } from '../domain/directory';
 import { validateTemplate } from './templates';
+import { inlineTemplateSchedule } from './template-schedule';
 import type { TemplateDraft, TemplateVersion } from './types';
 import { randomUUID } from 'node:crypto';
 
@@ -22,7 +23,7 @@ export class ResearchService {
     for(const [key,max] of [['name',200],['subject',1000],['body',100000]] as const)if(typeof input[key]!=='string'||!input[key].trim()||input[key].length>max)throw new InputError(`Enter a valid ${key}.`);
     if(!Array.isArray(input.markets)||input.markets.length>200||input.markets.some(m=>!m||typeof m.displayName!=='string'||m.displayName.length>200||m.marketId!==null&&typeof m.marketId!=='string'))throw new InputError('Choose valid markets on the template.');
     if(!input.defaults||typeof input.defaults!=='object'||Array.isArray(input.defaults)||Object.entries(input.defaults).some(([k,v])=>!Object.hasOwn(current.defaults,k)||typeof v!=='string'||v.length>1000))throw new InputError('Invalid template merge field.');
-    const clean:TemplateDraft={...current,name:input.name.trim(),subject:input.subject,body:input.body,markets:structuredClone(input.markets),defaults:{...current.defaults,...input.defaults},status:'draft'};
+    const clean=inlineTemplateSchedule({...current,name:input.name.trim(),subject:input.subject,body:input.body,markets:structuredClone(input.markets),defaults:{...current.defaults,...input.defaults},status:'draft'});
     const issues=validateTemplate(clean,this.directory,this.catalog).filter(i=>i.code!=='market-link');
     const seenNames=new Set<string>();
     for(const m of clean.markets){if(seenNames.has(m.displayName))throw new InputError('Choose each market only once.');seenNames.add(m.displayName);}

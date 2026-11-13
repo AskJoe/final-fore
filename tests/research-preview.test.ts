@@ -5,7 +5,7 @@ import { renderEmail, parsePreviewInput } from '../lib/research/render';
 import type { Recipient } from '../lib/research/types';
 
 const recipient:Recipient={repId:'rep-test',firmId:'firm-test',templateId:'tv-multi',name:'John Wahlert',firmName:'Katz TV',to:'john@example.test',cc:[]};
-const values={deadline:'2026-12-01',flight_dates:'March–October 2027',radio_trender_books:'Spring 2025–Fall 2026',ranker_books:'Fall 2026',tv_books:'July 2026',avail_book:'July 2026'};
+const values={deadline:'2026-12-01'};
 test('preview includes the complete template-owned market list and content',()=>{
   for(const t of sourceTemplates()) {
     const r=renderEmail(t,recipient,values,'https://research.example.test/upload/opaque');
@@ -24,8 +24,9 @@ test('preview rejects request-level markets and malformed input rather than igno
   assert.throws(()=>parsePreviewInput({...input,repId:42}),/rep/i);
 });
 test('missing campaign fields remain visible, and render hashes change with the reviewed content',()=>{
-  const t=sourceTemplates()[0],a=renderEmail(t,recipient,{deadline:'2026-12-01'},'https://example.test/upload');
-  assert.ok(a.missing.includes('flight_dates'));assert.match(a.text,/\{\{flight_dates\}\}/);
+  const t=sourceTemplates()[0],a=renderEmail(t,recipient,{deadline:''},'https://example.test/upload');
+  assert.deepEqual(a.missing,['deadline']);assert.match(a.text,/\{\{deadline\}\}/);
+  assert.match(a.text,/Flight Dates - Feb-May ’27\./);
   const b=renderEmail({...t,markets:t.markets.slice(0,2)},recipient,values,'https://example.test/upload');
   assert.notEqual(a.renderHash,b.renderHash);
   const c=renderEmail(t,recipient,values,'https://example.test/upload');

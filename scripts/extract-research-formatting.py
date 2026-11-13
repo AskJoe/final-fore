@@ -42,7 +42,7 @@ def runs(cs):
 
 ranges={'radio-multi':(23,86,26,54),'radio-single-lincoln':(100,133,None,None),'tv-multi':(147,208,150,181),'tv-single-madison':(221,249,None,None)}
 single_market_sources={'research-6827b00b-bbbf-4b5e-904b-73e03ec0e427':'radio-single-lincoln'}
-replacements=[('Weed Man Lawn Care 2027','{{client}} {{campaign_year}}'),('EOD this Tues, Nov 17th..','{{deadline}}.'),('EOD this Tues, Nov 17th','{{deadline}}'),('Feb ’26 through Sept ‘26','{{radio_trender_books}}'),("Mar ‘26, July '26 AND Sept '26",'{{ranker_books}}'),('Mar ’26, Jul ‘26 & Sept ‘26','{{tv_books}}'),('Mar ‘26','{{avail_book}}'),('Feb-May ’27','{{flight_dates}}'),('your Lincoln station','your stations in {{markets_inline}}'),('your Madison station','your stations in {{markets_inline}}')]
+replacements=[('Weed Man Lawn Care 2027','{{client}} {{campaign_year}}'),('EOD this Tues, Nov 17th..','{{deadline}}.'),('EOD this Tues, Nov 17th','{{deadline}}'),('your Lincoln station','your stations in {{markets_inline}}'),('your Madison station','your stations in {{markets_inline}}')]
 portal_intro='Please upload the requested research for each market here: {{upload_url}}'
 portal_details='. You can upload multiple files per market and return to the same link to add more.'
 formats={}

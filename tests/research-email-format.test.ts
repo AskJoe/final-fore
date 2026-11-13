@@ -6,7 +6,7 @@ import {inspectTemplate} from '../lib/research/template-inspection';
 import type {Recipient} from '../lib/research/types';
 import formatSource from '../data/research-template-formatting.json';
 const recipient:Recipient={repId:'rep-test',firmId:'firm-test',templateId:'tv-multi',name:'John Wahlert',firmName:'Katz TV',to:'john@example.test',cc:[]};
-const values={deadline:'2026-12-01',flight_dates:'February–May 2027',radio_trender_books:'February–September 2026',ranker_books:'March, July and September 2026',tv_books:'March, July and September 2026',avail_book:'March 2026'};
+const values={deadline:'2026-12-01'};
 test('all source templates retain six numbered sections, circle sub-bullets and source emphasis',()=>{
   for(const t of sourceTemplates()){
     const email=renderEmail(t,recipient,values,'https://example.test/upload');
@@ -40,8 +40,8 @@ test('format metadata is a complete content-preserving transcription of each tem
 });
 test('missing values remain marked inside formatted HTML, and merge text cannot inject HTML',()=>{
   const t=sourceTemplates()[0];
-  const inspected=inspectTemplate(t,recipient,'','https://app.example.test/research-upload/preview');assert.match(inspected.html,/<ol /);assert.match(inspected.html,/<mark class="research-missing-value">Flight dates needed<\/mark>/);
-  const email=renderEmail(t,recipient,{...values,radio_trender_books:'<img src=x onerror=alert(1)>'},'https://example.test/upload');
+  const inspected=inspectTemplate(t,recipient,'','https://app.example.test/research-upload/preview');assert.match(inspected.html,/<ol /);assert.match(inspected.html,/<mark class="research-missing-value">Due date needed<\/mark>/);
+  const email=renderEmail(t,recipient,{...values,client:'<img src=x onerror=alert(1)>'},'https://example.test/upload');
   assert.match(email.html,/&lt;img/);assert.doesNotMatch(email.html,/<img/);
 });
 test('changed paragraph content is retained and format affects the reviewed render hash',()=>{
