@@ -7,7 +7,7 @@ import type {Recipient} from '../lib/research/types';
 import formatSource from '../data/research-template-formatting.json';
 const recipient:Recipient={repId:'rep-test',firmId:'firm-test',templateId:'tv-multi',name:'John Wahlert',firmName:'Katz TV',to:'john@example.test',cc:[]};
 const values={deadline:'2026-12-01',flight_dates:'February–May 2027',radio_trender_books:'February–September 2026',ranker_books:'March, July and September 2026',tv_books:'March, July and September 2026',avail_book:'March 2026'};
-test('all four source templates retain six numbered sections, circle sub-bullets and source emphasis',()=>{
+test('all source templates retain six numbered sections, circle sub-bullets and source emphasis',()=>{
   for(const t of sourceTemplates()){
     const email=renderEmail(t,recipient,values,'https://example.test/upload');
     assert.equal((email.html.match(/<ol /g)??[]).length,1,t.id);
@@ -20,7 +20,11 @@ test('all four source templates retain six numbered sections, circle sub-bullets
     assert.match(email.html,/<em>If you only subscribe to Nielsen/);
     assert.match(email.html,/<strong>Station Coverage Maps<\/strong>/);
     for(const color of ['#cb10be','#db268a','#d8a62a'])assert.ok(email.html.includes(color),t.id+' '+color);
-    assert.match(email.html,/<u>if your station&#39;s CPMs/);
+    assert.match(email.html,/<u><strong>IF YOUR STATION&#39;S CPMS COME IN HIGH COMPARED TO THE OTHER STATIONS IN THE MARKET OR YOUR CPMS ARE HIGHER THAN WHAT WE PAID LAST YEAR, THEN ODDS ARE YOUR STATION WILL BE PASSED OVER\.?<\/strong><\/u>/);
+    const ratingsFallback='If you don’t subscribe to ratings, please send any recent research you have that closely meets our criteria.';
+    assert.equal(email.text.includes(ratingsFallback),t.scope==='single',t.id);
+    assert.equal(email.html.includes(ratingsFallback),t.scope==='single',t.id);
+    assert.equal((email.html.match(/href="https:\/\/example\.test\/upload"/g)??[]).length,1,t.id);
     assert.doesNotMatch(email.html,/background[^;]*red|google drive|PURPOSE:|SOP -/i);
     assert.doesNotMatch(email.html,/\{\{/);
     assert.equal(email.missing.length,0);

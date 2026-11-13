@@ -102,6 +102,18 @@
     "sourceInactive": false
   },
   {
+    "repId": "77f5359a-b440-41b2-9736-57c08d0de5f8",
+    "firmId": "firm-6a7697a52cb17522",
+    "email": "LPearlman@nexstar.tv",
+    "scope": "multi",
+    "status": "confirmed",
+    "marketIds": [],
+    "cc": [],
+    "reason": "User confirmed multi-market assignment for the remaining broadcast reps.",
+    "sourceHash": "cb6734fa278b66bcc3047e99784f75487ae3e28cf39c64250492e7adb4e46c6f",
+    "sourceInactive": false
+  },
+  {
     "repId": "rep-6ed2939cc1016b3b",
     "firmId": "firm-ed76e0b5a0c50644",
     "email": "Michael.Crnkovich@scripps.com",
@@ -285,11 +297,11 @@
     "repId": "rep-29d807276931333e",
     "firmId": "firm-27a823bd2a6e7fee",
     "email": "Lisa.Matukaitis@disney.com",
-    "scope": null,
-    "status": "needs-confirmation",
+    "scope": "multi",
+    "status": "confirmed",
     "marketIds": [],
     "cc": [],
-    "reason": "Only Chicago is linked to Lisa; the other Disney markets name a different rep. Confirm whether her request covers Chicago only or multiple markets.",
+    "reason": "User confirmed multi-market assignment for the remaining broadcast reps.",
     "sourceHash": "0103c57802674ced0eab9cd64adf88c60b72bac19da48015ea9cfd888efe9839",
     "sourceInactive": false
   },
@@ -313,8 +325,8 @@
     "status": "confirmed",
     "marketIds": [],
     "cc": [],
-    "reason": "Joe replaces Mike McCarthy, whose CBS assignments span 4 markets.",
-    "sourceHash": "0103c57802674ced0eab9cd64adf88c60b72bac19da48015ea9cfd888efe9839",
+    "reason": "CBS Corp corporate TV contact. The planner lists Joe as Mike McCarthy\u2019s replacement.",
+    "sourceHash": "cb6734fa278b66bcc3047e99784f75487ae3e28cf39c64250492e7adb4e46c6f",
     "sourceInactive": false
   },
   {
@@ -328,6 +340,20 @@
     "reason": "Crossed out \u2014 review",
     "sourceHash": "0103c57802674ced0eab9cd64adf88c60b72bac19da48015ea9cfd888efe9839",
     "sourceInactive": true
+  },
+  {
+    "repId": "288fa3a0-7330-4b77-b643-3f969f71e43f",
+    "firmId": "firm-630c94a22e93fce1",
+    "email": "tmccaffrey@wisctv.com",
+    "scope": "single",
+    "status": "confirmed",
+    "marketIds": [
+      "epic3-madison"
+    ],
+    "cc": [],
+    "reason": "The planner lists WISC CBS-TV in Madison under self-repped television.",
+    "sourceHash": "cb6734fa278b66bcc3047e99784f75487ae3e28cf39c64250492e7adb4e46c6f",
+    "sourceInactive": false
   },
   {
     "repId": "rep-dd92e4a8db9bde84",
@@ -349,33 +375,33 @@
     "status": "confirmed",
     "marketIds": [],
     "cc": [
-      "ErinWestover@iheartmedia.com"
+      "ShawnMcNiff@iheartmedia.com"
     ],
     "reason": "This contact is named against stations in multiple markets.",
-    "sourceHash": "0103c57802674ced0eab9cd64adf88c60b72bac19da48015ea9cfd888efe9839",
+    "sourceHash": "cb6734fa278b66bcc3047e99784f75487ae3e28cf39c64250492e7adb4e46c6f",
     "sourceInactive": false
   },
   {
     "repId": "rep-7c335ce0b461a09f",
     "firmId": "firm-2379e8be408a870c",
-    "email": "ErinWestover@iheartmedia.com",
+    "email": "ShawnMcNiff@iheartmedia.com",
     "scope": null,
     "status": "excluded",
     "marketIds": [],
     "cc": [],
-    "reason": "Copy only",
-    "sourceHash": "0103c57802674ced0eab9cd64adf88c60b72bac19da48015ea9cfd888efe9839",
+    "reason": "Copy only. The current radio planner lists Shawn as Allie\u2019s assistant.",
+    "sourceHash": "cb6734fa278b66bcc3047e99784f75487ae3e28cf39c64250492e7adb4e46c6f",
     "sourceInactive": false
   },
   {
     "repId": "rep-2854a17ef5ae7678",
     "firmId": "firm-a9d62cab852f547f",
     "email": "tracey.duvall@genmediapartners.com",
-    "scope": null,
-    "status": "needs-confirmation",
+    "scope": "multi",
+    "status": "confirmed",
     "marketIds": [],
     "cc": [],
-    "reason": "Four rep groups are listed for Tracey, but no markets are linked to her. Confirm whether this request covers one market or several.",
+    "reason": "User confirmed multi-market assignment for the remaining broadcast reps.",
     "sourceHash": "0103c57802674ced0eab9cd64adf88c60b72bac19da48015ea9cfd888efe9839",
     "sourceInactive": false
   },
@@ -383,12 +409,14 @@
     "repId": "rep-dd2075ccd9101778",
     "firmId": "firm-09d305f19e71df16",
     "email": "mhesse@bigradio.fm",
-    "scope": null,
-    "status": "needs-confirmation",
-    "marketIds": [],
+    "scope": "single",
+    "status": "confirmed",
+    "marketIds": [
+      "epic3-madison"
+    ],
     "cc": [],
-    "reason": "\u201cJanesville/Madison\u201d could mean one combined request market or two markets. Confirm how this request should be grouped.",
-    "sourceHash": "0103c57802674ced0eab9cd64adf88c60b72bac19da48015ea9cfd888efe9839",
+    "reason": "The planner lists Big Radio in Janesville/Madison under self-repped radio.",
+    "sourceHash": "cb6734fa278b66bcc3047e99784f75487ae3e28cf39c64250492e7adb4e46c6f",
     "sourceInactive": false
   },
   {
@@ -401,8 +429,8 @@
       "epic3-lincoln"
     ],
     "cc": [],
-    "reason": "Lincoln is the only market listed for this contact.",
-    "sourceHash": "0103c57802674ced0eab9cd64adf88c60b72bac19da48015ea9cfd888efe9839",
+    "reason": "The planner lists BDP Communications in Lincoln under self-repped radio.",
+    "sourceHash": "cb6734fa278b66bcc3047e99784f75487ae3e28cf39c64250492e7adb4e46c6f",
     "sourceInactive": false
   },
   {

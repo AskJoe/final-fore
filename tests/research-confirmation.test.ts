@@ -7,7 +7,10 @@ import { ResearchService } from '../lib/research/service';
 import { MARKETS } from '../lib/domain/catalogs';
 
 test('manual confirmation applies only to the reviewed rep, template coverage and directory revision',()=>{
-  const directory=initial(),templates=sourceTemplates(),rep=directory.reps.find(r=>r.name==='Lisa Matukaitis')!,template=templates.find(t=>t.id==='tv-multi')!;
+  const directory=initial(),templates=sourceTemplates(),template=templates.find(t=>t.id==='tv-multi')!;
+  const tvRep=directory.reps.find(r=>r.name==='Lisa Matukaitis')!;
+  const rep={...tvRep,id:'new-tv-rep',name:'New TV rep',email:'new-tv-rep@example.test'};
+  directory.reps.push(rep);
   assert.ok(rep);assert.equal(eligibleTemplates(rep,directory,[template])[0].confirmed,false);
   const assignment=makeAssignment(rep,template,7,true,[]);
   const context={overrides:[assignment],directoryRevision:7};

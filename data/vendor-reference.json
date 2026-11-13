@@ -1325,6 +1325,25 @@
       ]
     },
     {
+      "id": "77f5359a-b440-41b2-9736-57c08d0de5f8",
+      "firmId": "firm-6a7697a52cb17522",
+      "name": "Lori Pearlman",
+      "email": "LPearlman@nexstar.tv",
+      "phone": "",
+      "active": true,
+      "notes": "Nexstar TV contact. The planner does not list her markets.",
+      "source": "Overview - Contacts!B17:I17",
+      "coverage": [
+        {
+          "mediaType": "broadcast-tv",
+          "channelId": "",
+          "stationId": "",
+          "market": "",
+          "notes": "Market coverage is not listed in the current planner."
+        }
+      ]
+    },
+    {
       "id": "rep-6ed2939cc1016b3b",
       "firmId": "firm-ed76e0b5a0c50644",
       "name": "Mike CrnKovich",
@@ -1675,8 +1694,8 @@
       "email": "jgpalladino@cbs.com",
       "phone": "",
       "active": true,
-      "notes": "Row 42: ",
-      "source": "Overview - Contacts!B42:I42",
+      "notes": "CBS Corp corporate TV contact. Replaced Mike McCarthy.",
+      "source": "Overview - Contacts!B43:I43",
       "coverage": [
         {
           "mediaType": "broadcast-tv",
@@ -1693,7 +1712,7 @@
       "name": "Emily Michell",
       "email": "emichell@wisctv.com",
       "phone": "",
-      "active": true,
+      "active": false,
       "notes": "Row 43: WISC CBS-TV in Madison, WI",
       "source": "Overview - Contacts!B43:I43",
       "coverage": [
@@ -1703,6 +1722,25 @@
           "stationId": "",
           "market": "",
           "notes": "Workbook reference; territory not inferred from contact notes."
+        }
+      ]
+    },
+    {
+      "id": "288fa3a0-7330-4b77-b643-3f969f71e43f",
+      "firmId": "firm-630c94a22e93fce1",
+      "name": "Tim McCaffrey",
+      "email": "tmccaffrey@wisctv.com",
+      "phone": "",
+      "active": true,
+      "notes": "Current WISC CBS-TV contact in Madison. Replaced Emily Michell.",
+      "source": "Overview - Contacts!B44:I44",
+      "coverage": [
+        {
+          "mediaType": "broadcast-tv",
+          "channelId": "",
+          "stationId": "",
+          "market": "Madison, WI",
+          "notes": "Market listed in the current planner."
         }
       ]
     },
@@ -1732,8 +1770,8 @@
       "email": "AlexandraZimmermann@iheartmedia.com",
       "phone": "",
       "active": true,
-      "notes": "Row 60: iHeartMedia\nRow 81: iHM - Display Ads, OTT & Preroll Blend, OTT Flex, Preroll, Podcasts, Streaming Radio/Audio · Email both Allie & Erin on all. Allie is the rep, Erin is her assistant",
-      "source": "Overview - Contacts!B60:I60; Overview - Contacts!B81:I81",
+      "notes": "Row 60: iHeartMedia\nRow 81: iHM - Display Ads, OTT & Preroll Blend, OTT Flex, Preroll, Podcasts, Streaming Radio/Audio · Allie is the primary rep. Shawn McNiff is her assistant.",
+      "source": "Overview - Contacts!B61:I61; Overview - Contacts!B82:I82",
       "coverage": [
         {
           "mediaType": "broadcast-radio",
@@ -1754,12 +1792,12 @@
     {
       "id": "rep-7c335ce0b461a09f",
       "firmId": "firm-2379e8be408a870c",
-      "name": "Erin Westover",
-      "email": "ErinWestover@iheartmedia.com",
+      "name": "Shawn McNiff",
+      "email": "ShawnMcNiff@iheartmedia.com",
       "phone": "",
       "active": true,
-      "notes": "Row 61: \nRow 82: Amazon - Display, Preroll, OTT",
-      "source": "Overview - Contacts!B61:I61; Overview - Contacts!B82:I82",
+      "notes": "iHeartMedia. Shawn McNiff is Allie Zimmermann’s assistant.",
+      "source": "Overview - Contacts!B62:I62; user-confirmed iHeartMedia replacement",
       "coverage": [
         {
           "mediaType": "broadcast-radio",
@@ -1803,15 +1841,15 @@
       "email": "mhesse@bigradio.fm",
       "phone": "",
       "active": true,
-      "notes": "Row 74: Big Radio in Janesville/Madison, WI",
-      "source": "Overview - Contacts!B74:I74",
+      "notes": "Big Radio in Janesville/Madison, WI",
+      "source": "Overview - Contacts!B75:I75",
       "coverage": [
         {
           "mediaType": "broadcast-radio",
           "channelId": "",
           "stationId": "",
-          "market": "",
-          "notes": "Workbook reference; territory not inferred from contact notes."
+          "market": "Janesville/Madison, WI",
+          "notes": "Market listed in the current planner."
         }
       ]
     },
@@ -1822,15 +1860,15 @@
       "email": "jsorensen@theticketfm.com",
       "phone": "",
       "active": true,
-      "notes": "Row 75: BDP Communications in Lincoln, NE",
-      "source": "Overview - Contacts!B75:I75",
+      "notes": "BDP Communications in Lincoln, NE",
+      "source": "Overview - Contacts!B76:I76",
       "coverage": [
         {
           "mediaType": "broadcast-radio",
           "channelId": "",
           "stationId": "",
-          "market": "",
-          "notes": "Workbook reference; territory not inferred from contact notes."
+          "market": "Lincoln, NE",
+          "notes": "Market listed in the current planner."
         }
       ]
     },

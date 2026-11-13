@@ -76,6 +76,8 @@ export async function POST(request:Request,context:Context){
       if(Object.keys(body).some(k=>!['repId','templateId','confirmed','revision'].includes(k)))throw new InputError('Unknown confirmation field.');
       const rep=directory.data.reps.find(r=>r.id===body.repId&&isResearchContact(r)),template=workspace.templates.find(t=>t.id===body.templateId);
       if(!rep||!template||!Number.isSafeInteger(body.revision)||body.revision<0)throw new InputError('Choose a rep and saved template.');
+      const choices=workspace.reps.find(r=>r.id===rep.id)?.choices;
+      if(!choices?.some(choice=>choice.templateId===template.id))throw new InputError('Choose a template that matches this rep’s coverage.');
       if(template.revision===0)throw new InputError('Save this template before confirming coverage.');
       const existing=assignments.overrides.find(a=>a.repId===rep.id&&a.templateId===template.id);
       const assignment=makeAssignment(rep,template,assignments.directoryRevision,body.confirmed,existing?.cc??sourceCc(rep));

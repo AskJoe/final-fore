@@ -4,7 +4,7 @@ import { SupabaseStore } from '../store';
 import { MARKETS } from '../domain/catalogs';
 import { SupabaseResearchStore } from './store';
 import { marketChoices, validateTemplate } from './templates';
-import { eligibleTemplates, isResearchContact, type AssignmentContext, type AssignmentOverride } from './assignments';
+import { eligibleTemplates, isResearchRecipient, type AssignmentContext, type AssignmentOverride } from './assignments';
 import { researchStorageError } from './queue-store';
 import { researchSendEnabled, researchConfig } from './config';
 import { researchTestOnly,testEmailIdentity } from './send-policy';
@@ -30,7 +30,7 @@ export async function loadResearchWorkspace(){
     previewRecipients:[...new Set([user.email,process.env.FINAL_FORE_RESEARCH_SARAH_EMAIL??'sarah@finalforemedia.com'].filter((e):e is string=>!!e))],
     issues:Object.fromEntries(source.templates.map(t=>[t.id,validateTemplate(t,directory.data,MARKETS)])),
     markets:marketChoices,
-    reps:directory.data.reps.filter(isResearchContact).map(r=>({id:r.id,name:r.name,email:r.email,firmId:r.firmId,firmName:directory.data.firms.find(f=>f.id===r.firmId)?.name??'',choices:eligibleTemplates(r,directory.data,source.templates,assignments).map(c=>({...c,revision:assignments.overrides.find(a=>a.repId===r.id&&a.templateId===c.templateId)?.revision??0}))})),
+    reps:directory.data.reps.filter(isResearchRecipient).map(r=>({id:r.id,name:r.name,email:r.email,firmId:r.firmId,firmName:directory.data.firms.find(f=>f.id===r.firmId)?.name??'',choices:eligibleTemplates(r,directory.data,source.templates,assignments).map(c=>({...c,revision:assignments.overrides.find(a=>a.repId===r.id&&a.templateId===c.templateId)?.revision??0}))})),
   }};
 }
 export type ResearchWorkspace = Awaited<ReturnType<typeof loadResearchWorkspace>>['workspace'];

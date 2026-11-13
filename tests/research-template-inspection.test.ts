@@ -28,7 +28,7 @@ test('inspection merges known values safely; empty date is accepted only for ins
 test('bulk fields preserve markets and untouched values; channel fields apply only where used',()=>{
   const templates=sourceTemplates(),before=structuredClone(templates);
   const edits=bulkFieldChanges({templates:templates.map(t=>({id:t.id,revision:t.revision})),fields:{flight_dates:'March 2027',tv_books:'July 2026'}},templates);
-  assert.equal(edits.length,4);
+  assert.deepEqual(edits.map(t=>t.id).sort(),templates.map(t=>t.id).sort());
   for(const t of edits){const old=before.find(x=>x.id===t.id)!;assert.equal(t.defaults.flight_dates,'March 2027');assert.deepEqual(t.markets,old.markets);assert.equal(t.body,old.body);assert.equal(t.defaults.client,old.defaults.client);assert.equal(t.defaults.tv_books,t.media==='broadcast-tv'?'July 2026':old.defaults.tv_books);}
   assert.deepEqual(templates,before);
 });

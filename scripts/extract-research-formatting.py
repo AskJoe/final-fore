@@ -41,10 +41,13 @@ def runs(cs):
     return out
 
 ranges={'radio-multi':(23,86,26,54),'radio-single-lincoln':(100,133,None,None),'tv-multi':(147,208,150,181),'tv-single-madison':(221,249,None,None)}
-replacements=[('Weed Man Lawn Care 2027','{{client}} {{campaign_year}}'),('EOD this Friday, Nov 13th','{{deadline}}'),('Feb ’26 through Sept ‘26','{{radio_trender_books}}'),("Mar ‘26, July '26 AND Sept '26",'{{ranker_books}}'),('Mar ’26, Jul ‘26 & Sept ‘26','{{tv_books}}'),('Mar ‘26','{{avail_book}}'),('Feb-May ’27','{{flight_dates}}'),('your Lincoln station','your stations in {{markets_inline}}'),('your Madison station','your stations in {{markets_inline}}')]
+single_market_sources={'research-6827b00b-bbbf-4b5e-904b-73e03ec0e427':'radio-single-lincoln'}
+replacements=[('Weed Man Lawn Care 2027','{{client}} {{campaign_year}}'),('EOD this Tues, Nov 17th..','{{deadline}}.'),('EOD this Tues, Nov 17th','{{deadline}}'),('Feb ’26 through Sept ‘26','{{radio_trender_books}}'),("Mar ‘26, July '26 AND Sept '26",'{{ranker_books}}'),('Mar ’26, Jul ‘26 & Sept ‘26','{{tv_books}}'),('Mar ‘26','{{avail_book}}'),('Feb-May ’27','{{flight_dates}}'),('your Lincoln station','your stations in {{markets_inline}}'),('your Madison station','your stations in {{markets_inline}}')]
+portal_intro='Please upload the requested research for each market here: {{upload_url}}'
+portal_details='. You can upload multiple files per market and return to the same link to add more.'
 formats={}
 for t in seed:
-    start,end,marketStart,marketEnd=ranges[t['id']];blocks=[]
+    start,end,marketStart,marketEnd=ranges[single_market_sources.get(t['id'],t['id'])];blocks=[]
     for i in range(start,end+1):
         p=paragraphs[i];cs=chars(i);txt=''.join(c for c,_ in cs)
         if not txt:continue
@@ -52,8 +55,9 @@ for t in seed:
             if i==marketStart:blocks.append({'text':'{{markets}}','runs':[{'text':'{{markets}}'}]})
             continue
         if txt.startswith('Please upload the requested research below'):
-            txt='Please upload the requested research for each market here: {{upload_url}}. You can upload multiple files per market and return to the same link to add more.'
-            cs=[(ch,{'underline':True} if pos<txt.index('. You') else {}) for pos,ch in enumerate(txt)]
+            # Discard the old folder instructions but keep the new single-market fallback.
+            fallback=txt.find(' If you don’t subscribe to ratings,')
+            cs=[(ch,{'underline':True}) for ch in portal_intro]+[(ch,{}) for ch in portal_details]+(cs[fallback:] if fallback>=0 else [])
         elif i==start:cs=[(ch,{}) for ch in 'Hi {{first_name}},']
         elif txt=='Sarah Silva':
             blocks.append({'text':'{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media','runs':[{'text':'{{sender_name}}\n{{sender_title}}\n{{sender_email}}\nFinal Fore Media'}]});break
@@ -69,7 +73,8 @@ for t in seed:
         sourceCities=[''.join(paragraphs[i].xpath('.//w:t/text()',namespaces=ns)).strip() for i in range(marketStart,marketEnd+1)]
         assert [m['displayName'] for m in t['markets']]==sourceCities,(t['id'],'Template cities differ from the supplied document')
     expected=t['body'].split('\n\n')
-    assert [b['text'] for b in blocks]==expected,[(i,a,b) for i,(a,b) in enumerate(zip([b['text'] for b in blocks],expected)) if a!=b]
+    actual=[b['text'] for b in blocks]
+    assert actual==expected,(t['id'],len(actual),len(expected),[(i,a,b) for i,(a,b) in enumerate(zip(actual,expected)) if a!=b])
     formats[t['id']]={'media':t['media'],'scope':t['scope'],'paragraphs':blocks}
 output={'sourceFile':path.name,'sourceSha256':hashlib.sha256(path.read_bytes()).hexdigest(),'templates':formats}
 (ROOT/'data/research-template-formatting.json').write_text(json.dumps(output,ensure_ascii=False,indent=2)+'\n')
