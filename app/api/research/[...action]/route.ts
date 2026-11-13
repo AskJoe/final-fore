@@ -8,7 +8,7 @@ import { parsePreviewInput, parseTemplatePreviewInput, renderEmail } from '@/lib
 import { uploadPagePreviewUrl, uploadLinkPreviewHtml, previewRequestOrigin } from '@/lib/research/upload-page-preview';
 import { inspectTemplate } from '@/lib/research/template-inspection';
 import { recipientGroups, makeAssignment, isResearchContact, sourceCc } from '@/lib/research/assignments';
-import type { TemplateDraft, TemplateVersion } from '@/lib/research/types';
+import type { PreviewInput, TemplateDraft, TemplateVersion } from '@/lib/research/types';
 import { researchAdmin, researchConfig, researchWritesEnabled } from '@/lib/research/config';
 import { prepareRequest, queuePrepared } from '@/lib/research/requests';
 import { SupabaseRequestRepository, researchStorageError } from '@/lib/research/queue-store';
@@ -45,7 +45,7 @@ export async function GET(request:Request,context:Context){
 }
 export async function POST(request:Request,context:Context){
   const action=(await context.params).action.join('/');
-  if(!['send-test','upload-test','preview','preview-batch','templates/save','templates/bulk-fields','templates/publish','templates/copy','assignments/confirm','send','send-preview','reply','read','files/assign','portal/state'].includes(action))return json({error:'Not found.'},404);
+  if(!['send-test','upload-test','preview','preview-batch','prepare-send','templates/save','templates/bulk-fields','templates/publish','templates/copy','assignments/confirm','send','send-preview','reply','read','files/assign','portal/state'].includes(action))return json({error:'Not found.'},404);
   if(!sameOrigin(request))return json({error:'Use this app to save changes.'},403);
   if(request.headers.get('content-type')?.split(';')[0]!=='application/json')return json({error:'Expected JSON.'},415);
   try{
@@ -55,7 +55,7 @@ export async function POST(request:Request,context:Context){
     while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>150000){await reader.cancel();return json({error:'Request is too large.'},413);}chunks.push(value);}
     const body=JSON.parse(Buffer.concat(chunks).toString());
     if(!body||typeof body!=='object'||Array.isArray(body))throw new InputError('Expected a JSON object.');
-    if(researchTestOnly()&&['send','send-preview','reply'].includes(action))return json({error:'Test mode: vendor sends and automatic copies are blocked. Enter test addresses in the email preview.'},403);
+    if(researchTestOnly()&&['prepare-send','send','send-preview','reply'].includes(action))return json({error:'Test mode: vendor sends and automatic copies are blocked. Enter test addresses in the email preview.'},403);
     if(action==='send-test'){
       if(!workspace.canTestSend)return json({error:'Test email sending is not enabled.'},503);
       if(Object.keys(body).some(k=>!['templateId','repId','deadline','renderHash','testRecipients','idempotencyKey'].includes(k)))throw new InputError('Unknown test send field.');
@@ -95,25 +95,59 @@ export async function POST(request:Request,context:Context){
       if(action==='portal/state')await inbox.close(body.conversationId,body.state);
       return json({saved:true});
     }
+    async function publishedVersion(template: TemplateDraft): Promise<TemplateVersion> {
+      const {data,error}=await supabase.from('ff_research_template_versions').select('payload').eq('template_id',template.id).order('version',{ascending:false}).limit(1);
+      if(error)researchStorageError(error);
+      if(!data?.[0])throw new InputError('Publish '+template.name+' before sending.');
+      return data[0].payload as TemplateVersion;
+    }
+    function prepare(input: PreviewInput, version: TemplateVersion) {
+      return prepareRequest(input,version,directory.data,directory.record?.version??0,user.id,new SupabaseRequestRepository(researchAdmin()),researchConfig(),new Date(),assignments);
+    }
     async function previewOne(raw:unknown){
       const input=parsePreviewInput(raw),template=workspace.templates.find(t=>t.id===input.templateId);
       if(!template)throw new InputError('Choose a template.');
       const recipient=recipientGroups([input],directory.data,workspace.templates,assignments)[0];
       const uploadPreviewUrl=uploadPagePreviewUrl(input,previewRequestOrigin(request));
       if(workspace.canPrepare&&template.status==='published'){
-        const {data,error}=await supabase.from('ff_research_template_versions').select('payload').eq('template_id',template.id).order('version',{ascending:false}).limit(1);if(error)researchStorageError(error);
-        if(!data?.[0])throw new InputError('Publish this template before sending.');
-        const prepared=await prepareRequest(input,data[0].payload as TemplateVersion,directory.data,directory.record?.version??0,user.id,new SupabaseRequestRepository(researchAdmin()),researchConfig(),new Date(),assignments);
+        const prepared=await prepare(input,await publishedVersion(template));
         return {email:prepared.email,previewHtml:uploadLinkPreviewHtml(prepared.email.html,uploadPreviewUrl),recipient,templateName:template.name,previewId:prepared.id,setupPreview:false};
       }
       const email=renderEmail(template,recipient,{deadline:input.deadline},uploadPreviewUrl);
       return {email,previewHtml:uploadLinkPreviewHtml(email.html,uploadPreviewUrl),recipient,templateName:template.name,setupPreview:true};
     }
     if(action==='preview')return json(await previewOne(body));
-    if(action==='preview-batch'){
+    const service=new ResearchService(repository,directory.data,directory.record?.version??0,MARKETS,workspace.canSave);
+    if(action==='preview-batch'||action==='prepare-send'){
+      if(action==='prepare-send'&&!workspace.canSend)return json({error:'Live email sending is off.'},503);
       if(Object.keys(body).some(k=>!['selections','deadline'].includes(k))||!Array.isArray(body.selections)||body.selections.length<1||body.selections.length>100)throw new InputError('Choose up to 100 recipients. Markets belong to templates.');
       const inputs=body.selections.map((s:unknown)=>{if(!s||typeof s!=='object'||Array.isArray(s))throw new InputError('Choose valid recipients.');return parsePreviewInput({...s,deadline:body.deadline});});
-      const groups=recipientGroups(inputs,directory.data,workspace.templates,assignments),previews=[];
+      const groups=recipientGroups(inputs,directory.data,workspace.templates,assignments);
+      if (action === 'prepare-send') {
+        const selectedTemplates = workspace.templates.filter(t=>groups.some(group=>group.templateId===t.id));
+        for (const template of selectedTemplates) {
+          const issues = workspace.issues[template.id];
+          if (issues?.length) throw new InputError(template.name+': '+issues[0].message);
+        }
+        for (const recipient of groups) {
+          const template = selectedTemplates.find(t=>t.id===recipient.templateId)!;
+          const input = {templateId:template.id,repId:recipient.repId,deadline:body.deadline};
+          const email = renderEmail(template,recipient,{deadline:input.deadline},uploadPagePreviewUrl(input,previewRequestOrigin(request)));
+          if(email.missing.length)throw new InputError(template.name+': complete '+email.missing.join(', ')+' before sending.');
+        }
+        const versions = new Map<string, TemplateVersion>();
+        for (const template of selectedTemplates) {
+          const version = template.status==='published' ? await publishedVersion(template) : await service.publish(template.id,template.revision);
+          versions.set(template.id,version);
+        }
+        const previews = [];
+        for (const {repId,templateId} of groups) {
+          const prepared = await prepare({repId,templateId,deadline:body.deadline},versions.get(templateId)!);
+          previews.push({previewId:prepared.id,renderHash:prepared.email.renderHash});
+        }
+        return json({previews});
+      }
+      const previews=[];
       for(const group of groups)previews.push(await previewOne({templateId:group.templateId,repId:group.repId,deadline:body.deadline}));
       return json({previews});
     }
@@ -125,7 +159,6 @@ export async function POST(request:Request,context:Context){
       if(!workspace.canSend)return json({error:'Email sending is not enabled. No email was sent.'},503);
       return json(await sendPreviewCopy(body,researchAdmin(),user.id,user.email??'',researchConfig()));
     }
-    const service=new ResearchService(repository,directory.data,directory.record?.version??0,MARKETS,workspace.canSave);
     if(action==='templates/bulk-fields'){
       const changes=bulkFieldChanges(body,workspace.templates),saved:TemplateDraft[]=[],failed:{id:string;name:string;error:string}[]=[];
       for(const template of changes){

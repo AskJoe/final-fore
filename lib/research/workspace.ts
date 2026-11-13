@@ -17,7 +17,7 @@ export async function loadResearchWorkspace(){
   if(source.installed){const result=await supabase.from('ff_research_assignments').select('payload');if(result.error)researchStorageError(result.error);assignments.overrides=(result.data??[]).map(r=>r.payload as AssignmentOverride);}
   const testOnly=researchTestOnly();
   const testIdentity=testEmailIdentity(process.env.FINAL_FORE_RESEARCH_SARAH_EMAIL??'sarah@finalforemedia.com',testOnly,process.env.FINAL_FORE_RESEARCH_RESEND_TEST_ACCOUNT);
-  let configured=false;try{researchConfig();configured=!!(process.env.RESEND_API_KEY&&(process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY)&&(testOnly||process.env.FINAL_FORE_RESEARCH_SCANNER_URL&&process.env.FINAL_FORE_RESEARCH_SCANNER_KEY));}catch{/* Setup previews remain available before external configuration. */}
+  let configured=false;try{researchConfig();configured=!!(process.env.RESEND_API_KEY&&(process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY));}catch{/* Setup previews remain available before external configuration. */}
   return {supabase,user,repository,directory,assignments,workspace:{
     templates:source.templates,
     installed:source.installed,

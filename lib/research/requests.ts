@@ -23,7 +23,8 @@ export async function prepareRequest(raw:unknown,version:TemplateVersion,directo
   if(input.templateId!==version.id||version.status!=='published'||!version.markets.length||version.markets.some(m=>!m.marketId))throw new InputError('Publish this template with confirmed market links first.');
   const recipient=recipientGroups([input],directory,[version],assignments)[0],id=randomUUID(),portalToken=newToken(),externalToken=newToken(),staffToken=newToken();
   const portalUrl=config.origin+'/research-upload/'+portalToken,email=renderEmail(version,recipient,{deadline:input.deadline},portalUrl);
-  const externalAddress=`reply-${externalToken}@${config.replyDomain}`,staffAddress=`staff-${staffToken}@${config.replyDomain}`;
+  const externalAddress=config.directReplies?config.sarahEmail:`reply-${externalToken}@${config.replyDomain}`;
+  const staffAddress=config.directReplies?recipient.to:`staff-${staffToken}@${config.replyDomain}`;
   const vendor:MailPayload={from:config.from,to:[recipient.to],cc:recipient.cc,subject:email.subject,text:email.text,html:email.html,replyTo:externalAddress};
   const gmail:MailPayload={...vendor,to:[config.sarahEmail],cc:[],replyTo:staffAddress};
   const preview:PreparedPreview={id,memberId,createdAt:now.toISOString(),expiresAt:new Date(now.getTime()+24*3600000).toISOString(),directoryRevision,assignmentRevision:assignments?.overrides.find(a=>a.repId===input.repId&&a.templateId===input.templateId)?.revision??0,versionId:version.versionId,templateId:version.id,templateRevision:version.revision,

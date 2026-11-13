@@ -85,6 +85,7 @@ export class ResearchInbox {
     const first=await this.db.from('ff_research_messages').select('subject').eq('conversation_id',c.id).order('created_at').limit(1);if(first.error)researchStorageError(first.error);
     const message:ReceivedMessage={id:input.idempotencyKey,messageId:'',from:config.sarahEmail,to:[],cc:[],subject:first.data?.[0]?.subject??c.manifest.templateName,text:input.text,html:'',headers:{},authentication:null,attachments:[]};
     const vendor=buildRelayPayload(message,'to-vendor',context),gmail=buildRelayPayload(message,'to-sarah',context);gmail.from=config.from;
+    if(config.directReplies){vendor.replyTo=config.sarahEmail;gmail.replyTo=c.recipient.to;}
     const {data,error}=await this.db.rpc('ff_research_reply',{p_member:this.memberId,p_conversation:c.id,p_key:input.idempotencyKey,p_subject:vendor.subject,p_text:input.text,p_dispatch:{vendor:seal(vendor,config.secretKey),gmail:seal(gmail,config.secretKey)}});if(error)researchStorageError(error);return {messageId:data};
   }
 }
