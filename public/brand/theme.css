@@ -1,0 +1,97 @@
+/* Approved Final Fore Media palette and its neutral interface shades. */
+:root {
+  --ff-gold: #d8a62a;
+  --ff-magenta: #db268a;
+  --ff-violet: #cb10be;
+  --ff-black: #000000;
+  --ff-white: #ffffff;
+  --ff-gradient: linear-gradient(100deg, var(--ff-violet), var(--ff-magenta) 60%, var(--ff-gold));
+  --ff-dark: var(--ff-black);
+  --ff-ink: var(--ff-black);
+  --ff-muted: #595959;
+  --ff-line: #e5e5e5;
+  --ff-control-line: #919191;
+  --ff-surface: #fafafa;
+  --ff-selected: color-mix(in srgb, var(--ff-violet) 9%, var(--ff-white));
+  --ff-action: var(--ff-violet);
+  --ff-action-hover: var(--ff-magenta);
+  --ff-dark-hover: #242424;
+  --ff-dark-line: #5c5c5c;
+  --ff-dark-muted: #d4d4d4;
+}
+
+/* The workbook, orders, reports, directory, and research share this sidebar. */
+body > footer:has(.ff-sidebar-brand) {
+  background: var(--ff-dark);
+  border-right-color: var(--ff-dark-line);
+  color: var(--ff-white);
+}
+.sidebar-brand.ff-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px 12px;
+  border-bottom: 2px solid transparent;
+  border-image: var(--ff-gradient) 1;
+  color: var(--ff-white);
+}
+.ff-sidebar-brand img { display: block; flex: none; width: auto; height: 36px; }
+.ff-sidebar-brand > div > span { color: var(--ff-dark-muted); letter-spacing: .02em; }
+body > footer:has(.ff-sidebar-brand) .workbook-tab { color: var(--ff-white); border-radius: 6px; }
+body > footer:has(.ff-sidebar-brand) .workbook-tab:hover { background: var(--ff-dark-hover); }
+body > footer:has(.ff-sidebar-brand) .workbook-tab[aria-current="page"] {
+  color: var(--ff-gold);
+  background: color-mix(in srgb, var(--ff-violet) 23%, var(--ff-black));
+  box-shadow: inset 2px 0 var(--ff-magenta);
+}
+body > footer:has(.ff-sidebar-brand) .workbook-status { color: var(--ff-dark-muted); border-top-color: var(--ff-dark-line); }
+.ff-sign-out { margin: auto 0 0; padding-top: 10px; }
+.workbook-status + .ff-sign-out { margin-top: 0; }
+.ff-sign-out > button {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 9px;
+  border: 1px solid var(--ff-dark-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ff-white);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.ff-sign-out > button:hover { background: var(--ff-dark-hover); }
+.ff-sign-out svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+body > footer:has(.ff-sidebar-brand) :is(.workbook-tab, .ff-sign-out > button):focus-visible {
+  outline: 2px solid var(--ff-gold);
+  outline-offset: 1px;
+}
+@media (max-width: 700px) {
+  .sidebar-brand.ff-sidebar-brand { padding: 4px 0 9px; }
+  .sidebar-brand.ff-sidebar-brand > div {
+    display: block;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .workbook-status + .ff-sign-out { margin-top: auto; }
+  .ff-sign-out > button { justify-content: center; padding: 0; }
+  .ff-sign-out > button > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  body > footer:has(.ff-sidebar-brand) .workbook-tab .nav-label { color: var(--ff-ink); }
+}
+
+/* Apply brand colors to screen chrome without recoloring data states or print. */
+.ff-workspace { --blue: var(--ff-action); --line: var(--ff-line); --ink: var(--ff-ink); --muted: var(--ff-muted); color: var(--ff-ink); }
+.ff-workspace body > .app-header { background: var(--ff-surface); border-color: var(--ff-line); }
+.ff-workspace .app-header h1 { color: var(--ff-ink); }
+.ff-workspace a, .ff-workspace .text-action, .ff-workspace .channel-history summary:hover { color: var(--ff-action); }
+.ff-workspace :is(button.primary, #save-formula, #save-cell) { background: var(--ff-action); border-color: var(--ff-action); color: var(--ff-white); }
+.ff-workspace :is(button.primary, #save-formula, #save-cell):hover:not(:disabled) { background: var(--ff-action-hover); }
+.ff-workspace .directory-tabs [aria-current="page"] { color: var(--ff-action); border-color: var(--ff-magenta); }
+.ff-workspace .reference-note { background: var(--ff-surface); border-color: var(--ff-gold); color: var(--ff-muted); }
+.ff-workspace :is(button, a, input, textarea, select, summary):focus-visible { outline-color: var(--ff-violet); }

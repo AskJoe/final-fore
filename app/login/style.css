@@ -1,1 +1,25 @@
-*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#24364e;font:16px/1.5 Arial,sans-serif}.login{max-width:420px;margin:10vh auto;padding:32px;background:#fff;border:1px solid #dce2eb;border-radius:8px}.brand{width:42px;height:42px;background:#26466f;color:white;font:italic 36px Georgia;text-align:center;border-radius:5px}h1{font-size:25px;margin:16px 0 8px}p{color:#64758b}label{display:block;margin:18px 0}input{display:block;width:100%;padding:10px;margin-top:5px;border:1px solid #aebdd1;border-radius:4px;font:inherit}button{width:100%;padding:11px;border:0;border-radius:4px;background:#315dad;color:#fff;font:inherit;cursor:pointer}:focus-visible{outline:3px solid #91b9f3;outline-offset:3px}.error{background:#fff0ef;color:#8e2929;padding:12px}.hint{font-size:13px;margin-bottom:0}@media(max-width:460px){.login{margin:24px 16px;padding:24px}}
+body:has(.login) { margin: 0; background: var(--ff-surface); }
+.login, .login * { box-sizing: border-box; }
+.login {
+  width: min(440px, calc(100% - 32px));
+  margin: clamp(24px, 10vh, 96px) auto;
+  color: var(--ff-ink);
+  background: #fff;
+  border: 1px solid var(--ff-line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px #29123914;
+  font: 16px/1.5 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
+}
+.login-brand { padding: 30px clamp(22px, 7vw, 36px); background: var(--ff-dark); border-bottom: 3px solid transparent; border-image: var(--ff-gradient) 1; }
+.login-brand img { display: block; width: min(100%, 242px); height: auto; }
+.login-content { padding: 26px clamp(22px, 7vw, 36px) 32px; }
+.login h1 { margin: 0 0 4px; font-size: 28px; line-height: 1.2; }
+.login p { margin: 0 0 18px; color: var(--ff-muted); }
+.login label { display: block; margin: 16px 0; font-size: 14px; font-weight: 600; }
+.login input { display: block; width: 100%; padding: 10px 12px; margin-top: 5px; border: 1px solid var(--ff-control-line); border-radius: 6px; color: var(--ff-ink); font: inherit; font-size: 16px; font-weight: 400; }
+.login button { width: 100%; padding: 11px; border: 0; border-radius: 6px; background: var(--ff-action); color: #fff; font: inherit; font-weight: 650; cursor: pointer; }
+.login button:hover { background: var(--ff-action-hover); }
+.login :focus-visible { outline: 2px solid var(--ff-violet); outline-offset: 3px; }
+.login .error { background: #fff0ef; color: #8e2929; padding: 12px; }
+.login .hint { font-size: 13px; margin: 16px 0 0; }

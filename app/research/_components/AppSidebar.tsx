@@ -9,5 +9,5 @@ export default async function AppSidebar(){
   const navigation=footer.replace(/ aria-current="page"/g,'')
     .replace('href="/research/new"','href="/research/new" aria-current="page"')
     .replace(/<div class="workbook-status">[\s\S]*?<\/div>/,'');
-  return <><style dangerouslySetInnerHTML={{__html:styles}}/><footer className="research-sidebar" dangerouslySetInnerHTML={{__html:navigation}}/></>;
+  return <><style dangerouslySetInnerHTML={{__html:styles}}/><footer dangerouslySetInnerHTML={{__html:navigation}}/></>;
 }

@@ -6,6 +6,7 @@ import { processDelivery, resendTransport } from './delivery';
 import { SupabaseDeliveryRepository, researchStorageError } from './queue-store';
 import { ingestReceivedEmail } from './inbound';
 import { verifyStorageFile, RESEARCH_BUCKET } from './uploads';
+import { uploadWorkerEnabled } from './upload-leases';
 
 export async function scanResearchFile(bytes:Buffer):Promise<boolean>{
   const url=process.env.FINAL_FORE_RESEARCH_SCANNER_URL,key=process.env.FINAL_FORE_RESEARCH_SCANNER_KEY;
@@ -26,7 +27,7 @@ export async function runResearchWorkerOnce(db:SupabaseClient,resend:Resend,conf
     for(const row of pending.data??[]){await processDelivery(row.id,repository,transport,researchSendEnabled());deliveries++;}
   }
   // Recover storage-complete uploads even if the rep closed the browser before finalization.
-  const interrupted=await db.from('ff_research_files').select('id,conversation_id,object_key,size').eq('state','uploading').lt('created_at',new Date(Date.now()-120000).toISOString()).order('recovery_checked_at',{ascending:true,nullsFirst:true}).order('id').limit(20);if(interrupted.error)researchStorageError(interrupted.error);
+  const interrupted=uploadWorkerEnabled()?{data:[],error:null}:await db.from('ff_research_files').select('id,conversation_id,object_key,size').eq('state','uploading').lt('created_at',new Date(Date.now()-120000).toISOString()).order('recovery_checked_at',{ascending:true,nullsFirst:true}).order('id').limit(20);if(interrupted.error)researchStorageError(interrupted.error);
   for(const file of interrupted.data??[]){
     // Rotate every inspected reservation, including absent objects and closed collections.
     const checked=await db.from('ff_research_files').update({recovery_checked_at:new Date().toISOString()}).eq('id',file.id);if(checked.error)researchStorageError(checked.error);
@@ -40,9 +41,9 @@ export async function runResearchWorkerOnce(db:SupabaseClient,resend:Resend,conf
       if(job.kind==='verify-file'){
         const file=await db.from('ff_research_files').select('source').eq('id',job.payload.fileId).single();if(file.error)researchStorageError(file.error);
         if(file.data.source==='portal'){
-          try{await verifyStorageFile(db,job.payload.fileId);}
-          catch{const failed=await db.rpc('ff_research_verify_file',{p_file:job.payload.fileId,p_state:'failed',p_error:'Could not finish verifying the upload. Please upload this file again.'});if(failed.error)researchStorageError(failed.error);}
-        }else await verifyStorageFile(db,job.payload.fileId,scan);
+          // Retire legacy mail-queue copies; the file row is the upload worker's durable queue.
+          if(!uploadWorkerEnabled()&&!await verifyStorageFile(db,job.payload.fileId))throw new Error('Upload verification is busy. Retry shortly.');
+        }else if(!await verifyStorageFile(db,job.payload.fileId,scan))throw new Error('Upload verification is busy. Retry shortly.');
       }
       else if(job.kind==='receive'){
         if(typeof job.payload?.data?.email_id!=='string')throw new Error('Received event has no email ID.');

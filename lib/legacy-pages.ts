@@ -3,8 +3,14 @@ import path from 'node:path';
 const workbookFiles = ['clients.html','vendors.html','directory.js','directory.css','index.html','markets.html','campaign.html','orders.html','legacy-orders.html','app.js','styles.css','markets.js','markets.css','campaign.js','campaign.css','orders.js','orders.css','orders-print.css','legacy-orders.js','legacy-orders.css','favicon.svg'];
 const reportFiles = ['data.html','dashboard.html','reporting.js','reporting-model.js','reporting.css'];
 export const available = new Set([...workbookFiles,...reportFiles]);
+const brandIcon = '<link rel="icon" href="/brand/favicon.png" type="image/png" sizes="32x32">';
+const sidebarBrand = `<div class="sidebar-brand ff-sidebar-brand">
+  <img src="/brand/final-fore-monogram.png" alt="" width="1188" height="1886">
+  <div><strong>Final Fore</strong><span>Media planning</span></div>
+</div>`;
+const signOut = '<form class="ff-sign-out" action="/logout" method="post"><button type="submit"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H3v14h5m-1-7h10m-4-4 4 4-4 4"/></svg><span>Sign out</span></button></form>';
 // Keep the existing DOM, keyboard handlers, recovery storage, and print CSS intact.
-// This adapter changes only status wording and adds an explicit sign-out action.
+// The adapter applies shared navigation, branding, and status wording for Next.js.
 export async function legacyAsset(name:string) {
   const loaders: Record<string, () => Promise<string>> = {
     'clients.html': () => readFile(path.join(process.cwd(), 'epic3/web/directory.html'), 'utf8'),
@@ -43,11 +49,14 @@ export async function legacyAsset(name:string) {
   if(name.endsWith('.html')) {
     const links=[['clients','Clients'],['vendors','Vendors']].map(([id,label])=>`<a class="workbook-tab" href="/${id}.html" aria-label="${label}" title="${label}"${name===id+'.html'?' aria-current="page"':''}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17V6l7-3 7 3v11H3M7 8v1M13 8v1M7 12v1M13 12v1"/></svg><span class="nav-label">${label}</span></a>`).join('')+'<a class="workbook-tab" href="/research/new" aria-label="Research" title="Research"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5h16v11H2zM2 5l8 6 8-6"/></svg><span class="nav-label">Research</span></a>';
     content=content.replace(/(<nav class="workbook-nav"[^>]*>[\s\S]*?)(<\/nav>)/,(_,navigation,close)=>navigation+links+close);
-    content=content.replace('<strong>Final Fore</strong><span>Weed Man</span>','<strong>Final Fore</strong><span>Media planning</span>');
+    content=content.replace('<div class="sidebar-brand"><span class="sidebar-mark" aria-hidden="true">ff</span><div><strong>Final Fore</strong><span>Weed Man</span></div></div>',sidebarBrand);
+    content=content.replace('<html lang="en">','<html lang="en" class="ff-workspace">')
+      .replace(/<link rel="icon" href="\/favicon\.svg"(?: type="image\/svg\+xml")?>/,brandIcon)
+      .replace('</head>','<link rel="stylesheet" href="/brand/theme.css" media="screen"></head>');
     content=content.replace('aria-label="EPIC3" title="EPIC3"','aria-label="Media planning" title="Media planning"').replace('<span class="nav-label">EPIC3</span>','<span class="nav-label">Media planning</span>');
   }
   if (/\.(html|js)$/.test(name)) content=content.replaceAll('Saved locally','Saved to Supabase').replaceAll('saved locally','saved to Supabase').replaceAll('saved on this computer','saved to Supabase').replaceAll('Opening local table…','Opening workbook…').replaceAll('Unable to open the local database.','Unable to open the workbook. Sign in again or confirm the data import is complete.').replaceAll('The local app could not be reached.','Final Fore could not be reached.').replaceAll('Reload after the local app update.','Confirm the workbook import is complete.');
-  if (name.endsWith('.html')) content=content.replace('</footer>','<form action="/logout" method="post" style="margin:12px 5px"><button type="submit" style="font:inherit;font-size:11px">Sign out</button></form></footer>');
+  if (name.endsWith('.html')) content=content.replace('</footer>',signOut+'</footer>');
   const type = name.endsWith('.html')?'text/html':name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'image/svg+xml';
   return {content,type};
 }

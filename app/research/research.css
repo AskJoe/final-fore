@@ -11,7 +11,6 @@ body:has(.research-app){margin:0;background:#fff}.research-app *{box-sizing:bord
 
 /* The shared sidebar remains mounted throughout the internal research section. */
 .research-app{max-width:none;min-width:0}
-.research-sidebar form{margin-top:auto!important}
 .research-select-toolbar{display:grid;grid-template-columns:minmax(120px,1fr) auto auto 140px auto;align-items:end;gap:14px;margin-bottom:16px}
 .research-select-toolbar>span{align-self:center;white-space:nowrap;font-size:12px}
 .research-select-toolbar>label,.research-preview-toolbar>label{font-size:11px}
@@ -37,3 +36,11 @@ body:has(.research-app){margin:0;background:#fff}.research-app *{box-sizing:bord
 .research-bulk-drawer{width:min(620px,calc(100vw - var(--sidebar-width,54px)))}.research-bulk-names{font-size:13px;margin:8px 0;overflow-wrap:anywhere}.research-bulk-drawer .research-fields{gap:10px 16px}.research-bulk-drawer .research-note{margin:6px 0 12px}@media(max-width:500px){.research-bulk-drawer .research-fields{grid-template-columns:1fr}}
 
 .research-email-body.research-email-html{white-space:normal;max-width:100%}
+
+.research-app { --ink: var(--ff-ink); --blue: var(--ff-action); --line: var(--ff-line); --surface: var(--ff-surface); }
+.research-nav { border-top: 2px solid transparent; border-image: var(--ff-gradient) 1; }
+.research-app :is(button, .research-button, input:not([type=checkbox]), select, textarea) { border-color: var(--ff-control-line); }
+.research-app .research-primary { border-color: var(--blue); }
+.research-app .research-primary:hover:not(:disabled) { background: var(--ff-action-hover); }
+.research-app :focus-visible { outline-color: var(--ff-violet); }
+.research-app :is(.research-template-tabs, .research-format-tabs) [aria-selected=true] { background: var(--ff-selected); border-color: var(--blue); }
