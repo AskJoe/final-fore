@@ -41,12 +41,12 @@ test('unresolved and cross-client market links remain explicit and prevent publi
   assert.ok(validateTemplate(single,d,MARKETS).some(i=>i.code==='cardinality'));
 });
 
-test('the Research roster has 22 assigned broadcast reps and the three approved single-market assignments', () => {
+test('the Research roster has 28 assigned reps and the three approved single-market assignments', () => {
   const directory = initial();
   const templates = sourceTemplates();
   const visibleReps = directory.reps.filter(isResearchRecipient);
   assert.equal(directory.reps.length, 41);
-  assert.equal(visibleReps.length, 22);
+  assert.equal(visibleReps.length, 28);
 
   const singleMarketReps = [];
   for (const rep of visibleReps) {
@@ -78,8 +78,26 @@ test('the Research roster has 22 assigned broadcast reps and the three approved 
   const shawn = directory.reps.find(r => r.name === 'Shawn McNiff')!;
   assert.equal(isResearchRecipient(shawn), false);
   assert.deepEqual(recipientGroups([{ repId: allie.id, templateId: 'radio-multi' }], directory, templates)[0].cc, ['ShawnMcNiff@iheartmedia.com']);
-  const digital = directory.reps.find(r => r.name === 'Tyler Hebda')!;
-  assert.equal(isResearchRecipient(digital), false);
+});
+
+test('the six named Digital contacts use the assigned TV multi-market template', () => {
+  const directory = initial();
+  const templates = sourceTemplates();
+  const names = ['Tyler Hebda', 'Joe Lombardi', 'Amy Dweck', 'Maria Rodriguez', 'Josh Banuelos', 'Sean Gruebner'];
+  for (const name of names) {
+    const rep = directory.reps.find(r => r.name === name)!;
+    assert.deepEqual(rep.coverage.map((c: {mediaType: string}) => c.mediaType), ['digital']);
+    assert.deepEqual(eligibleTemplates(rep, directory, templates), [
+      { templateId: 'tv-multi', confirmed: true, reason: '', canEditCoverage: false },
+    ], name);
+    const [recipient] = recipientGroups([{ repId: rep.id, templateId: 'tv-multi' }], directory, templates);
+    assert.equal(recipient.to, rep.email);
+    assert.throws(() => recipientGroups([{ repId: rep.id, templateId: 'radio-multi' }], directory, templates), /compatible/i);
+  }
+
+  const tyler = directory.reps.find(r => r.name === 'Tyler Hebda')!;
+  assert.equal(isResearchRecipient({ ...tyler, active: false }), false);
+  assert.equal(isResearchRecipient({ ...tyler, email: 'other@example.test' }), false);
 });
 
 test('paired primary and CC contacts create one recipient group per template', () => {

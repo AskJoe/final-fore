@@ -21,20 +21,23 @@ async function main(){
     }
     await page.goto(base+'/research/new');await expect(page.getByRole('region',{name:'Email preview',exact:true})).toHaveCount(0);
     const roster=page.getByRole('table');
-    await expect(roster.locator('tbody tr')).toHaveCount(22);
-    await expect(roster.getByRole('checkbox')).toHaveCount(22);
+    await expect(roster.locator('tbody tr')).toHaveCount(28);
+    await expect(roster.getByRole('checkbox')).toHaveCount(28);
     await expect(roster.getByRole('checkbox',{name:/Single-market/})).toHaveCount(3);
     await expect(roster.getByRole('checkbox',{name:'Send TV · Single-market · Madison, WI to Tim McCaffrey',exact:true})).toBeVisible();
+    for (const name of ['Tyler Hebda', 'Joe Lombardi', 'Amy Dweck', 'Maria Rodriguez', 'Josh Banuelos', 'Sean Gruebner']) {
+      await expect(roster.getByRole('checkbox', {name: `Send TV · Multi-market to ${name}`, exact: true})).toBeVisible();
+    }
     await expect(roster.getByText('No research assignment',{exact:true})).toHaveCount(0);
-    await page.getByRole('row').filter({hasText:'John Wahlert'}).getByRole('checkbox').check();await page.getByLabel('Due date',{exact:true}).fill('2026-12-01');
+    await page.getByRole('row').filter({hasText:'Tyler Hebda'}).getByRole('checkbox').check();await page.getByLabel('Due date',{exact:true}).fill('2026-12-01');
     for(const width of [1280,876,390]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await expect(page.getByRole('navigation',{name:'Main navigation',exact:true})).toBeVisible();}
     await page.setViewportSize({width:1280,height:900});await page.screenshot({path:'.local-migration/research-reps-sidebar.png',fullPage:false});
-    await page.getByRole('button',{name:'Preview',exact:true}).click();await expect(page.locator('.research-email-body')).toContainText('Station Coverage Maps');await expect(page.getByRole('region',{name:'Select reps',exact:true})).toHaveCount(0);
+    await page.getByRole('button',{name:'Preview',exact:true}).click();await expect(page.getByRole('region',{name:'Email preview',exact:true})).toContainText('tyler.hebda@locality.com');await expect(page.locator('.research-email-body')).toContainText('Station Coverage Maps');await expect(page.getByRole('region',{name:'Select reps',exact:true})).toHaveCount(0);
     for(const width of [1280,876,390]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await expect(page.getByRole('navigation',{name:'Main navigation',exact:true})).toBeVisible();}
     await page.setViewportSize({width:1280,height:900});await page.screenshot({path:'.local-migration/research-preview-sidebar.png',fullPage:false});
-    await page.getByRole('button',{name:'Back to reps',exact:true}).click();await expect(page.getByRole('row').filter({hasText:'John Wahlert'}).getByRole('checkbox')).toBeChecked();await expect(page.getByLabel('Due date',{exact:true})).toHaveValue('2026-12-01');await expect(page.getByRole('region',{name:'Email preview',exact:true})).toHaveCount(0);
+    await page.getByRole('button',{name:'Back to reps',exact:true}).click();await expect(page.getByRole('row').filter({hasText:'Tyler Hebda'}).getByRole('checkbox')).toBeChecked();await expect(page.getByLabel('Due date',{exact:true})).toHaveValue('2026-12-01');await expect(page.getByRole('region',{name:'Email preview',exact:true})).toHaveCount(0);
     await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('link',{name:'Vendors',exact:true}).click();await page.waitForURL('**/vendors.html');await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('link',{name:'Research',exact:true}).click();await page.waitForURL('**/research/new');await expect(page.getByRole('heading',{name:'Reps & email',exact:true})).toBeVisible();
-    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS Research shows 22 assigned reps, including Tim for Madison and three single-market choices. Sidebar, Vendors navigation, preview, and desktop/mobile checks passed. Local fixture only; no email or database writes.');
+    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS Research shows 28 assigned reps, including the six TV multi-market contacts and three single-market choices. Tim for Madison, Tyler’s preview, sidebar, Vendors navigation, and desktop/mobile checks passed. Local fixture only; no email or database writes.');
   }finally{await browser.close();if(server.listening)await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));await app.close();await fixture.close();}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

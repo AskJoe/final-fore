@@ -4,14 +4,18 @@ import type { Directory } from '../domain/directory';
 import { InputError, type Data } from '../domain/types';
 import type { Eligibility, Recipient, Selection, TemplateDraft } from './types';
 
-type SourceAssignment={repId:string;firmId:string;email:string;scope:string|null;status:string;marketIds:string[];cc:string[];reason:string;sourceHash:string;sourceInactive:boolean};
+type SourceAssignment={repId:string;firmId:string;email:string;scope:string|null;templateId?:string;status:string;marketIds:string[];cc:string[];reason:string;sourceHash:string;sourceInactive:boolean};
 const assignments:SourceAssignment[]=seed;
 export function sourceCc(rep:Data){return assignmentEvidence(rep)?.cc??[];}
 export type AssignmentOverride={repId:string;templateId:string;firmId:string;email:string;directoryRevision:number;templateSignature:string;confirmed:boolean;cc:string[];revision:number};
 export type AssignmentContext={overrides:AssignmentOverride[];directoryRevision:number};
 function templateSignature(t:TemplateDraft){return createHash('sha256').update(JSON.stringify([t.clientId,t.media,t.scope,t.markets])).digest('hex');}
+function hasDirectoryCoverage(rep: Data, template: TemplateDraft): boolean {
+  return rep.coverage.some((coverage: Data) => coverage.mediaType === template.media);
+}
+
 export function makeAssignment(rep:Data,template:TemplateDraft,directoryRevision:number,confirmed:boolean,cc:string[]):AssignmentOverride{
-  if(!isResearchContact(rep)||!rep.coverage.some((c:Data)=>c.mediaType===template.media))throw new InputError('Choose a compatible active rep.');
+  if(!isResearchContact(rep)||!hasDirectoryCoverage(rep,template))throw new InputError('Choose a compatible active rep.');
   if(typeof confirmed!=='boolean'||!Array.isArray(cc)||cc.some(e=>typeof e!=='string'||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))throw new InputError('Choose valid coverage and CC contacts.');
   return {repId:rep.id,templateId:template.id,firmId:rep.firmId,email:rep.email.toLowerCase(),directoryRevision,templateSignature:templateSignature(template),confirmed,cc:[...new Set(cc.map(e=>e.toLowerCase()))],revision:0};
 }
@@ -21,8 +25,9 @@ export function isResearchContact(rep:Data):boolean {
 }
 
 export function isResearchRecipient(rep:Data):boolean {
-  return isResearchContact(rep)&&assignmentEvidence(rep)?.status!=='excluded'
-    &&rep.coverage.some((coverage:Data)=>coverage.mediaType==='broadcast-tv'||coverage.mediaType==='broadcast-radio');
+  const evidence = assignmentEvidence(rep);
+  return isResearchContact(rep) && evidence?.status !== 'excluded'
+    && (!!evidence?.templateId || rep.coverage.some((coverage: Data) => coverage.mediaType === 'broadcast-tv' || coverage.mediaType === 'broadcast-radio'));
 }
 
 function matchesScope(evidence:SourceAssignment|undefined,template:TemplateDraft){
@@ -43,11 +48,14 @@ export function eligibleTemplates(rep: Data, directory: Directory, templates: Te
   const firm=directory.firms.find(f=>f.id===rep.firmId&&f.active);
   if(!isResearchRecipient(rep)||!firm||!rep.email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rep.email)) return [];
   const evidence=assignmentEvidence(rep);
-  return templates.filter(t=>matchesScope(evidence,t)&&rep.coverage.some((c:Data)=>c.mediaType===t.media)).map(t=>{
+  return templates.flatMap(t=>{
+    if (!matchesScope(evidence, t)) return [];
+    const canEditCoverage = hasDirectoryCoverage(rep, t);
+    if (evidence?.templateId ? evidence.templateId !== t.id : !canEditCoverage) return [];
     const override=context?.overrides.find(a=>a.repId===rep.id&&a.templateId===t.id);
-    if(override){const current=override.directoryRevision===context!.directoryRevision&&override.firmId===rep.firmId&&override.email===rep.email.toLowerCase()&&override.templateSignature===templateSignature(t);return {templateId:t.id,confirmed:current&&override.confirmed,reason:current?'Coverage not selected.':'Coverage changed. Confirm again.'};}
+    if(override){const current=override.directoryRevision===context!.directoryRevision&&override.firmId===rep.firmId&&override.email===rep.email.toLowerCase()&&override.templateSignature===templateSignature(t);return {templateId:t.id,confirmed:current&&override.confirmed,reason:current?'Coverage not selected.':'Coverage changed. Confirm again.',canEditCoverage};}
     const confirmed=evidence?.status==='confirmed'&&evidence.scope===t.scope;
-    return {templateId:t.id,confirmed:!!confirmed,reason:confirmed?'':evidence?.status==='needs-confirmation'?evidence.reason:'Confirm this rep’s coverage for this template.'};
+    return {templateId:t.id,confirmed:!!confirmed,reason:confirmed?'':evidence?.status==='needs-confirmation'?evidence.reason:'Confirm this rep’s coverage for this template.',canEditCoverage};
   });
 }
 
