@@ -1,6 +1,7 @@
 import { AccessError, requireMember } from '@/lib/access';
 import { available, legacyAsset } from '@/lib/legacy-pages';
 import { failure, privateHeaders, json } from '@/lib/http';
+import { loginPath } from '@/lib/login-errors';
 import { Service } from '@/lib/service';
 import { SupabaseStore } from '@/lib/store';
 export const runtime = 'nodejs';
@@ -16,7 +17,7 @@ export async function GET(request:Request,context:{params:Promise<{path:string[]
     return new Response(content,{headers:{...privateHeaders,'Content-Type':type+'; charset=utf-8','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"}});
   } catch(error) {
     if(error instanceof AccessError && name.endsWith('.html')) {
-      const location='/login'+(error.status!==401?'?error='+encodeURIComponent(error.message):'');
+      const location=loginPath(error);
       return new Response(null,{status:303,headers:{...privateHeaders,Location:location}});
     }
     return failure(error);

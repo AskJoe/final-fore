@@ -26,8 +26,10 @@ export function renderEmail(draft:TemplateDraft, recipient:Recipient, mergeValue
   const values:Record<string,string>={...template.defaults,...mergeValues,first_name:recipient.name.split(' ')[0],rep_name:recipient.name,firm:recipient.firmName,media:template.media==='broadcast-radio'?'Radio':'TV',markets:names.join('\n'),markets_inline:names.join('; '),market_summary:names.length===1?names[0]:`${names.length} markets`,upload_url:portalUrl};
   const missing=new Set<string>();
   const merge=(s:string)=>s.replace(/\{\{([a-z_]+)\}\}/g,(token,key:string)=>{
-    if(!values[key]?.trim()&&key!=='sender_title'){missing.add(key);return token;}
-    return values[key]??'';
+    // Own properties only: {{constructor}} must read as a missing field, not Object.prototype.
+    const value=Object.hasOwn(values,key)&&typeof values[key]==='string'?values[key]:undefined;
+    if(!value?.trim()&&key!=='sender_title'){missing.add(key);return token;}
+    return value??'';
   });
   const subject=merge(template.subject);
   const {text,html}=formatEmailBody(template,merge,portalUrl);

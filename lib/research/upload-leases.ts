@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { StorageError } from '../store';
 import { inspectStorageFile, RESEARCH_BUCKET, type ResearchFile } from './uploads';
 import { researchStorageError } from './queue-store';
+import { portalScanner } from './scanner';
 
 export type UploadLease = ResearchFile & { upload_lease_token: string | null; upload_lease_until: string | null; upload_attempts: number };
 export const uploadWorkerEnabled = () => process.env.FINAL_FORE_RESEARCH_UPLOAD_WORKER_ENABLED === '1';
@@ -35,7 +36,7 @@ export async function processUploadLease(db: SupabaseClient, file: UploadLease):
       if (promoted.error) researchStorageError(promoted.error);
       if (promoted.data !== true) return 'stale';
     }
-    const result = await inspectStorageFile(db, file.id);
+    const result = await inspectStorageFile(db, file.id, portalScanner());
     if (!result) return 'stale';
     return await finish(result.state, result.reason) ? 'finished' : 'stale';
   } catch {

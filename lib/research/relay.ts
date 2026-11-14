@@ -9,6 +9,10 @@ export function emailAddress(value:string):string {
   const angle=value.match(/^[^<>]*<([^<>]+)>\s*$/),address=(angle?angle[1]:value).trim().toLowerCase();
   return /^[^\s<>,@]+@[^\s<>,@]+\.[^\s<>,@]+$/.test(address)?address:'';
 }
+/** A DKIM pass alone can be for any signing domain; DMARC ties it to the From domain. */
+export function senderAuthenticated(message:Pick<ReceivedMessage,'authentication'>):boolean {
+  return message.authentication?.dkim==='pass'&&message.authentication?.dmarc==='pass';
+}
 export function decideRelay(message:ReceivedMessage,route:'staff'|'external',context:RelayContext):{action:RelayAction;reason?:string}{
   const headers=Object.fromEntries(Object.entries(message.headers).map(([k,v])=>[k.toLowerCase(),v]));
   if(headers['auto-submitted']&&headers['auto-submitted'].toLowerCase()!=='no'||headers['x-final-fore-relay']||/^(bulk|junk|list)$/i.test(headers.precedence??''))return {action:'no-relay',reason:'Automatic message recorded without a reply.'};
@@ -16,7 +20,7 @@ export function decideRelay(message:ReceivedMessage,route:'staff'|'external',con
     if(emailAddress(message.from)===context.sarahEmail.toLowerCase())return {action:'held',reason:'Staff reply arrived at the external address. Review before forwarding.'};
     return {action:'to-sarah'};
   }
-  if(emailAddress(message.from)!==context.sarahEmail.toLowerCase()||message.authentication?.dkim!=='pass')return {action:'held',reason:'Sender authentication needs review.'};
+  if(emailAddress(message.from)!==context.sarahEmail.toLowerCase()||!senderAuthenticated(message))return {action:'held',reason:'Sender authentication needs review.'};
   const staff=`staff-${context.staffToken}@${context.replyDomain}`;
   const unexpected=[...message.to,...message.cc].map(emailAddress).some(a=>a!==staff&&a!==context.sarahEmail.toLowerCase());
   if(unexpected)return {action:'held',reason:'Recipient changes need review in the app.'};
@@ -36,6 +40,6 @@ export function buildRelayPayload(message:ReceivedMessage,action:'to-sarah'|'to-
   const parent=vendor?context.lastVendorMessageId:context.lastGmailMessageId;
   const headers:Record<string,string>={'X-Final-Fore-Relay':context.conversationId};
   if(parent){headers['In-Reply-To']=parent;headers.References=parent;}
-  const display=(message.from.includes('<')?message.from.slice(0,message.from.indexOf('<')).trim():emailAddress(message.from)).replace(/["\r\n<>]/g,'').slice(0,120);
-  return {from:vendor?context.from:`${display||'Rep'} via Final Fore <${emailAddress(context.from)}>`,to:vendor?[context.recipient.to]:[context.sarahEmail],cc:vendor?context.recipient.cc:[],subject:(/^re:/i.test(message.subject)?message.subject:'Re: '+message.subject).replace(/[\r\n]/g,' '),text,html:html||undefined,replyTo:`${vendor?'reply-'+context.externalToken:'staff-'+context.staffToken}@${context.replyDomain}`,headers,attachments:message.attachments};
+  const display=(message.from.includes('<')?message.from.slice(0,message.from.indexOf('<')).trim():emailAddress(message.from)).replace(/["\\\r\n<>]/g,'').slice(0,120);
+  return {from:vendor?context.from:`"${display||'Rep'} via Final Fore" <${emailAddress(context.from)}>`,to:vendor?[context.recipient.to]:[context.sarahEmail],cc:vendor?context.recipient.cc:[],subject:(/^re:/i.test(message.subject)?message.subject:'Re: '+message.subject).replace(/[\r\n]/g,' '),text,html:html||undefined,replyTo:`${vendor?'reply-'+context.externalToken:'staff-'+context.staffToken}@${context.replyDomain}`,headers,attachments:message.attachments};
 }

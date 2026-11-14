@@ -7,7 +7,8 @@ import { uploadStatus } from './file-status';
 import { readAll } from './read-all';
 import { validateStreamedDocument } from './streamed-document';
 import { uploadVerificationGate } from './upload-verification-gate';
-import { claimUpload, processUploadLease, uploadWorkerEnabled } from './upload-leases';
+import { processUploadLease, uploadWorkerEnabled, type UploadLease } from './upload-leases';
+import { portalScanner } from './scanner';
 export const RESEARCH_BUCKET='research-files';
 export type ResearchFile={id:string;conversation_id:string;market_id:string|null;name:string;size:number;sha256:string;content_type:string;object_key:string;state:'uploading'|'checking'|'ready'|'held'|'failed';source:'portal'|'email';uploader?:string;error:string|null;created_at:string;updated_at:string;check_deadline?:string|null;recovery_checked_at?:string|null};
 export class SupabasePortalRepository implements PortalRepository {
@@ -19,6 +20,12 @@ export class SupabasePortalRepository implements PortalRepository {
     return {id:c.id,portalState:c.portal_state,mode:c.mode,manifest:c.manifest,recipient:c.recipient};
   }
 }
+/** Limits the rep can act on must not read as a storage outage. */
+function reserveError(error:{code?:string;message:string}):never {
+  if(error.code==='PT429')throw new InputError('Too many files at once. Wait a minute, then retry this file.');
+  if(error.code==='22023'&&/storage limit/i.test(error.message))throw new InputError('This research collection has reached its storage limit. Contact Final Fore.');
+  researchStorageError(error);
+}
 export class ResearchUploads {
   private portals:SupabasePortalRepository;
   constructor(private db:SupabaseClient){this.portals=new SupabasePortalRepository(db);}
@@ -29,12 +36,17 @@ export class ResearchUploads {
   }
   async reserve(token:string,input:unknown){
     const portal=await this.portal(token,true),file=validateUpload(input,portal);
-    const {data,error}=await this.db.rpc('ff_research_reserve_file',{p_conversation:portal.id,p_market:file.marketId,p_name:file.name,p_size:file.size,p_hash:file.sha256,p_type:file.contentType});if(error)researchStorageError(error);
+    const {data,error}=await this.db.rpc('ff_research_reserve_file',{p_conversation:portal.id,p_market:file.marketId,p_name:file.name,p_size:file.size,p_hash:file.sha256,p_type:file.contentType});if(error)reserveError(error);
     const record=data as ResearchFile;
     if(['ready','checking','held'].includes(record.state))return {file:publicFile(record),grant:null};
     const existing=await this.db.storage.from(RESEARCH_BUCKET).info(record.object_key);
-    if(existing.data){return {file:await this.finalize(token,record.id),grant:null};}
-    if(existing.error&&!['404','NoSuchKey','not_found'].includes(String(existing.error.statusCode??existing.error.name)))throw new StorageError('Unable to check this upload. Retry shortly.');
+    if(existing.data){
+      if(record.state!=='failed')return {file:await this.finalize(token,record.id),grant:null};
+      // These stored bytes already failed. Re-checking them would fail again forever; take a fresh copy.
+      const removed=await this.db.storage.from(RESEARCH_BUCKET).remove([record.object_key]);
+      if(removed.error)throw new StorageError('Unable to restart this upload. Retry shortly.');
+    }
+    else if(existing.error&&!['404','NoSuchKey','not_found'].includes(String(existing.error.statusCode??existing.error.name)))throw new StorageError('Unable to check this upload. Retry shortly.');
     const {data:signed,error:signError}=await this.db.storage.from(RESEARCH_BUCKET).createSignedUploadUrl(record.object_key,{upsert:false});if(signError)throw new StorageError('Unable to start this upload. Retry.');
     return {file:publicFile(record),grant:{token:signed.token,objectKey:record.object_key,bucket:RESEARCH_BUCKET,contentType:record.content_type}};
   }
@@ -102,15 +114,33 @@ export async function inspectStorageFile(db:SupabaseClient,fileId:string,scan?: 
   return {state,reason};
 }
 
+/** Once the lease migration is installed, portal files can only be finished through a lease,
+ * whether or not the separate upload worker is switched on. */
+async function claimPortalUpload(db:SupabaseClient,fileId:string,required:boolean):Promise<UploadLease|null|'not-installed'>{
+  const {data,error}=await db.rpc('ff_research_claim_portal_upload',{p_file:fileId});
+  if(error){
+    if(!required&&['PGRST202','42883'].includes(String(error.code)))return 'not-installed';
+    researchStorageError(error);
+  }
+  return data as UploadLease|null;
+}
 export async function verifyStorageFile(db:SupabaseClient,fileId:string,scan?:(bytes:Buffer)=>Promise<boolean>){
-  if(uploadWorkerEnabled()&&!scan){
-    let claimed=false;
+  if(!scan){
+    // Portal file. Email attachments always arrive with their scanner.
+    let finished=false;
     const started=await uploadVerificationGate.run(fileId,async()=>{
-      const file=await claimUpload(db,fileId);if(!file)return;claimed=true;
+      const file=await claimPortalUpload(db,fileId,uploadWorkerEnabled());
+      if(file==='not-installed'){
+        const result=await inspectStorageFile(db,fileId,portalScanner());finished=true;if(!result)return;
+        const {error}=await db.rpc('ff_research_verify_file',{p_file:fileId,p_state:result.state,p_error:result.reason});if(error)researchStorageError(error);
+        return;
+      }
+      if(!file){finished=!uploadWorkerEnabled();return;}
+      finished=true;
       const outcome=await processUploadLease(db,file);
       if(outcome!=='finished')throw new StorageError('Upload verification is pending; the worker will retry.');
     });
-    return started&&claimed;
+    return started&&finished;
   }
   return uploadVerificationGate.run(fileId,async()=>{
     const result=await inspectStorageFile(db,fileId,scan);if(!result)return;

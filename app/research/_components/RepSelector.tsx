@@ -49,8 +49,12 @@ export default function RepSelector({workspace:initialWorkspace}:{workspace:Rese
         if (controller.signal.aborted) return;
         setDeliveries(result.deliveries);
         setStatusError(false);
-        if (result.deliveries.length === batch.count &&
-          result.deliveries.every(row=>['delivered','bounced','failed','needs-review'].includes(row.state))) return;
+        const complete = result.deliveries.length === batch.count;
+        if (complete && result.deliveries.every(row=>['delivered','bounced','failed','needs-review'].includes(row.state))) return;
+        // Without provider webhooks "sent" is the last state there will ever be. Stop once
+        // every email has been accepted and a late delivery or bounce report has had time to arrive.
+        if (complete && Date.now()-started > 10*60000 &&
+          result.deliveries.every(row=>['sent','delivered','bounced','failed','needs-review'].includes(row.state))) return;
       } catch {
         if (controller.signal.aborted) return;
         setStatusError(true);

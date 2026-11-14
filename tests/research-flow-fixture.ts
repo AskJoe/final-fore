@@ -96,6 +96,8 @@ export async function startResearchFlowFixture(port:number){
           const row={id:old?.id??randomUUID(),conversation_id:p.p_conversation,author_kind:input.authorKind,sender:input.sender,subject:input.subject,body_text:input.text,body_html:input.html,original_message_id:input.messageId,received_email_id:input.receivedEmailId,state:input.state,hold_reason:input.holdReason,attachment_ids:input.attachmentIds??[],created_at:now};if(old)Object.assign(old,row);else tables.ff_research_messages.push(row);
           for(const d of p.p_deliveries)tables.ff_research_deliveries.push({id:randomUUID(),message_id:row.id,leg:d.leg,state:'queued',payload_ciphertext:d.ciphertext,created_at:now});send(row.id);return;
         }
+        // This fixture models the database before the upload-lease migration, as PostgREST reports it.
+        if(name==='ff_research_claim_portal_upload'){send({code:'PGRST202',message:'Could not find the function public.ff_research_claim_portal_upload in the schema cache'},404);return;}
         send({message:'Unexpected fixture RPC: '+name},400);return;
       }
       const name=path.replace('/rest/v1/',''),table=tables[name];if(!table){send({message:'Unexpected fixture request: '+path},400);return;}

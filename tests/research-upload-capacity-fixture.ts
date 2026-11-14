@@ -53,6 +53,7 @@ export function uploadCapacityFixture(count: number, bytesPerFile = 1024) {
       };
     } },
     async rpc(name: string, args: Record<string, string>) {
+      if (name === 'ff_research_claim_portal_upload') return { data: null, error: { code: 'PGRST202', message: 'Function not found.' } };
       if (name !== 'ff_research_verify_file') throw new Error('Unexpected RPC: ' + name);
       const row = rows.find(row => row.id === args.p_file)!;
       if (row.state === 'checking') { row.state = args.p_state as ResearchFile['state']; row.error = args.p_error; stats.commits++; }

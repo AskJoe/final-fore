@@ -1,8 +1,10 @@
 import { signIn } from './actions';
+import { LOGIN_ERRORS } from '@/lib/login-errors';
 import './style.css';
 export const dynamic='force-dynamic';
 export default async function Login({searchParams}:{searchParams:Promise<{error?:string}>}) {
-  const {error}=await searchParams;
+  const {error:code}=await searchParams;
+  const error=typeof code==='string'&&Object.hasOwn(LOGIN_ERRORS,code)?LOGIN_ERRORS[code]:undefined;
   return <main className="login">
     <div className="login-brand"><img src="/brand/final-fore-media.png" alt="Final Fore Media" width="1080" height="242" /></div>
     <div className="login-content">

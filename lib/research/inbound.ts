@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Resend } from 'resend';
 import { convert } from 'html-to-text';
 import { StorageError } from '../store';
-import { cleanEmailHtml, decideRelay, buildRelayPayload, emailAddress, type ReceivedMessage, type RelayContext } from './relay';
+import { cleanEmailHtml, decideRelay, senderAuthenticated, buildRelayPayload, emailAddress, type ReceivedMessage, type RelayContext } from './relay';
 import { hashToken, seal, unseal } from './secrets';
 import { researchStorageError } from './queue-store';
 import { RESEARCH_BUCKET, verifyStorageFile, type ResearchFile } from './uploads';
@@ -98,7 +98,7 @@ export async function ingestReceivedEmail(db:SupabaseClient,resend:Resend,emailI
     }
     else dispatch=[{leg:decision.action==='to-sarah'?'gmail':'vendor',ciphertext:seal(mail,config.secretKey)}];
   }
-  if(decision.action==='held'&&route[1]==='staff'&&emailAddress(message.from)===context.sarahEmail&&message.authentication?.dkim==='pass'){
+  if(decision.action==='held'&&route[1]==='staff'&&emailAddress(message.from)===context.sarahEmail&&senderAuthenticated(message)){
     dispatch=[{leg:'gmail',ciphertext:seal({from:context.from,to:[context.sarahEmail],cc:[],replyTo:`staff-${context.staffToken}@${context.replyDomain}`,subject:'Reply not sent: '+message.subject.replace(/[\r\n]/g,' '),text:(decision.reason??'This reply needs review.')+'\n\nOpen the conversation: '+config.origin+'/research/'+conversationId,headers:{'Auto-Submitted':'auto-generated','X-Final-Fore-Relay':conversationId}},config.secretKey)}];
   }
   const saved=await db.rpc('ff_research_append_message',{p_conversation:conversationId,p_message:{authorKind:route[1]==='staff'?'staff':'rep',sender:message.from,subject:message.subject,text:originalText,html:cleanEmailHtml(message.html),messageId:message.messageId,receivedEmailId:emailId,state:decision.action==='held'?'held':'recorded',holdReason:decision.reason??null,attachmentIds,rawObjectKey,authentication:message.authentication},p_deliveries:dispatch});if(saved.error)researchStorageError(saved.error);
