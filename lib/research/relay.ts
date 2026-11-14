@@ -9,9 +9,11 @@ export function emailAddress(value:string):string {
   const angle=value.match(/^[^<>]*<([^<>]+)>\s*$/),address=(angle?angle[1]:value).trim().toLowerCase();
   return /^[^\s<>,@]+@[^\s<>,@]+\.[^\s<>,@]+$/.test(address)?address:'';
 }
-/** A DKIM pass alone can be for any signing domain; DMARC ties it to the From domain. */
+/** A DKIM pass alone can be for any signing domain; DMARC ties it to the From domain.
+ * A reported DMARC result must pass. When the provider reports none, DKIM decides, as before. */
 export function senderAuthenticated(message:Pick<ReceivedMessage,'authentication'>):boolean {
-  return message.authentication?.dkim==='pass'&&message.authentication?.dmarc==='pass';
+  const dmarc=message.authentication?.dmarc;
+  return message.authentication?.dkim==='pass'&&(dmarc===undefined||dmarc===null||dmarc==='pass');
 }
 export function decideRelay(message:ReceivedMessage,route:'staff'|'external',context:RelayContext):{action:RelayAction;reason?:string}{
   const headers=Object.fromEntries(Object.entries(message.headers).map(([k,v])=>[k.toLowerCase(),v]));
@@ -33,6 +35,11 @@ function stripStaffRouting(value:string,context:RelayContext){
   const escaped=context.replyDomain.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   return value.replace(new RegExp(`staff-[a-f0-9]{64}@${escaped}`,'gi'),'research-reply-address').replaceAll(context.staffToken,'research-reply-address');
 }
+/** Names with address punctuation ("Doe, Jane") must be quoted; plain names are unchanged. */
+function relayName(display:string){
+  const name=display+' via Final Fore';
+  return /[,;:@()[\]]/.test(display)?'"'+name+'"':name;
+}
 export function buildRelayPayload(message:ReceivedMessage,action:'to-sarah'|'to-vendor',context:RelayContext):MailPayload{
   let html=cleanEmailHtml(message.html),text=message.text||convert(html,{wordwrap:false,selectors:[{selector:'img',format:'skip'}]});
   const vendor=action==='to-vendor';
@@ -41,5 +48,5 @@ export function buildRelayPayload(message:ReceivedMessage,action:'to-sarah'|'to-
   const headers:Record<string,string>={'X-Final-Fore-Relay':context.conversationId};
   if(parent){headers['In-Reply-To']=parent;headers.References=parent;}
   const display=(message.from.includes('<')?message.from.slice(0,message.from.indexOf('<')).trim():emailAddress(message.from)).replace(/["\\\r\n<>]/g,'').slice(0,120);
-  return {from:vendor?context.from:`"${display||'Rep'} via Final Fore" <${emailAddress(context.from)}>`,to:vendor?[context.recipient.to]:[context.sarahEmail],cc:vendor?context.recipient.cc:[],subject:(/^re:/i.test(message.subject)?message.subject:'Re: '+message.subject).replace(/[\r\n]/g,' '),text,html:html||undefined,replyTo:`${vendor?'reply-'+context.externalToken:'staff-'+context.staffToken}@${context.replyDomain}`,headers,attachments:message.attachments};
+  return {from:vendor?context.from:`${relayName(display||'Rep')} <${emailAddress(context.from)}>`,to:vendor?[context.recipient.to]:[context.sarahEmail],cc:vendor?context.recipient.cc:[],subject:(/^re:/i.test(message.subject)?message.subject:'Re: '+message.subject).replace(/[\r\n]/g,' '),text,html:html||undefined,replyTo:`${vendor?'reply-'+context.externalToken:'staff-'+context.staffToken}@${context.replyDomain}`,headers,attachments:message.attachments};
 }

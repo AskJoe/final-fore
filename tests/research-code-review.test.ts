@@ -22,14 +22,18 @@ test('a rep display name with a comma stays one quoted mailbox in the relayed Fr
   const from = buildRelayPayload(message, 'to-sarah', context).from;
   assert.equal(from, '"Doe, Jane via Final Fore" <research@example.test>');
   const escaped = buildRelayPayload({ ...message, from: 'Jane\\ "Doe" <rep@example.test>' }, 'to-sarah', context).from;
-  assert.equal(escaped, '"Jane Doe via Final Fore" <research@example.test>');
+  assert.equal(escaped, 'Jane Doe via Final Fore <research@example.test>');
+  // An ordinary name is sent exactly as it was before this fix.
+  assert.equal(buildRelayPayload({ ...message, from: 'John Smith <rep@example.test>' }, 'to-sarah', context).from, 'John Smith via Final Fore <research@example.test>');
 });
 
-test('a staff reply needs DMARC alignment, not only a DKIM pass from any domain', () => {
+test('a staff reply with a failed DMARC result is held even when DKIM passes', () => {
   const staff = { ...message, from: 'Sarah <sarah@example.test>', to: [`staff-${context.staffToken}@${context.replyDomain}`] };
   assert.equal(decideRelay({ ...staff, authentication: { dkim: 'pass', dmarc: 'pass' } }, 'staff', context).action, 'to-vendor');
   assert.equal(decideRelay({ ...staff, authentication: { dkim: 'pass', dmarc: 'fail' } }, 'staff', context).action, 'held');
-  assert.equal(decideRelay({ ...staff, authentication: { dkim: 'pass' } }, 'staff', context).action, 'held');
+  // No DMARC result from the provider is not a failure: DKIM decides, as it always has.
+  assert.equal(decideRelay({ ...staff, authentication: { dkim: 'pass' } }, 'staff', context).action, 'to-vendor');
+  assert.equal(decideRelay({ ...staff, authentication: { dmarc: 'pass' } }, 'staff', context).action, 'held');
 });
 
 test('merge tokens naming Object.prototype members are reported missing instead of crashing', () => {
@@ -104,15 +108,18 @@ test('retrying a failed upload replaces the stored bytes instead of re-checking 
   assert.equal(result.grant?.objectKey, 'c1/f1');
 });
 
-test('portal uploads are scanned whenever the scanner is configured', () => {
-  const saved = { url: process.env.FINAL_FORE_RESEARCH_SCANNER_URL, key: process.env.FINAL_FORE_RESEARCH_SCANNER_KEY };
+test('portal uploads are scanned only when explicitly switched on with a configured scanner', () => {
+  const saved = { url: process.env.FINAL_FORE_RESEARCH_SCANNER_URL, key: process.env.FINAL_FORE_RESEARCH_SCANNER_KEY, on: process.env.FINAL_FORE_RESEARCH_SCAN_PORTAL_UPLOADS };
   try {
     delete process.env.FINAL_FORE_RESEARCH_SCANNER_URL; delete process.env.FINAL_FORE_RESEARCH_SCANNER_KEY;
     assert.equal(portalScanner(), undefined);
     process.env.FINAL_FORE_RESEARCH_SCANNER_URL = 'https://scanner.example.test/scan'; process.env.FINAL_FORE_RESEARCH_SCANNER_KEY = 'fixture-key';
+    delete process.env.FINAL_FORE_RESEARCH_SCAN_PORTAL_UPLOADS;
+    assert.equal(portalScanner(), undefined);
+    process.env.FINAL_FORE_RESEARCH_SCAN_PORTAL_UPLOADS = '1';
     assert.equal(typeof portalScanner(), 'function');
   } finally {
-    for (const [name, value] of [['FINAL_FORE_RESEARCH_SCANNER_URL', saved.url], ['FINAL_FORE_RESEARCH_SCANNER_KEY', saved.key]] as const) {
+    for (const [name, value] of [['FINAL_FORE_RESEARCH_SCANNER_URL', saved.url], ['FINAL_FORE_RESEARCH_SCANNER_KEY', saved.key], ['FINAL_FORE_RESEARCH_SCAN_PORTAL_UPLOADS', saved.on]] as const) {
       if (value === undefined) delete process.env[name]; else process.env[name] = value;
     }
   }

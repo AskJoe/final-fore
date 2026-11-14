@@ -44,7 +44,7 @@ export class ResearchUploads {
       if(record.state!=='failed')return {file:await this.finalize(token,record.id),grant:null};
       // These stored bytes already failed. Re-checking them would fail again forever; take a fresh copy.
       const removed=await this.db.storage.from(RESEARCH_BUCKET).remove([record.object_key]);
-      if(removed.error)throw new StorageError('Unable to restart this upload. Retry shortly.');
+      if(removed.error)return {file:await this.finalize(token,record.id),grant:null};
     }
     else if(existing.error&&!['404','NoSuchKey','not_found'].includes(String(existing.error.statusCode??existing.error.name)))throw new StorageError('Unable to check this upload. Retry shortly.');
     const {data:signed,error:signError}=await this.db.storage.from(RESEARCH_BUCKET).createSignedUploadUrl(record.object_key,{upsert:false});if(signError)throw new StorageError('Unable to start this upload. Retry.');

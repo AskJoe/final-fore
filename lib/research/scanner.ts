@@ -9,7 +9,9 @@ export async function scanResearchFile(bytes:Buffer):Promise<boolean>{
   const result=await response.json();if(typeof result.clean!=='boolean'||result.sha256!==createHash('sha256').update(bytes).digest('hex'))throw new Error('File scanner result could not be verified.');return result.clean;
 }
 
-/** Portal uploads use the same scanner as email attachments whenever one is configured. */
+/** Off by default: rep uploads must keep working when the scanner is down or absent.
+ * Turn on explicitly to give portal uploads the same scan as email attachments. */
 export function portalScanner():((bytes:Buffer)=>Promise<boolean>)|undefined {
+  if(process.env.FINAL_FORE_RESEARCH_SCAN_PORTAL_UPLOADS!=='1')return undefined;
   return process.env.FINAL_FORE_RESEARCH_SCANNER_URL&&process.env.FINAL_FORE_RESEARCH_SCANNER_KEY?scanResearchFile:undefined;
 }

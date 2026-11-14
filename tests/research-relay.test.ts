@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { decideRelay, buildRelayPayload, type ReceivedMessage, type RelayContext } from '../lib/research/relay';
 const context:RelayContext={conversationId:'conv-1',sarahEmail:'sarah@example.test',from:'Sarah <research@example.test>',replyDomain:'reply.example.test',externalToken:'a'.repeat(64),staffToken:'b'.repeat(64),recipient:{to:'rep@example.test',cc:['assistant@example.test']},lastVendorMessageId:'<vendor-previous@example.test>',lastGmailMessageId:'<gmail-previous@example.test>'};
-const incoming:ReceivedMessage={id:'inbound-1',messageId:'<rep-message@example.test>',from:'John <rep@example.test>',to:[`reply-${context.externalToken}@${context.replyDomain}`],cc:[],subject:'Re: Research',text:'Here is the research.',html:'<p>Here is the research.</p>',headers:{},authentication:{dkim:'pass',dmarc:'pass'},attachments:[]};
+const incoming:ReceivedMessage={id:'inbound-1',messageId:'<rep-message@example.test>',from:'John <rep@example.test>',to:[`reply-${context.externalToken}@${context.replyDomain}`],cc:[],subject:'Re: Research',text:'Here is the research.',html:'<p>Here is the research.</p>',headers:{},authentication:{dkim:'pass'},attachments:[]};
 test('rep reply is captured and forwarded only to Sarah with a private staff Reply-To',()=>{
   assert.equal(decideRelay(incoming,'external',context).action,'to-sarah');
   const p=buildRelayPayload(incoming,'to-sarah',context);
