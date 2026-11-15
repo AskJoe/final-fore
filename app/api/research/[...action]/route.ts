@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { failure, json, sameOrigin } from '@/lib/http';
 import { InputError } from '@/lib/domain/types';
 import { MARKETS } from '@/lib/domain/catalogs';
@@ -18,6 +19,7 @@ import { startUploadTest } from '@/lib/research/upload-test';
 import { sendPreviewCopy } from '@/lib/research/preview-send';
 import { queueTestEmail } from '@/lib/research/test-send';
 import { researchTestOnly } from '@/lib/research/send-policy';
+import { runUploadWorkerOnce } from '@/lib/research/upload-worker';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 type Context={params:Promise<{action:string[]}>};
@@ -36,10 +38,18 @@ export async function GET(request:Request,context:Context){
     const {user}=await requireMember();
     if(!['batch-status','threads','thread','files','files/download'].includes(action))return json({error:'Not found.'},404);
     if(!researchWritesEnabled())return json({enabled:false,conversations:[],groups:[],next:null});
-    const inbox=new ResearchInbox(researchAdmin(),user.id),params=new URL(request.url).searchParams;
+    const db=researchAdmin(),inbox=new ResearchInbox(db,user.id),params=new URL(request.url).searchParams;
     if(action==='batch-status')return json({deliveries:await inbox.batchStatus(params.get('id')??'')});
     if(action==='threads')return json({enabled:true,...await inbox.list(params.get('before')??undefined)});
-    if(action==='files')return json({enabled:true,...await inbox.incoming(params.get('before')??undefined)});
+    if(action==='files'){
+      const incoming=await inbox.incoming(params.get('before')??undefined);
+      const pending=incoming.groups.some(group=>group.files.some(file=>file.source==='portal'&&(file.state==='checking'||file.state==='uploading')));
+      if(pending)after(async()=>{
+        try{await runUploadWorkerOnce(db);}
+        catch{console.warn('Incoming file verification deferred. The next refresh can retry.');}
+      });
+      return json({enabled:true,...incoming});
+    }
     if(action==='thread')return json({enabled:true,...await inbox.thread(params.get('id')??'')});
     return new Response(null,{status:302,headers:{Location:await inbox.download(params.get('id')??''),'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'}});
   }catch(e){return failure(e);}

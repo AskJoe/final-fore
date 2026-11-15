@@ -60,9 +60,8 @@ export class ResearchUploads {
     const {error:e}=await this.db.rpc('ff_research_finalize_file',{p_conversation:portal.id,p_file:id});if(e)researchStorageError(e);return this.complete({...file,state:'checking'});
   }
   private async complete(file:ResearchFile){
-    // Busy work remains checking in Postgres, with no growing in-memory queue.
-    // Transient failures are retried by the next poll/job; they do not invalidate stored bytes.
-    if(!uploadWorkerEnabled())await verifyStorageFile(this.db,file.id);
+    // Complete the upload here when capacity is available. Polling retries busy or interrupted checks.
+    await verifyStorageFile(this.db,file.id);
     const current=await this.db.from('ff_research_files').select('*').eq('id',file.id).single();if(current.error)researchStorageError(current.error);
     return publicFile(current.data as ResearchFile);
   }
@@ -71,7 +70,6 @@ export class ResearchUploads {
   }
   /** Called by the existing authenticated portal poll: recover a lost finalize response, no daemon needed. */
   async refresh(portal:PortalRecord,token:string){
-    if(uploadWorkerEnabled())return this.files(portal);
     if(portal.portalState==='open'){
       const pending=(await this.files(portal)).filter(f=>(f.state==='checking'||f.state==='uploading')&&uploadVerificationGate.canStart(f.id)).sort((a,b)=>{
         if(a.state!==b.state)return a.state==='checking'?-1:1;
