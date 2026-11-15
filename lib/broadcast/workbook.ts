@@ -40,6 +40,16 @@ export type ResearchSheet = {
 
 export type SavedMarket = { review_key: string; market_id: string; market_name: string };
 
+export const radioCpmFormula = 'Spot rate × 1,000 ÷ AQH (people)';
+
+export function calculateRadioCpm(spotRate: number | null, aqh: number | null): number | null {
+  if (spotRate === null || aqh === null || !Number.isFinite(spotRate) || !Number.isFinite(aqh) || spotRate < 0 || aqh <= 0) {
+    return null;
+  }
+  const cpm = spotRate / (aqh / 1000);
+  return Number.isFinite(cpm) ? cpm : null;
+}
+
 export function isSheetName(name: string): name is SheetName {
   return Object.hasOwn(sheetLabels, name);
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { filePreviewKind } from '@/lib/research/file-preview';
-import { sheetLabels, type CellValue, type MarketIssue, type MarketOption, type ResearchRow,
+import { calculateRadioCpm, radioCpmFormula, sheetLabels, type CellValue, type MarketIssue, type MarketOption, type ResearchRow,
   type ResearchSheet, type SavedMarket, type SheetName, type SourceFile } from '@/lib/broadcast/workbook';
 import FilePreviewDrawer from '../_components/FilePreviewDrawer';
 import FilterRibbon, { emptyFilters, filterFields, readFilters, rememberFilters, type Filters } from './FilterRibbon';
@@ -31,8 +31,7 @@ function submissionsFor(sheet: ResearchSheet, row: ResearchRow) {
   return files.toSorted((a, b) => Number(b.marketId === row.sourceMarketId) - Number(a.marketId === row.sourceMarketId));
 }
 
-function ResearchCell({ cell, missingRate }: { cell: CellValue; missingRate?: boolean }) {
-  if (missingRate) return <td className="broadcast-number broadcast-unavailable-value" title="Spot rate missing">—</td>;
+function ResearchCell({ cell }: { cell: CellValue }) {
   if (cell === null || typeof cell !== 'object') return <td>{cell}</td>;
   const source = cell.locator + ' · Source value ' + cell.raw;
   const display = cell.value === null ? 'Unavailable'
@@ -40,6 +39,19 @@ function ResearchCell({ cell, missingRate }: { cell: CellValue; missingRate?: bo
     : measurement.format(cell.value) + (cell.unit === 'percent' ? '%' : '');
   return <td className={cell.value === null ? 'broadcast-number broadcast-unavailable-value' : 'broadcast-number'}
     data-source-cell={cell.locator} title={source}>{display}</td>;
+}
+
+function measurementValue(cell: CellValue | undefined): number | null {
+  if (typeof cell === 'number') return cell;
+  return typeof cell === 'object' && cell !== null ? cell.value : null;
+}
+
+function RadioCpmCell({ rate, aqh }: { rate: number | null; aqh: number | null }) {
+  const cpm = calculateRadioCpm(rate, aqh);
+  const title = cpm !== null ? radioCpmFormula
+    : rate === null ? 'Spot rate missing' : 'CPM requires a valid spot rate and positive AQH';
+  return <td className={cpm === null ? 'broadcast-number broadcast-unavailable-value' : 'broadcast-number'}
+    title={title}>{cpm === null ? '—' : currency.format(cpm)}</td>;
 }
 
 function SourceControl({ file, onOpen }: { file: SourceFile; onOpen: (file: SourceFile) => void }) {
@@ -170,6 +182,11 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
   }
 
   const isTv = name === 'tv';
+  const radioColumns = sheet && name === 'radio' ? {
+    cpm: sheet.columns.findIndex(column => column.label === 'CPM'),
+    rate: sheet.columns.findIndex(column => column.label === 'Spot rate'),
+    aqh: sheet.columns.findIndex(column => column.label === 'AQH (people)'),
+  } : null;
   const columns = sheet ? [...columnsBeforeMetrics, ...sheet.columns, ...(isTv ? [reviewColumn] : []), sourceColumn] : [];
   const marketName = (row: ResearchRow) => saved.get(row.issue?.key ?? '')?.market_name ?? row.market;
   const rows = sheet && (isTv && saved.size > 0
@@ -239,8 +256,10 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
                 onClick={event => reviewMarket(event.currentTarget)}>Check market</button>}
             </th>
             <td>{row.client}</td><td>{rep}</td><td>{firm}</td>
-            {row.cells.map((cell, col) => <ResearchCell key={col} cell={cell}
-              missingRate={name === 'radio' && sheet.columns[col].label === 'CPM' && cell === null} />)}
+            {row.cells.map((cell, col) => radioColumns?.cpm === col
+              ? <RadioCpmCell key={col} rate={measurementValue(row.cells[radioColumns.rate])}
+                aqh={measurementValue(row.cells[radioColumns.aqh])} />
+              : <ResearchCell key={col} cell={cell} />)}
             {isTv && <td>{review && <button type="button" className="broadcast-link"
               onClick={event => reviewMarket(event.currentTarget)}>{flagged ? review.sourceMarket : 'Edit match'}</button>}</td>}
             <td className="broadcast-source-cell" title={row.locator}>{source && <SourceControl file={source} onOpen={setPreview} />}
@@ -259,7 +278,7 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
     </nav>
     <div className="broadcast-count" role="status">
       <span>{number.format(visible.length)}{visible.length !== entries.length && ' of ' + number.format(entries.length)} rows</span>
-      {name === 'radio' && sheet && <span>CPM needs a spot rate</span>}
+      {radioColumns && <span>CPM = {radioCpmFormula}</span>}
       {sheet && <span>{number.format(sheet.totals.values)} values · {number.format(sheet.totals.files)} original files</span>}
     </div>
     {issue && <ReviewDialog issue={issue} current={saved.get(issue.key)} options={marketOptions} onClose={closeReview}

@@ -139,7 +139,7 @@ tvRows.sort((a, b) => a.market.localeCompare(b.market) || (a.period ?? '').local
 const radioRows = pivot(row => row.family.startsWith('Radio'),
   row => [row.doc, row.tab, row.market, row.station, row.period, row.daypart, row.audience, row.scope],
   row => row.metric,
-  (row, values) => [row.station ?? '', null, row.daypart ?? '', row.period, ...['AQH', 'AQH share', 'Cume'].map(metric => cell(values.get(metric))),
+  (row, values) => [row.station ?? '', null, cell(values.get('Spot rate')), row.daypart ?? '', row.period, ...['AQH', 'AQH share', 'Cume'].map(metric => cell(values.get(metric))),
     row.audience ?? '', row.scope ?? '']);
 
 const demographicColumn = (row: Observation) => JSON.stringify([row.tab, row.metric, row.unit]);
@@ -172,7 +172,7 @@ const sheets: Record<SheetName, ResearchSheet> = {
   tv: { ...sheet([['Period', 73], ['Level', 51], ...dayparts.flatMap((): [string, number][] => [['CPM', 67], ['CPP', 67]]),
     ['Audience', 110], ['Spot (sec)', 74], ['Quarter', 71], ['Market population', 121]], tvRows,
     [['', 2], ...dayparts.map((part): [string, number] => [part, 2]), ['', 4]]), markets: extraction.catalogMarkets },
-  radio: sheet([['Station', 103], ['CPM', 69], ['Daypart', 112], ['Period', 76], ['AQH (people)', 97], ['AQH Share', 85],
+  radio: sheet([['Station', 103], ['CPM', 69], ['Spot rate', 80], ['Daypart', 112], ['Period', 76], ['AQH (people)', 97], ['AQH Share', 85],
     ['Cume (people)', 98], ['Audience', 105], ['Coverage', 162]], radioRows),
   demographics: sheet([['Coverage in file', 235], ['Year', 60], ...orderedFields.map((field): [string, number] =>
     [field.metric + ' (' + (field.unit === 'percent' ? '%' : field.unit) + ')', Math.min(183, Math.max(94, 53 + field.metric.length * 2))])],
