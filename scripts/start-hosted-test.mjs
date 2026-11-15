@@ -1,6 +1,10 @@
 // Keep hosted sends in test mode unless the operator explicitly enables live delivery.
 import {spawn} from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 const env={...process.env,FINAL_FORE_TEST_BUILD:'0',FINAL_FORE_RESEARCH_TEST_ONLY:process.env.FINAL_FORE_RESEARCH_TEST_ONLY==='0'?'0':'1',FINAL_FORE_RESEARCH_FROM:'sarah@finalforemedia.com',FINAL_FORE_RESEARCH_SARAH_EMAIL:'sarah@finalforemedia.com',NEXT_TELEMETRY_DISABLED:'1'};
+const bundledSoffice = fileURLToPath(new URL('../.render/libreoffice/soffice', import.meta.url));
+if (!env.FINAL_FORE_SOFFICE_PATH && existsSync(bundledSoffice)) env.FINAL_FORE_SOFFICE_PATH = bundledSoffice;
 const children=[];
 let stopping=false;
 function stop(code){if(stopping)return;stopping=true;for(const child of children)child.kill('SIGTERM');setTimeout(()=>process.exit(code),1000).unref();}
