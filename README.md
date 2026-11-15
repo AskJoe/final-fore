@@ -24,7 +24,7 @@ The runtime uses the local URL and publishable key in ignored `.env.local`. The 
 
 Incoming files opens PDFs and Excel workbooks (`.xlsx` and `.xls`) in a drawer. Excel previews use LibreOffice Calc to render a PDF when a member opens a workbook. The original stays in private Storage and **Download original** is available from the drawer. Preview generation is separate from uploads and needs no database migration.
 
-For local development, install LibreOffice and make `soffice` available on `PATH`, or set `FINAL_FORE_SOFFICE_PATH` to its executable. For Render, use the repo's root `Dockerfile` with the Docker runtime so LibreOffice Calc is installed. Keep the existing branch and environment settings, including `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which Render passes to the image build. The Docker start command uses Render's `PORT`.
+For local development, install LibreOffice and make `soffice` available on `PATH`, or set `FINAL_FORE_SOFFICE_PATH` to its executable. In Render, go to **Settings → Build → Source → Edit**, keep the existing repository and branch, and select **Docker**. Use the root `Dockerfile` and leave the Docker command at its default. The image installs LibreOffice Calc and uses `scripts/start-hosted-test.mjs`, which listens on Render's `PORT` and starts the research worker when sending is enabled. Keep the existing environment settings, including `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which Render passes to the image build.
 
 ## Review before applying Supabase changes
 

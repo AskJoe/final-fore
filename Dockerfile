@@ -19,4 +19,4 @@ RUN npm run build
 ENV NODE_ENV=production
 ENV PORT=10000
 EXPOSE 10000
-CMD ["node_modules/.bin/next", "start", "--hostname", "0.0.0.0"]
+CMD ["node", "scripts/start-hosted-test.mjs"]
