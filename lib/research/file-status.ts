@@ -5,3 +5,20 @@ export function uploadStatus<S extends string>(file:{state:S;error:string|null;c
  if(file.state==='checking'&&deadline<=now)return {state:'failed',error:'Upload verification timed out. Please upload this file again.'};
  return {state:file.state,error:file.error};
 }
+
+type FileStatus<S extends string = string> = {
+ state: S;
+ source: string;
+ error: string | null;
+ check_deadline?: string | null;
+};
+
+export function isStoredFileAvailable(file: Pick<FileStatus, 'source' | 'state'>) {
+ // Older portal finalizers used Checking to record that Storage had received the upload.
+ return file.state === 'ready' || (file.source === 'portal' && file.state === 'checking');
+}
+
+export function storedFileStatus<S extends string>(file: FileStatus<S>): {state: S | 'ready' | 'failed'; error: string | null} {
+ if (isStoredFileAvailable(file)) return {state: 'ready', error: null};
+ return uploadStatus(file);
+}

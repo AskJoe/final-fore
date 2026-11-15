@@ -13,6 +13,7 @@ import type { ResearchManifest } from './requests';
 import type { BatchDelivery, Recipient } from './types';
 import { readAll } from './read-all';
 import { researchTestOnly } from './send-policy';
+import { isStoredFileAvailable } from './file-status';
 
 export type ResearchMessage={id:string;author_kind:'rep'|'staff'|'system';sender:string;subject:string;body_text:string;state:string;hold_reason:string|null;attachment_ids:string[];created_at:string};
 export type DeliverySummary={id:string;message_id:string;leg:string;state:string;error:string|null};
@@ -64,14 +65,14 @@ export class ResearchInbox {
     const ids=rows.map(c=>c.id);
     const [messages,files,reads,deliveries]=await Promise.all([
       readAll(this.db.from('ff_research_messages').select('id,conversation_id,subject,state,created_at').in('conversation_id',ids).order('created_at').order('id')),
-      readAll(this.db.from('ff_research_files').select('conversation_id,state').in('conversation_id',ids).is('duplicate_of',null).order('id')),
+      readAll(this.db.from('ff_research_files').select('conversation_id,source,state').in('conversation_id',ids).is('duplicate_of',null).order('id')),
       this.db.from('ff_research_reads').select('conversation_id,read_at').eq('member_id',this.memberId).in('conversation_id',ids),
       readAll(this.db.from('ff_research_deliveries').select('state,ff_research_messages!inner(conversation_id)').in('ff_research_messages.conversation_id',ids).order('id')),
     ]);for(const r of [messages,files,reads,deliveries])if(r.error)researchStorageError(r.error);
     const conversations:ConversationSummary[]=rows.map(c=>{
       const ms=(messages.data??[]).filter(m=>m.conversation_id===c.id),fs=(files.data??[]).filter(f=>f.conversation_id===c.id),read=reads.data?.find(r=>r.conversation_id===c.id);
       const ds=(deliveries.data??[]).filter(d=>(d.ff_research_messages as unknown as {conversation_id:string}).conversation_id===c.id),states=ds.map(d=>d.state);
-      return {id:c.id,mode:c.mode,manifest:c.manifest,recipient:c.recipient,portal_state:c.portal_state,created_at:c.created_at,updated_at:c.updated_at,subject:ms.at(-1)?.subject??c.manifest.templateName,unread:!read||c.updated_at>read.read_at,fileCount:fs.filter(f=>f.state==='ready').length,attention:ms.filter(m=>m.state==='held').length+fs.filter(f=>['held','failed'].includes(f.state)).length+states.filter(s=>['failed','bounced','needs-review'].includes(s)).length,deliveryState:states.some(s=>['failed','bounced','needs-review'].includes(s))?'Needs review':states.some(s=>['queued','sending','retry','uncertain'].includes(s))?'Sending':states.length?'Sent':''};
+      return {id:c.id,mode:c.mode,manifest:c.manifest,recipient:c.recipient,portal_state:c.portal_state,created_at:c.created_at,updated_at:c.updated_at,subject:ms.at(-1)?.subject??c.manifest.templateName,unread:!read||c.updated_at>read.read_at,fileCount:fs.filter(isStoredFileAvailable).length,attention:ms.filter(m=>m.state==='held').length+fs.filter(f=>['held','failed'].includes(f.state)).length+states.filter(s=>['failed','bounced','needs-review'].includes(s)).length,deliveryState:states.some(s=>['failed','bounced','needs-review'].includes(s))?'Needs review':states.some(s=>['queued','sending','retry','uncertain'].includes(s))?'Sending':states.length?'Sent':''};
     });const last=rows.at(-1)!;return {conversations,next:rows.length===100?last.updated_at+'|'+last.id:null};
   }
   async conversation(id:string,includeTests=false){
@@ -105,7 +106,7 @@ export class ResearchInbox {
     const {error:e}=await this.db.rpc('ff_research_assign_file',{p_member:this.memberId,p_file:fileId,p_market:id});if(e)researchStorageError(e);
   }
   async download(id:string){
-    const {data:file,error}=await this.db.from('ff_research_files').select('*').eq('id',id).eq('state','ready').maybeSingle();if(error)researchStorageError(error);if(!file)throw new InputError('File is not ready.');await this.conversation(file.conversation_id,true);
+    const {data:file,error}=await this.db.from('ff_research_files').select('conversation_id,object_key,name,source,state').eq('id',id).maybeSingle();if(error)researchStorageError(error);if(!file||!isStoredFileAvailable(file))throw new InputError('File is not ready.');await this.conversation(file.conversation_id,true);
     const signed=await this.db.storage.from(RESEARCH_BUCKET).createSignedUrl(file.object_key,30,{download:file.name});if(signed.error)throw new StorageError('Unable to open file.');return signed.data.signedUrl;
   }
   async close(id:string,state:unknown){

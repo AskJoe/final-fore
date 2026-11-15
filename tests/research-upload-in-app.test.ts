@@ -3,11 +3,12 @@ import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { createClient } from '@supabase/supabase-js';
 import { hashToken } from '../lib/research/secrets';
+import { ResearchInbox } from '../lib/research/inbox';
 import { ResearchUploads } from '../lib/research/uploads';
 import { uploadCapacityFixture } from './research-upload-capacity-fixture';
 import { startResearchFlowFixture } from './research-flow-fixture';
 
-test('the app finishes stored portal uploads even when a separate worker is enabled and idle', async t => {
+test('new and older stored portal uploads open through Storage without rereading their contents', async t => {
   const workerFlag = process.env.FINAL_FORE_RESEARCH_UPLOAD_WORKER_ENABLED;
   process.env.FINAL_FORE_RESEARCH_UPLOAD_WORKER_ENABLED = '1';
   t.after(() => {
@@ -28,8 +29,17 @@ test('the app finishes stored portal uploads even when a separate worker is enab
   }
   const [current, previous] = rows;
   current.state = 'uploading';
-  fixture.tables.ff_research_conversations.push({ id: current.conversation_id, mode: 'live', portal_state: 'open' });
+  current.conversation_id = randomUUID();
+  previous.conversation_id = current.conversation_id;
+  const manifest = { clientId: 'client', campaignKey: 'campaign', media: 'broadcast-tv', markets: [{ marketId: 'market', displayName: 'Market' }] };
+  const recipient = { name: 'Rep', firmName: 'Vendor' };
+  fixture.tables.ff_research_conversations.push({ id: current.conversation_id, mode: 'live', portal_state: 'open', manifest, recipient });
   fixture.tables.ff_research_secrets.push({ conversation_id: current.conversation_id, portal_hash: hashToken(token) });
+  const email = { ...previous, id: randomUUID(), object_key: randomUUID(), source: 'email' };
+  fixture.tables.ff_research_files.push(email);
+  fixture.objects.set(email.object_key, bytes);
+  const incomplete = { ...previous, id: randomUUID(), object_key: randomUUID(), state: 'uploading' };
+  fixture.tables.ff_research_files.push(incomplete);
 
   const leases = new Map<string, string>();
   const db = createClient(fixture.url, 'fixture-service-key', {
@@ -37,6 +47,13 @@ test('the app finishes stored portal uploads even when a separate worker is enab
     global: {
       async fetch(input, init) {
         const url = new URL(input instanceof Request ? input.url : String(input));
+        const signPrefix = '/storage/v1/object/sign/research-files/';
+        if (url.pathname.startsWith(signPrefix)) {
+          const key = url.pathname.slice(signPrefix.length);
+          assert.ok(fixture.objects.has(key));
+          assert.equal(JSON.parse(String(init?.body)).expiresIn, 30);
+          return Response.json({ signedURL: '/object/sign/research-files/' + key + '?token=fixture' });
+        }
         if (url.pathname.endsWith('/rpc/ff_research_claim_portal_upload')) {
           const { p_file } = JSON.parse(String(init?.body));
           const row = rows.find(item => item.id === p_file && item.state === 'checking');
@@ -60,10 +77,24 @@ test('the app finishes stored portal uploads even when a separate worker is enab
 
   const uploads = new ResearchUploads(db);
   assert.equal((await uploads.finalize(token, current.id)).state, 'ready');
-  assert.equal(fixture.calls.filter(call => call === 'GET /storage/v1/object/research-files/' + current.object_key).length, 1);
+  await assert.rejects(uploads.finalize(token, incomplete.id), /Stored file is not available/);
+  assert.equal(current.state, 'ready');
+  assert.equal(previous.state, 'checking');
 
   const portal = await uploads.portal(token);
-  const files = await uploads.refresh(portal, token);
-  assert.equal(files.find(file => file.id === previous.id)?.state, 'ready');
-  assert.equal(fixture.calls.filter(call => call === 'GET /storage/v1/object/research-files/' + previous.object_key).length, 1);
+  const inbox = new ResearchInbox(db, 'staff');
+  const incoming = (await inbox.incoming()).groups.flatMap(group => group.files);
+  assert.equal(incoming.find(file => file.id === previous.id)?.state, 'ready');
+  assert.equal(incoming.find(file => file.id === current.id)?.state, 'ready');
+  assert.equal(incoming.find(file => file.id === email.id)?.state, 'checking');
+  assert.equal(incoming.find(file => file.id === incomplete.id)?.state, 'uploading');
+  assert.equal((await inbox.list()).conversations[0].fileCount, 2);
+  for (const file of [current, previous]) {
+    const path = '/storage/v1/object/sign/research-files/' + file.object_key;
+    assert.equal(new URL(await inbox.download(file.id)).pathname, path);
+    assert.equal(new URL(await uploads.download(portal, file.id)).pathname, path);
+  }
+  await assert.rejects(inbox.download(email.id), /not ready/);
+  await assert.rejects(inbox.download(incomplete.id), /not ready/);
+  assert.equal(fixture.calls.filter(call => call.startsWith('GET /storage/v1/object/research-files/')).length, 0);
 });

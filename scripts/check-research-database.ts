@@ -12,7 +12,7 @@ import { SupabaseRequestRepository, SupabaseDeliveryRepository } from '../lib/re
 import { prepareRequest, queuePrepared, type PreparedPreview } from '../lib/research/requests';
 import { makeAssignment } from '../lib/research/assignments';
 import { processDelivery } from '../lib/research/delivery';
-import { ResearchUploads, verifyStorageFile, RESEARCH_BUCKET } from '../lib/research/uploads';
+import { ResearchUploads, RESEARCH_BUCKET } from '../lib/research/uploads';
 import { ResearchInbox } from '../lib/research/inbox';
 import { buildPreviewCopy } from '../lib/research/preview-send';
 import { unseal } from '../lib/research/secrets';
@@ -91,16 +91,18 @@ async function main(){
     }
     ok('signed TUS rejects missing, invalid and wrong-file tokens without creating objects');
     await transfer(bytes,{'x-signature':grant.token},grant.objectKey);
-    assert.ok(chunkCount>=1);await uploads.finalize(token,reservation.file.id);await uploads.finalize(token,reservation.file.id);
-    assert.equal(checked(await admin.from('ff_research_jobs').select('id').eq('operation_key','verify-file:'+reservation.file.id)).length,1);
-    // Only this known local test payload uses the injected scanner. No production scanner is bypassed/configured.
-    await verifyStorageFile(admin,reservation.file.id,async actual=>{assert.deepEqual(actual,bytes);return true;});
+    assert.ok(chunkCount>=1);
+    assert.equal((await uploads.finalize(token,reservation.file.id)).state,'ready');
+    const uploadJobs=checked(await admin.from('ff_research_jobs').select('id').eq('operation_key','verify-file:'+reservation.file.id));
+    assert.ok(uploadJobs.length<=1);
+    assert.equal((await uploads.finalize(token,reservation.file.id)).state,'ready');
+    assert.deepEqual(checked(await admin.from('ff_research_jobs').select('id').eq('operation_key','verify-file:'+reservation.file.id)),uploadJobs);
     const persisted=await new ResearchUploads(admin).files(await new ResearchUploads(admin).portal(token));assert.equal(persisted.find(f=>f.id===reservation.file.id)?.state,'ready');
     const url=await uploads.download(portal,reservation.file.id),download=await fetch(url);assert.equal(download.status,200);assert.deepEqual(Buffer.from(await download.arrayBuffer()),bytes);
     const duplicate=await uploads.reserve(token,{marketId:'epic3-lincoln',name:'renamed.txt',size:bytes.length,sha256:hash});assert.equal(duplicate.file.id,reservation.file.id);assert.equal(duplicate.grant,null);
     await assert.rejects(uploads.reserve(token,{marketId:'epic3-austin',name:'wrong.txt',size:bytes.length,sha256:hash}),/market/i);
     const inbox=new ResearchInbox(admin,members[0]),incoming=await inbox.incoming();assert.ok(incoming.groups.some(g=>g.marketId==='epic3-lincoln'&&g.files.some(f=>f.id===reservation.file.id)));assert.ok(incoming.groups.every(g=>g.files.every(f=>f.conversationId!==copy.id)));
-    ok('real private signed TUS, finalization dedup, scanner contract, persistent files, scoped byte-identical download and market ownership');
+    ok('signed TUS, immediate availability, finalization dedup, scoped byte-identical Storage download and market ownership');
     const sourceA='local-attachment-'+runId+'-1',sourceB='local-attachment-'+runId+'-2',attachmentArgs={p_conversation:previews[0].id,p_market:'epic3-lincoln',p_name:'email-copy.txt',p_size:bytes.length,p_hash:hash,p_type:'text/plain',p_uploader:'staff@example.test'};
     const attachments=await Promise.all([admin.rpc('ff_research_reserve_attachment',{...attachmentArgs,p_source:sourceA}),admin.rpc('ff_research_reserve_attachment',{...attachmentArgs,p_source:sourceB})]);const a=checked(attachments[0]),b=checked(attachments[1]);assert.equal(a.id,b.id);assert.notEqual(a.id,reservation.file.id);assert.ok((await uploads.files(portal)).every(f=>f.id!==a.id));
     const unassigned=checked(await admin.rpc('ff_research_reserve_attachment',{...attachmentArgs,p_market:null,p_source:'local-attachment-'+runId+'-3'}));checked(await admin.rpc('ff_research_assign_file',{p_member:members[0],p_file:unassigned.id,p_market:'epic3-lincoln'}));assert.equal(checked(await admin.from('ff_research_files').select('duplicate_of').eq('id',unassigned.id).single()).duplicate_of,a.id);ok('concurrent attachment dedup, separate internal visibility and duplicate market assignment without deleting objects');

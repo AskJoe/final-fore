@@ -1,4 +1,4 @@
-import {uploadStatus} from './file-status';
+import {storedFileStatus} from './file-status';
 import { InputError } from '../domain/types';
 import type { ResearchManifest } from './requests';
 import type { Recipient } from './types';
@@ -14,7 +14,7 @@ export function groupIncomingFiles(rows:{id:string;mode:string;manifest:Research
       const key=JSON.stringify([c.manifest.clientId,c.manifest.campaignKey,c.manifest.media,file.market_id]);
       const group=groups.get(key)??{key,clientId:c.manifest.clientId,campaignKey:c.manifest.campaignKey,media:c.manifest.media,marketId:file.market_id,name:c.manifest.markets.find(m=>m.marketId===file.market_id)?.displayName??'Unassigned email attachments',files:[]};
       const {object_key:_object,sha256:_hash,...safe}=file;
-      group.files.push({...safe,...uploadStatus(file),testUpload:c.mode==='preview',sender:(file.uploader||c.recipient.name)+' · '+c.recipient.firmName,conversationId:c.id,markets:c.manifest.markets});groups.set(key,group);
+      group.files.push({...safe,...storedFileStatus(file),testUpload:c.mode==='preview',sender:(file.uploader||c.recipient.name)+' · '+c.recipient.firmName,conversationId:c.id,markets:c.manifest.markets});groups.set(key,group);
     }
   }
   return [...groups.values()].sort((a,b)=>a.marketId===null?-1:b.marketId===null?1:a.name.localeCompare(b.name));

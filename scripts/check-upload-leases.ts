@@ -32,7 +32,7 @@ const checks: string[] = [];
 function passed(message: string) { checks.push(message); console.log('PASS ' + message); }
 const bytes = Buffer.from('Research rates, verified without an email worker.');
 const objects = new Map<string, Buffer>();
-const downloads = new Map<string, number>();
+const receipts = new Map<string, number>();
 const failingObjects = new Set<string>();
 const holds = new Map<string, { arrived: () => void; released: Promise<void> }>();
 const calls: string[] = [];
@@ -118,17 +118,12 @@ async function main() {
         send(request.headers.accept?.includes('application/vnd.pgrst.object+json') ? rows[0] : rows); return;
       }
       if (url.pathname.startsWith('/storage/v1/object/info/research-files/')) {
-        const stored = objects.get(url.pathname.split('/').at(-1)!);
-        send(stored ? { size: stored.length } : { statusCode: '404', error: 'not_found', message: 'Not found' }, stored ? 200 : 404); return;
-      }
-      if (url.pathname.startsWith('/storage/v1/object/research-files/')) {
         const id = url.pathname.split('/').at(-1)!, stored = objects.get(id);
         assert.equal(request.method, 'GET');
-        if (!stored) { send({ message: 'Not found' }, 404); return; }
-        downloads.set(id, (downloads.get(id) ?? 0) + 1);
+        receipts.set(id, (receipts.get(id) ?? 0) + 1);
         if (failingObjects.delete(id)) { response.destroy(); return; }
         const hold = holds.get(id); if (hold) { hold.arrived(); await hold.released; }
-        response.writeHead(200, { 'Content-Type': 'application/octet-stream' }); response.end(stored); return;
+        send(stored ? { size: stored.length } : { statusCode: '404', error: 'not_found', message: 'Not found' }, stored ? 200 : 404); return;
       }
       throw new Error('Unexpected API request: ' + url.pathname);
     } catch (error) { send({ message: error instanceof Error ? error.message : 'Fixture failure' }, 500); }
@@ -142,8 +137,8 @@ async function main() {
     const claims = await Promise.all(Array.from({ length: 12 }, () => claimUpload(db, first.id)));
     const winner = claims.find(Boolean)!; assert.equal(claims.filter(Boolean).length, 1);
     assert.equal(await processUploadLease(db, winner), 'finished'); assert.equal(file(first.id).state, 'ready');
-    assert.equal(downloads.get(first.id), 1);
-    passed('12 simultaneous database connections yield one lease and exactly one verification/download');
+    assert.equal(receipts.get(first.id), 1);
+    passed('12 simultaneous database connections yield one lease and one Storage metadata request');
 
     const crashed = createFile(), old = (await claimUpload(db, crashed.id))!;
     expire(crashed.id);
@@ -196,7 +191,7 @@ async function main() {
     await processUploadLease(db, heldLease); assert.equal(file(changed.id).state, 'held');
     for (const options of [{ closed: true }, { expired: true }]) {
       const closed = createFile(options), claim = (await claimUpload(db, closed.id))!;
-      assert.equal(claim.state, 'held'); assert.equal(claim.upload_lease_token, null); assert.equal(downloads.has(closed.id), false);
+      assert.equal(claim.state, 'held'); assert.equal(claim.upload_lease_token, null); assert.equal(receipts.has(closed.id), false);
     }
     passed('closed/expired collections never become Ready, including closure during a lease');
 
@@ -218,11 +213,11 @@ async function main() {
     const outputs = await Promise.all([childWorker(url).done, childWorker(url).done]);
     assert.ok(outputs.every(output => output.includes('upload-worker-stopped')));
     assert.equal(file(recovered.id).state, 'ready'); assert.equal(file(queued.id).state, 'ready');
-    assert.equal(downloads.get(recovered.id), 1); assert.equal(downloads.get(queued.id), 1);
+    assert.equal(receipts.get(recovered.id), 1); assert.equal(receipts.get(queued.id), 1);
     assert.equal(file(email.id).state, 'checking');
     assert.equal(sql("select state from ff_research_jobs where operation_key='mail-sentinel';"), 'queued');
-    assert.ok(calls.every(call => !/deliveries|messages|receive|resend/.test(call)));
-    passed('two separate worker processes recover browser-abandoned uploads without duplicate downloads or mail/scanner access');
+    assert.ok(calls.every(call => !/deliveries|messages|receive|resend|\/object\/research-files\//.test(call)));
+    passed('two concurrent workers recover browser-abandoned uploads using Storage metadata only');
 
     const unfinalized = createFile({ state: 'uploading' });
     const jobsBefore = sql('select count(*) from ff_research_jobs;');
@@ -256,9 +251,9 @@ async function main() {
     const previous = process.env.FINAL_FORE_RESEARCH_UPLOAD_WORKER_ENABLED;
     process.env.FINAL_FORE_RESEARCH_UPLOAD_WORKER_ENABLED = '1';
     try {
-      const uploads = new ResearchUploads(db), count = downloads.size;
+      const uploads = new ResearchUploads(db), count = calls.length;
       await uploads.refresh({ id: recovered.conversation, portalState: 'open' } as PortalRecord, '');
-      assert.equal(downloads.size, count);
+      assert.ok(calls.slice(count).every(call => !call.includes('/storage/')));
     } finally { if (previous === undefined) delete process.env.FINAL_FORE_RESEARCH_UPLOAD_WORKER_ENABLED; else process.env.FINAL_FORE_RESEARCH_UPLOAD_WORKER_ENABLED = previous; }
     passed('worker-enabled web polling only reads file status');
 

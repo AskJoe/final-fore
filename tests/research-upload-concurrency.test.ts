@@ -9,7 +9,7 @@ import { uploadStatus } from '../lib/research/file-status';
 import { uploadCapacityFixture } from './research-upload-capacity-fixture';
 import { startResearchFlowFixture } from './research-flow-fixture';
 import { createClient } from '@supabase/supabase-js';
-import type { PortalRecord } from '../lib/research/portals';
+import { hashToken } from '../lib/research/secrets';
 
 function metadata(bytes: Buffer, name = 'rates.txt', contentType = 'text/plain') {
   return { name, contentType, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
@@ -106,15 +106,20 @@ test('one unavailable object does not starve other files during portal polling',
   try {
     const db = createClient(fixture.url, 'fixture-service-key', { auth: { persistSession: false, autoRefreshToken: false } });
     const rows = uploadCapacityFixture(2).rows;
+    const token = 'a'.repeat(64);
+    for (const row of rows) row.state = 'uploading';
     rows[0].created_at = '2026-01-01T00:00:00Z';
     fixture.tables.ff_research_files.push(...rows);
+    fixture.tables.ff_research_conversations.push({ id: rows[0].conversation_id, mode: 'live', portal_state: 'open' });
+    fixture.tables.ff_research_secrets.push({ conversation_id: rows[0].conversation_id, portal_hash: hashToken(token) });
     fixture.objects.set(rows[1].object_key, Buffer.alloc(rows[1].size, 'x'));
     const uploads = new ResearchUploads(db);
-    const portal = { id: rows[0].conversation_id, portalState: 'open' } as PortalRecord;
-    await assert.rejects(uploads.refresh(portal, ''), /not available/);
+    const portal = await uploads.portal(token);
+    await uploads.refresh(portal, token);
     assert.ok(rows[0].recovery_checked_at);
-    const result = await uploads.refresh(portal, '');
+    const result = await uploads.refresh(portal, token);
     assert.equal(result.find(row => row.id === rows[1].id)?.state, 'ready');
-    assert.equal(rows[0].state, 'checking');
+    assert.equal(rows[0].state, 'uploading');
+    assert.equal(fixture.calls.filter(call => call.startsWith('GET /storage/v1/object/research-files/')).length, 0);
   } finally { await fixture.close(); }
 });

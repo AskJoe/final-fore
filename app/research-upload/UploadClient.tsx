@@ -20,7 +20,7 @@ export default function UploadClient(props:Props){
   async function run(job:Job){
     try{
       if(!portalToken.current&&props.ensureToken)portalToken.current=await props.ensureToken();
-      if(job.file.size===0||job.file.size>100*1024*1024)throw new Error('Files must be between 1 byte and 100 MiB.');job.status='Checking file';redraw();job.hash??=await fingerprint(job.file);if(!mounted.current)return;
+      if(job.file.size===0||job.file.size>100*1024*1024)throw new Error('Files must be between 1 byte and 100 MiB.');job.status='Preparing upload';redraw();job.hash??=await fingerprint(job.file);if(!mounted.current)return;
       const reserved=await api('reserve',{file:{marketId:job.marketId,name:job.file.name,size:job.file.size,sha256:job.hash}});job.serverId=reserved.file.id;
       if(reserved.grant){
         job.status='Uploading';redraw();

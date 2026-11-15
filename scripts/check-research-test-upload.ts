@@ -53,12 +53,20 @@ async function main(){
   const recovered={name:'recover-'+runId+'.txt',mimeType:'text/plain',buffer:Buffer.from('Stored file recovers without reload.')};
   await portal.getByLabel('Upload files for '+market.displayName).setInputFiles(recovered);await expect(portal.getByRole('link',{name:recovered.name,exact:true})).toBeVisible({timeout:30000});
   await expect(incoming.getByRole('link',{name:recovered.name,exact:true})).toBeVisible({timeout:30000});
-  const invalid={name:'invalid-'+runId+'.pdf',mimeType:'application/pdf',buffer:Buffer.from('This is not a PDF.')};await portal.getByLabel('Upload files for '+market.displayName).setInputFiles(invalid);
-  const rejected=portal.locator('.rep-file').filter({hasText:invalid.name});await expect(rejected).toContainText('Please choose a valid document and upload it again.',{timeout:30000});await expect(rejected.getByRole('link')).toHaveCount(0);
-  const invalidRow=checked(await admin.from('ff_research_files').select('id,state').eq('conversation_id',rows[0].id).eq('name',invalid.name).single());assert.equal(invalidRow.state,'held');assert.equal((await context.request.get(base+'/research-upload/'+sessions[0].token+'/files/'+invalidRow.id)).status(),404);
+  const storedDocument={name:'stored-'+runId+'.pdf',mimeType:'application/pdf',buffer:Buffer.from('A fixture with a PDF filename and plain-text contents.')};
+  await portal.getByLabel('Upload files for '+market.displayName).setInputFiles(storedDocument);
+  const storedLink=incoming.getByRole('link',{name:storedDocument.name,exact:true});
+  await expect(storedLink).toBeVisible({timeout:30000});
+  const redirect=await context.request.get(new URL((await storedLink.getAttribute('href'))!,base).href,{maxRedirects:0});
+  assert.equal(redirect.status(),302);
+  const storageLink=new URL(redirect.headers().location);
+  assert.equal(storageLink.origin,status.API_URL);
+  const download=await context.request.get(storageLink.href);
+  assert.equal(download.status(),200);
+  assert.deepEqual(await download.body(),storedDocument.buffer);
   assert.equal(checked(await admin.from('ff_research_messages').select('id').eq('conversation_id',rows[0].id)).length,0);assert.deepEqual(checked(await admin.from('ff_research_deliveries').select('id').order('id')),deliveries);
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await incoming.screenshot({path:'.local-migration/test-upload-incoming.png'});
-  console.log('PASS local preview uploads: enabled linked markets, unresolved disabled, two real signed uploads, exact stored bytes and market IDs, live incoming Test upload label and sender, reload/reuse, duplicate suppression, anonymous and wrong-market rejection, zero messages/deliveries. Automatic rep/internal openable links with exact bytes, explicit failure and Retry, lost-finalize recovery without reload, and invalid-document rejection. Trusted document flow uses no antivirus dependency.');
+  console.log('PASS local preview uploads: signed Storage upload and download with exact bytes, authorized markets and unlinked-market handling, Test upload records, retry and lost upload acknowledgment recovery, deduplication, and unchanged message and delivery records.');
  }finally{
   await browser.close();const rows=checked(await admin.from('ff_research_conversations').select('id').eq('created_by',user.id)),ids=rows.map(r=>r.id);
   if(ids.length){const files=checked(await admin.from('ff_research_files').select('id,object_key').in('conversation_id',ids));if(files.length){checked(await admin.storage.from('research-files').remove(files.map(f=>f.object_key)));checked(await admin.from('ff_research_jobs').delete().in('operation_key',files.map(f=>'verify-file:'+f.id)));checked(await admin.from('ff_research_files').delete().in('conversation_id',ids));}checked(await admin.from('ff_research_secrets').delete().in('conversation_id',ids));checked(await admin.from('ff_research_conversations').delete().in('id',ids));}

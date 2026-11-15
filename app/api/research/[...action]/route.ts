@@ -43,10 +43,10 @@ export async function GET(request:Request,context:Context){
     if(action==='threads')return json({enabled:true,...await inbox.list(params.get('before')??undefined)});
     if(action==='files'){
       const incoming=await inbox.incoming(params.get('before')??undefined);
-      const pending=incoming.groups.some(group=>group.files.some(file=>file.source==='portal'&&(file.state==='checking'||file.state==='uploading')));
+      const pending=incoming.groups.some(group=>group.files.some(file=>file.source==='portal'&&file.state==='uploading'));
       if(pending)after(async()=>{
         try{await runUploadWorkerOnce(db);}
-        catch{console.warn('Incoming file verification deferred. The next refresh can retry.');}
+        catch{console.warn('Incoming upload recovery deferred. The next refresh can retry.');}
       });
       return json({enabled:true,...incoming});
     }

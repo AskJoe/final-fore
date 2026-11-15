@@ -3,11 +3,11 @@ import { InputError } from '../domain/types';
 import { StorageError } from '../store';
 import { researchStorageError } from './queue-store';
 import { authorizePortal, validateUpload, verifyUploadedFile, type PortalRecord, type PortalRepository, MAX_FILE_SIZE } from './portals';
-import { uploadStatus } from './file-status';
+import { isStoredFileAvailable, storedFileStatus } from './file-status';
 import { readAll } from './read-all';
 import { validateStreamedDocument } from './streamed-document';
 import { uploadVerificationGate } from './upload-verification-gate';
-import { processUploadLease, uploadWorkerEnabled, type UploadLease } from './upload-leases';
+import { finishUploadLease, processUploadLease, uploadWorkerEnabled, type UploadLease } from './upload-leases';
 import { portalScanner } from './scanner';
 export const RESEARCH_BUCKET='research-files';
 export type ResearchFile={id:string;conversation_id:string;market_id:string|null;name:string;size:number;sha256:string;content_type:string;object_key:string;state:'uploading'|'checking'|'ready'|'held'|'failed';source:'portal'|'email';uploader?:string;error:string|null;created_at:string;updated_at:string;check_deadline?:string|null;recovery_checked_at?:string|null};
@@ -53,16 +53,24 @@ export class ResearchUploads {
   async finalize(token:string,id:string){
     const portal=await this.portal(token,true),file=await this.file(portal,id);if(!file)throw new InputError('File does not belong to this upload link.');
     if(['ready','held'].includes(file.state))return publicFile(file);
-    if(file.state==='checking')return this.complete(file);
     const {data,error}=await this.db.storage.from(RESEARCH_BUCKET).info(file.object_key);
-    if(error||!data)throw new StorageError('File upload is not complete. Retry this file.');
+    if(error||!data)throw new StorageError('Stored file is not available yet. Retry this file.');
     if(data.size!==file.size)throw new InputError('File size does not match. Choose the file again.');
-    const {error:e}=await this.db.rpc('ff_research_finalize_file',{p_conversation:portal.id,p_file:id});if(e)researchStorageError(e);return this.complete({...file,state:'checking'});
+    if(file.state!=='checking'){
+      const {error}=await this.db.rpc('ff_research_finalize_file',{p_conversation:portal.id,p_file:id});
+      if(error)researchStorageError(error);
+    }
+    return this.completeStoredUpload(id);
   }
-  private async complete(file:ResearchFile){
-    // Complete the upload here when capacity is available. Polling retries busy or interrupted checks.
-    await verifyStorageFile(this.db,file.id);
-    const current=await this.db.from('ff_research_files').select('*').eq('id',file.id).single();if(current.error)researchStorageError(current.error);
+  private async completeStoredUpload(id:string){
+    const lease=await claimPortalUpload(this.db,id,false);
+    if(lease==='not-installed'){
+      const {error}=await this.db.rpc('ff_research_verify_file',{p_file:id,p_state:'ready',p_error:null});
+      if(error)researchStorageError(error);
+    }else if(lease?.upload_lease_token){
+      await finishUploadLease(this.db,lease,'ready');
+    }
+    const current=await this.db.from('ff_research_files').select('*').eq('id',id).single();if(current.error)researchStorageError(current.error);
     return publicFile(current.data as ResearchFile);
   }
   private async file(portal:PortalRecord,id:string){
@@ -71,13 +79,11 @@ export class ResearchUploads {
   /** Called by the existing authenticated portal poll: recover a lost finalize response, no daemon needed. */
   async refresh(portal:PortalRecord,token:string){
     if(portal.portalState==='open'){
-      const pending=(await this.files(portal)).filter(f=>(f.state==='checking'||f.state==='uploading')&&uploadVerificationGate.canStart(f.id)).sort((a,b)=>{
-        if(a.state!==b.state)return a.state==='checking'?-1:1;
-        return (a.recovery_checked_at??'').localeCompare(b.recovery_checked_at??'');
-      }).slice(0,1);
+      const pending=(await this.files(portal)).filter(f=>f.state==='uploading').sort((a,b)=>
+        (a.recovery_checked_at??'').localeCompare(b.recovery_checked_at??''),
+      ).slice(0,1);
       for(const file of pending){
         const marked=await this.db.from('ff_research_files').update({recovery_checked_at:new Date().toISOString()}).eq('id',file.id).eq('state',file.state);if(marked.error)researchStorageError(marked.error);
-        if(file.state==='checking'){await this.complete(file);continue;}
         const info=await this.db.storage.from(RESEARCH_BUCKET).info(file.object_key);
         if(info.data?.size===file.size)await this.finalize(token,file.id);
         else if(Date.now()-Date.parse(file.updated_at)>30*60*1000){const result=await this.db.from('ff_research_files').update({state:'failed',error:'Upload did not finish. Please upload this file again.',updated_at:new Date().toISOString()}).eq('id',file.id).eq('state','uploading');if(result.error)researchStorageError(result.error);}
@@ -86,11 +92,11 @@ export class ResearchUploads {
     return this.files(portal);
   }
   async download(portal:PortalRecord,id:string){
-    const file=await this.file(portal,id);if(!file||file.state!=='ready')throw new InputError('This file is not ready to download.');
+    const file=await this.file(portal,id);if(!file||!isStoredFileAvailable(file))throw new InputError('This file is not ready to download.');
     const {data,error}=await this.db.storage.from(RESEARCH_BUCKET).createSignedUrl(file.object_key,30,{download:file.name});if(error)throw new StorageError('Unable to open the file. Retry.');return data.signedUrl;
   }
 }
-export function publicFile(file:ResearchFile){return {checkDeadline:file.check_deadline??null,id:file.id,marketId:file.market_id,name:file.name,size:file.size,...uploadStatus(file),updatedAt:file.updated_at};}
+export function publicFile(file:ResearchFile){return {checkDeadline:file.check_deadline??null,id:file.id,marketId:file.market_id,name:file.name,size:file.size,...storedFileStatus(file),updatedAt:file.updated_at};}
 export async function inspectStorageFile(db:SupabaseClient,fileId:string,scan?: (bytes:Buffer)=>Promise<boolean>){
   const {data,error}=await db.from('ff_research_files').select('*').eq('id',fileId).single();if(error)researchStorageError(error);const file=data as ResearchFile;if(file.state!=='checking')return;
   const info=await db.storage.from(RESEARCH_BUCKET).info(file.object_key);if(info.error)throw new StorageError('Storage file is not available for verification.');
