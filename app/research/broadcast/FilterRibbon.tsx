@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 const labels = {
   market: { name: 'Market', all: 'All markets' },
@@ -28,8 +28,8 @@ export function rememberFilters(filters: Filters) {
   try { sessionStorage.setItem(storageKey, JSON.stringify(filters)); } catch { /* Keep in-page controls usable. */ }
 }
 
-export default function FilterRibbon({ filters, options, onChange }: {
-  filters: Filters; options: Record<FilterField, string[]>; onChange: (value: Filters) => void;
+export default function FilterRibbon({ filters, options, onChange, children }: {
+  filters: Filters; options: Record<FilterField, string[]>; onChange: (value: Filters) => void; children?: ReactNode;
 }) {
   const [open, setOpen] = useState<FilterField | null>(null);
   const ribbon = useRef<HTMLDivElement>(null);
@@ -39,7 +39,8 @@ export default function FilterRibbon({ filters, options, onChange }: {
   useEffect(() => {
     if (!open) return;
     function dismiss(event: PointerEvent) {
-      if (event.target instanceof Node && !ribbon.current?.contains(event.target)) setOpen(null);
+      if (!(event.target instanceof Element)) return;
+      if (!ribbon.current?.contains(event.target) || event.target.closest('.broadcast-group-control')) setOpen(null);
     }
     document.addEventListener('pointerdown', dismiss);
     return () => document.removeEventListener('pointerdown', dismiss);
@@ -80,5 +81,6 @@ export default function FilterRibbon({ filters, options, onChange }: {
     })}
     {active && <button type="button" className="broadcast-link broadcast-clear-filters"
       aria-label="Clear filters" onClick={() => { onChange(emptyFilters); setOpen(null); }}>Clear</button>}
+    {children}
   </div>;
 }
