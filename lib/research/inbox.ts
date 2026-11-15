@@ -14,6 +14,7 @@ import type { BatchDelivery, Recipient } from './types';
 import { readAll } from './read-all';
 import { researchTestOnly } from './send-policy';
 import { isStoredFileAvailable } from './file-status';
+import { filePreviewKind } from './file-preview';
 
 export type ResearchMessage={id:string;author_kind:'rep'|'staff'|'system';sender:string;subject:string;body_text:string;state:string;hold_reason:string|null;attachment_ids:string[];created_at:string};
 export type DeliverySummary={id:string;message_id:string;leg:string;state:string;error:string|null};
@@ -105,9 +106,28 @@ export class ResearchInbox {
     const c=await this.conversation(file.conversation_id),id=validateFileAssignment(file,marketId,c.manifest.markets);
     const {error:e}=await this.db.rpc('ff_research_assign_file',{p_member:this.memberId,p_file:fileId,p_market:id});if(e)researchStorageError(e);
   }
-  async download(id:string){
-    const {data:file,error}=await this.db.from('ff_research_files').select('conversation_id,object_key,name,source,state').eq('id',id).maybeSingle();if(error)researchStorageError(error);if(!file||!isStoredFileAvailable(file))throw new InputError('File is not ready.');await this.conversation(file.conversation_id,true);
-    const signed=await this.db.storage.from(RESEARCH_BUCKET).createSignedUrl(file.object_key,30,{download:file.name});if(signed.error)throw new StorageError('Unable to open file.');return signed.data.signedUrl;
+  private async availableFile(id: string) {
+    if (!/^[a-f0-9-]{36}$/i.test(id)) throw new InputError('File not found.');
+    const { data: file, error } = await this.db.from('ff_research_files')
+      .select('conversation_id,object_key,name,source,state').eq('id', id).maybeSingle();
+    if (error) researchStorageError(error);
+    if (!file || !isStoredFileAvailable(file)) throw new InputError('File is not ready.');
+    await this.conversation(file.conversation_id, true);
+    return file;
+  }
+  async download(id: string) {
+    const file = await this.availableFile(id);
+    const signed = await this.db.storage.from(RESEARCH_BUCKET).createSignedUrl(file.object_key, 30, { download: file.name });
+    if (signed.error) throw new StorageError('Unable to open file.');
+    return signed.data.signedUrl;
+  }
+  async preview(id: string) {
+    const file = await this.availableFile(id);
+    const kind = filePreviewKind(file.name);
+    if (!kind) throw new InputError('This file type cannot be previewed.');
+    const signed = await this.db.storage.from(RESEARCH_BUCKET).createSignedUrl(file.object_key, 60);
+    if (signed.error) throw new StorageError('Unable to open the preview.');
+    return { kind, url: signed.data.signedUrl, name: file.name };
   }
   async close(id:string,state:unknown){
     await this.conversation(id);if(!['open','closed'].includes(String(state)))throw new InputError('Choose open or closed.');

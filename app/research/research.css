@@ -47,6 +47,61 @@ body:has(.research-app){margin:0;background:#fff}.research-app *{box-sizing:bord
 .research-nav { border-top: 2px solid transparent; border-image: var(--ff-gradient) 1; }
 .research-app :is(button, .research-button, input:not([type=checkbox]), select, textarea) { border-color: var(--ff-control-line); }
 .research-app .research-primary { border-color: var(--blue); }
+
+.research-app .research-file-preview-link {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.research-file-drawer {
+  width: min(1120px, calc(100vw - var(--sidebar-width, 54px)));
+  overflow: hidden;
+}
+
+.research-file-drawer[open] { display: flex; flex-direction: column; }
+.research-file-drawer .research-drawer-header { flex: 0 0 auto; }
+.research-file-drawer h2 { overflow-wrap: anywhere; }
+.research-file-drawer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
+.research-file-message { margin: 0; padding: 20px; font-size: 13px; color: #526377; }
+.research-file-message p { margin: 0 0 12px; }
+.research-document-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 20px;
+  font-size: 12px;
+}
+
+.research-document-controls > span { min-width: 72px; text-align: center; }
+.research-app .research-document-controls select { width: auto; }
+.research-pdf-stage { flex: 1; min-height: 0; overflow: auto; padding: 16px; background: var(--surface); }
+.research-pdf-stage:focus-visible { outline-offset: -3px; }
+.research-pdf-stage canvas:not([hidden]) { display: block; margin-inline: auto; background: white; box-shadow: 0 1px 6px #20334b2b; }
+
+@media (max-width: 650px) {
+  .research-file-drawer { width: 100vw; }
+  .research-file-drawer .research-drawer-header { align-items: flex-start; flex-wrap: wrap; gap: 8px 16px; }
+  .research-document-controls, .research-file-message { padding-inline: 12px; }
+  .research-pdf-stage { padding: 10px; }
+}
 .research-app .research-primary:hover:not(:disabled) { background: var(--ff-action-hover); }
 .research-app :focus-visible { outline-color: var(--ff-violet); }
 .research-app :is(.research-template-tabs, .research-format-tabs) [aria-selected=true] { background: var(--ff-selected); border-color: var(--blue); }

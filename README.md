@@ -20,6 +20,12 @@ Use `npm run backend:stop` to stop this project's backend while retaining its vo
 
 The runtime uses the local URL and publishable key in ignored `.env.local`. The browser/server helpers are in `utils/supabase`; `proxy.ts` refreshes sessions and data routes check the signed-in user's explicit membership. Public signup is disabled. Dependencies are pinned in `package.json` and `package-lock.json`.
 
+## Incoming file previews
+
+Incoming files opens PDFs and Excel workbooks (`.xlsx` and `.xls`) in a drawer. Excel previews use LibreOffice Calc to render a PDF when a member opens a workbook. The original stays in private Storage and **Download original** is available from the drawer. Preview generation is separate from uploads and needs no database migration.
+
+For local development, install LibreOffice and make `soffice` available on `PATH`, or set `FINAL_FORE_SOFFICE_PATH` to its executable. For Render, use the repo's root `Dockerfile` with the Docker runtime so LibreOffice Calc is installed. Keep the existing branch and environment settings, including `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which Render passes to the image build. The Docker start command uses Render's `PORT`.
+
 ## Review before applying Supabase changes
 
 The following review files concern future remote application; the local schema has been applied under the separate local-setup authorization. Read [supabase/REVIEW.md](supabase/REVIEW.md).

@@ -1,5 +1,5 @@
 import { after } from 'next/server';
-import { failure, json, sameOrigin } from '@/lib/http';
+import { failure, json, privateHeaders, sameOrigin } from '@/lib/http';
 import { InputError } from '@/lib/domain/types';
 import { MARKETS } from '@/lib/domain/catalogs';
 import { loadResearchWorkspace } from '@/lib/research/workspace';
@@ -20,6 +20,7 @@ import { sendPreviewCopy } from '@/lib/research/preview-send';
 import { queueTestEmail } from '@/lib/research/test-send';
 import { researchTestOnly } from '@/lib/research/send-policy';
 import { runUploadWorkerOnce } from '@/lib/research/upload-worker';
+import { renderWorkbookPreview } from '@/lib/research/workbook-preview';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 type Context={params:Promise<{action:string[]}>};
@@ -36,8 +37,11 @@ export async function GET(request:Request,context:Context){
       return json({email:inspectTemplate(template,recipient,input.deadline,uploadPagePreviewUrl(input,previewRequestOrigin(request))),recipient});
     }
     const {user}=await requireMember();
-    if(!['batch-status','threads','thread','files','files/download'].includes(action))return json({error:'Not found.'},404);
-    if(!researchWritesEnabled())return json({enabled:false,conversations:[],groups:[],next:null});
+    if(!['batch-status','threads','thread','files','files/download','files/preview'].includes(action))return json({error:'Not found.'},404);
+    if(!researchWritesEnabled()){
+      if(action==='files/preview')return json({error:'Research storage is not enabled.'},503);
+      return json({enabled:false,conversations:[],groups:[],next:null});
+    }
     const db=researchAdmin(),inbox=new ResearchInbox(db,user.id),params=new URL(request.url).searchParams;
     if(action==='batch-status')return json({deliveries:await inbox.batchStatus(params.get('id')??'')});
     if(action==='threads')return json({enabled:true,...await inbox.list(params.get('before')??undefined)});
@@ -51,6 +55,12 @@ export async function GET(request:Request,context:Context){
       return json({enabled:true,...incoming});
     }
     if(action==='thread')return json({enabled:true,...await inbox.thread(params.get('id')??'')});
+    if(action==='files/preview'){
+      const preview=await inbox.preview(params.get('id')??'');
+      if(preview.kind==='pdf')return new Response(null,{status:302,headers:{...privateHeaders,Location:preview.url,'Referrer-Policy':'no-referrer'}});
+      const pdf=await renderWorkbookPreview(preview.url,preview.name,request.signal);
+      return new Response(pdf,{headers:{...privateHeaders,'Content-Type':'application/pdf'}});
+    }
     return new Response(null,{status:302,headers:{Location:await inbox.download(params.get('id')??''),'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'}});
   }catch(e){return failure(e);}
 }

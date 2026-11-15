@@ -1,0 +1,9 @@
+.git
+.next
+.next-local-test
+.local-migration
+.env*
+node_modules
+test-results
+playwright-report
+*.tsbuildinfo
