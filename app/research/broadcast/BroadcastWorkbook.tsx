@@ -6,6 +6,7 @@ import { filePreviewKind } from '@/lib/research/file-preview';
 import { sheetLabels, type CellValue, type MarketIssue, type MarketOption, type ResearchRow,
   type ResearchSheet, type SavedMarket, type SheetName, type SourceFile } from '@/lib/broadcast/workbook';
 import FilePreviewDrawer from '../_components/FilePreviewDrawer';
+import FilterRibbon, { emptyFilters, filterFields, readFilters, rememberFilters, type Filters } from './FilterRibbon';
 import { saveBroadcastMarket } from './actions';
 
 const number = new Intl.NumberFormat('en-US');
@@ -13,7 +14,8 @@ const measurement = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const sidebarKey = 'final-fore:broadcast-research:sidebar';
 const columnsBeforeMetrics = [
-  { label: 'Market', width: 144 }, { label: 'Rep', width: 124 }, { label: 'Firm', width: 112 },
+  { label: 'Market', width: 132 }, { label: 'Client', width: 68 },
+  { label: 'Rep', width: 116 }, { label: 'Firm', width: 102 },
 ];
 const sourceColumn = { label: 'Source file', width: 355 };
 const reviewColumn = { label: 'Market review', width: 168 };
@@ -137,10 +139,12 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
   const [issue, setIssue] = useState<MarketIssue | null>(null);
   const [preview, setPreview] = useState<SourceFile | null>(null);
   const [submissions, setSubmissions] = useState<SourceFile[] | null>(null);
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
   const grid = useRef<HTMLDivElement>(null);
   const reviewTrigger = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
+    setFilters(readFilters());
     try {
       const preference = localStorage.getItem(sidebarKey);
       setSidebarOpen(preference === null ? !matchMedia('(max-width: 700px)').matches : preference === 'open');
@@ -159,11 +163,30 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
     requestAnimationFrame(() => trigger?.isConnected ? trigger.focus() : grid.current?.focus());
   }
 
+  function changeFilters(value: Filters) {
+    setFilters(value);
+    rememberFilters(value);
+    if (grid.current) grid.current.scrollTop = 0;
+  }
+
   const isTv = name === 'tv';
   const columns = sheet ? [...columnsBeforeMetrics, ...sheet.columns, ...(isTv ? [reviewColumn] : []), sourceColumn] : [];
   const marketName = (row: ResearchRow) => saved.get(row.issue?.key ?? '')?.market_name ?? row.market;
   const rows = sheet && (isTv && saved.size > 0
     ? sheet.rows.toSorted((a, b) => marketName(a).localeCompare(marketName(b))) : sheet.rows);
+  const entries = sheet && rows ? rows.map(row => ({ row, market: marketName(row), files: submissionsFor(sheet, row) })) : [];
+  const filterOptions = {
+    market: [...new Set(entries.map(entry => entry.market))],
+    rep: [...new Set(entries.flatMap(entry => entry.files.map(file => file.rep)))],
+    client: [...new Set(entries.map(entry => entry.row.client))],
+    firm: [...new Set(entries.flatMap(entry => entry.files.map(file => file.firm)))],
+  };
+  for (const field of filterFields) filterOptions[field] = filterOptions[field].filter(Boolean).sort((a, b) => a.localeCompare(b));
+  const visible = entries.filter(({ row, market, files }) =>
+    (!filters.market || market === filters.market) &&
+    (!filters.client || row.client === filters.client) &&
+    (!(filters.rep || filters.firm) || files.some(file =>
+      (!filters.rep || file.rep === filters.rep) && (!filters.firm || file.firm === filters.firm))));
   const marketOptions = [
     ...sheet?.markets ?? [],
     ...Array.from(new Map([...saved.values()].filter(x => x.market_id.startsWith('broadcast-'))
@@ -177,8 +200,8 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
         <span aria-hidden="true">☰</span>
       </button>
       <h1>Broadcast Research</h1>
-      <span>EPIC3</span>
     </header>
+    {sheet && <FilterRibbon filters={filters} options={filterOptions} onChange={changeFilters} />}
     {sheet && rows ? <div ref={grid} className="broadcast-grid" role="region" aria-label={sheetLabels[name] + ' sheet'} tabIndex={0}>
       <table>
         <colgroup><col style={{ width: 40 }} />{columns.map((column, index) => <col key={index} style={{ width: column.width }} />)}</colgroup>
@@ -187,7 +210,7 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
             {columns.map((_, index) => <th className={index === 0 ? 'broadcast-market' : undefined} key={index}>{columnLetter(index)}</th>)}
           </tr>
           {sheet.groups && <tr className="broadcast-groups" aria-hidden="true"><th className="broadcast-row-number" />
-            <th className="broadcast-market" /><th colSpan={2} />
+            <th className="broadcast-market" /><th colSpan={3} />
             {sheet.groups.map((group, index) => <th key={index} colSpan={group.span}>{group.label}</th>)}
             <th colSpan={isTv ? 2 : 1} />
           </tr>}
@@ -197,8 +220,7 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
               key={index} scope="col">{column.label}</th>)}
           </tr>
         </thead>
-        <tbody>{rows.map((row, index) => {
-          const files = submissionsFor(sheet, row);
+        <tbody>{visible.map(({ row, market, files }, index) => {
           const source = files[0];
           const review = row.issue;
           const flagged = Boolean(row.attention || review && !saved.has(review.key));
@@ -211,12 +233,12 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
           return <tr key={row.id} className={flagged ? 'broadcast-flagged' : undefined}>
             <td className="broadcast-row-number" aria-hidden="true">{index + 2}</td>
             <th className="broadcast-market" scope="row">
-              {marketName(row)}
+              {market}
               {review && flagged && <button type="button" className="broadcast-link broadcast-market-action"
                 title={'Market in file: ' + review.sourceMarket}
                 onClick={event => reviewMarket(event.currentTarget)}>Check market</button>}
             </th>
-            <td>{rep}</td><td>{firm}</td>
+            <td>{row.client}</td><td>{rep}</td><td>{firm}</td>
             {row.cells.map((cell, col) => <ResearchCell key={col} cell={cell}
               missingRate={name === 'radio' && sheet.columns[col].label === 'CPM' && cell === null} />)}
             {isTv && <td>{review && <button type="button" className="broadcast-link"
@@ -226,7 +248,9 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
                 onClick={() => setSubmissions(files)}>{files.length} {row.sourceKeys.length > 1 ? 'sources' : 'submissions'}</button>}
             </td>
           </tr>;
-        })}</tbody>
+        })}
+          {visible.length === 0 && <tr><td colSpan={columns.length + 1} className="broadcast-no-matches">No rows match these filters.</td></tr>}
+        </tbody>
       </table>
     </div> : <p className="broadcast-no-data">No research has been imported yet.</p>}
     <nav className="broadcast-tabs" aria-label="Workbook sheets">
@@ -234,7 +258,7 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
         scroll={false} prefetch={false} aria-current={name === id ? 'page' : undefined}>{label}</Link>)}
     </nav>
     <div className="broadcast-count" role="status">
-      <span>{number.format(rows?.length ?? 0)} rows</span>
+      <span>{number.format(visible.length)}{visible.length !== entries.length && ' of ' + number.format(entries.length)} rows</span>
       {name === 'radio' && sheet && <span>CPM needs a spot rate</span>}
       {sheet && <span>{number.format(sheet.totals.values)} values · {number.format(sheet.totals.files)} original files</span>}
     </div>

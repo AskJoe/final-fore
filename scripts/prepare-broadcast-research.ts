@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { batchKey, type CellValue, type ResearchRow, type ResearchSheet, type SheetName, type SourceFile } from '../lib/broadcast/workbook';
 
 type Submission = SourceFile & {
-  sha256: string; state: string; market_id: string | null; campaign_key: string;
+  sha256: string; state: string; market_id: string | null; campaign_key: string; client_id: string;
 };
 
 type Original = { name: string; hash: string; submissions: { market: string }[] };
@@ -38,9 +38,11 @@ if ([extraction.scope.clientId, extraction.scope.campaignKey].join('/') !== batc
 
 const inventory = (JSON.parse(readFileSync(inventoryPath, 'utf8')) as Submission[])
   .filter(file => file.campaign_key === extraction.scope.campaignKey && file.state === 'ready');
+const client = extraction.scope.clientId.toUpperCase();
 const origins = new Map(Object.entries(extraction.docs));
 const expected = extraction.counts;
 if (inventory.length !== expected.submissions || new Set(inventory.map(file => file.id)).size !== inventory.length ||
+    inventory.some(file => file.client_id !== extraction.scope.clientId) ||
     origins.size !== expected.files || extraction.rows.length !== expected.observations) {
   throw new Error('The current inventory and extraction differ. Reconcile all uploads before importing.');
 }
@@ -101,6 +103,7 @@ function pivot(
     return {
       id,
       market: markets.get(matched) ?? lead.market,
+      client,
       period: lead.period,
       cells: toCells(lead, values),
       sourceKeys: [hash],
@@ -152,14 +155,14 @@ demographicRows.sort((a, b) => a.market.localeCompare(b.market));
 
 const notes = extraction.notes.map((note): ResearchRow => {
   const links = note.sources ?? [note];
-  return { id: idFor(links.flatMap(link => [link.doc, link.source])), market: note.market,
+  return { id: idFor(links.flatMap(link => [link.doc, link.source])), market: note.market, client,
     cells: [note.stations?.join(', ') ?? '', note.kind, note.dates?.join(', ') ?? '', note.text, note.issue ?? ''],
     sourceKeys: [...new Set(links.map(link => sourceKey(link.doc)))],
     locator: links.map(link => link.source).join(', '), attention: note.state === 'Needs review' };
 });
 
 const reference = extraction.references.map((ref): ResearchRow => ({
-  id: idFor([ref.doc, ref.source]), market: ref.market ?? '',
+  id: idFor([ref.doc, ref.source]), market: ref.market ?? '', client,
   cells: [ref.title, ref.kind, ref.stationCity ?? '', ref.facility ?? '', ref.rf?.join(', ') ?? '',
     ref.levels ? ref.levels.join(', ') + ' ' + ref.unit : ''],
   sourceKeys: [sourceKey(ref.doc)], locator: ref.source,

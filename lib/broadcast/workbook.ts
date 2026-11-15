@@ -19,6 +19,7 @@ export type CellValue = Cell | string | number | null;
 export type ResearchRow = {
   id: string;
   market: string;
+  client: string;
   period?: string;
   cells: CellValue[];
   sourceKeys: string[];

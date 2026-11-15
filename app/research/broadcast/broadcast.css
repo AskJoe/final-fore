@@ -48,7 +48,6 @@ body:has(.broadcast-workbook[data-sidebar-open="false"]) > footer { display: non
   background: #f8faf7;
 }
 .broadcast-header h1 { margin: 0; font-size: 17px; line-height: 1.2; }
-.broadcast-header > span { color: #505c54; font-size: 12px; }
 .research-app .broadcast-sidebar-toggle {
   height: 30px;
   width: 32px;
@@ -59,6 +58,71 @@ body:has(.broadcast-workbook[data-sidebar-open="false"]) > footer { display: non
   background: transparent;
 }
 .research-app .broadcast-sidebar-toggle:hover { background: #e7ede5; }
+.broadcast-filters {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 5px;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--grid-line);
+  background: #f8faf7;
+}
+.broadcast-filter { position: relative; min-width: 0; }
+.research-app .broadcast-filter-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 176px;
+  height: 25px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #303b32;
+  font-size: 12px;
+  font-weight: 600;
+}
+.broadcast-filter-button > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.broadcast-filter-button > span:last-child { color: #58685c; }
+.broadcast-filter-value { font-weight: normal; }
+.research-app .broadcast-filter-button:is(:hover, [aria-expanded="true"], [data-active="true"]) {
+  border-color: #c8d5c8;
+  background: #eaf1e8;
+}
+.broadcast-filter-options {
+  position: absolute;
+  z-index: 9;
+  top: calc(100% + 3px);
+  left: 0;
+  width: max-content;
+  min-width: 140px;
+  max-width: 228px;
+  max-height: min(260px, 56dvh);
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid #c8d5c8;
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 0 5px 14px #15251a20;
+}
+.research-app .broadcast-filter-options > button {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 4px 7px;
+  color: #303b32;
+  text-align: left;
+  white-space: normal;
+  font-size: 12px;
+}
+.research-app .broadcast-filter-options > button:is(:hover, [aria-pressed="true"]) { background: #eaf1e8; }
+.research-app .broadcast-clear-filters { padding: 3px 5px; font-size: 12px; }
+.broadcast-grid .broadcast-no-matches { padding: 8px; color: #526157; }
+@media (max-width: 440px) {
+  .research-app .broadcast-filter-button { max-width: 112px; }
+  .broadcast-filter:nth-child(n+3) .broadcast-filter-options { left: auto; right: 0; }
+}
 .broadcast-grid { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .broadcast-grid table {
   width: max-content;
