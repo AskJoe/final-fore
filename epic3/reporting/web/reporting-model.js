@@ -6,7 +6,23 @@
  const channel=v=>{const s=v.trim();return ({display:'Display',podcast:'Podcast','video preroll':'Video Preroll','pre-roll':'Video Preroll','amazon_display':'Amazon Display'})[s.toLowerCase()]||s||'Unmapped';};
  const market=v=>v.trim().replace(/\s+/g,' ').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())||'Unmapped';
  const dimension=v=>!v.trim()||v.trim().startsWith('#')?'Unmapped':v.trim();
+ const ownershipGroups = new Map([
+  ['burns', 'Topco'],
+  ['hillenmeyer', 'Topco'],
+  ['epic3', 'Topco'],
+  ['steve', 'Sartorius'],
+ ]);
+ function reportingGroup(sourceGroup) {
+  return ownershipGroups.get(sourceGroup.trim().toLowerCase()) ?? sourceGroup;
+ }
  function parse(snapshot){return snapshot.records.map(([row,r,issues])=>({row,raw:r,issues,year:r[0],week:numeric(r[20]),start:iso(r[21]),end:iso(r[22]),creative:r[2].trim()||'(No subcampaign)',impressions:numeric(r[3]),clicks:numeric(r[4]),forms:numeric(r[17]),verification:numeric(r[18]),sessions:numeric(r[19]),channel:dimension(channel(r[23])),market:dimension(market(r[24])),group:dimension(r[25])}));}
+ function reportingRows(snapshot) {
+  const rows = parse(snapshot);
+  for (const row of rows) {
+   row.group = reportingGroup(row.group);
+  }
+  return rows;
+ }
  function filter(rows,f){const q=(f.search||'').trim().toLowerCase();return rows.filter(r=>(!f.year||r.year===f.year)&&(!f.group||r.group===f.group)&&(!f.market||r.market===f.market)&&(!f.channel||r.channel===f.channel)&&(!f.start||r.start>=f.start)&&(!f.end||r.start<=f.end)&&(!f.quality||r.issues.includes(f.quality))&&(!q||[r.creative,r.market,r.channel,r.group,String(r.row)].some(v=>v.toLowerCase().includes(q))));}
  function aggregate(rows){const a={count:rows.length,coverage:{},issues:{},matchedForms:0,matchedFormImpressions:0,matchedFormRows:0,matchedClicks:0,matchedClickImpressions:0,matchedClickRows:0};
   for(const k of ['impressions','clicks','forms','sessions','verification']){const values=rows.filter(r=>r[k]!==null);a[k]=values.length?values.reduce((sum,r)=>sum+r[k],0):null;a.coverage[k]=values.length;}
@@ -18,5 +34,5 @@
  function group(rows,key){const map=new Map();for(const r of rows){const value=r[key];if(!map.has(value))map.set(value,[]);map.get(value).push(r);}return [...map].map(([name,items])=>({name,...aggregate(items),rows:items}));}
  function csvEscape(v){const s=String(v??'');return '"'+s.replaceAll('"','""')+'"';}
  function csv(rows,headers){return [['Source row',...headers,'Review flags'],...rows.map(r=>[r.row,...r.raw,r.issues.map(k=>labels[k]).join('; ')])].map(r=>r.map(csvEscape).join(',')).join('\r\n');}
- const api={labels,numeric,iso,channel,market,parse,filter,aggregate,group,csv};if(typeof module!=='undefined')module.exports=api;else root.Reporting=api;
+ const api={labels,numeric,iso,channel,market,parse,reportingGroup,reportingRows,filter,aggregate,group,csv};if(typeof module!=='undefined')module.exports=api;else root.Reporting=api;
 })(typeof window==='undefined'?this:window);
