@@ -5,7 +5,7 @@ const reportFiles = ['data.html','dashboard.html','reporting.js','reporting-mode
 export const available = new Set([...workbookFiles,...reportFiles]);
 const brandIcon = '<link rel="icon" href="/brand/favicon.png" type="image/png" sizes="32x32">';
 const sidebarBrand = `<div class="sidebar-brand ff-sidebar-brand">
-  <img src="/brand/final-fore-monogram.png" alt="" width="1188" height="1886">
+  <img src="/brand/final-fore-monogram.png" alt="" width="23" height="36">
   <div><strong>Final Fore</strong><span>Media planning</span></div>
 </div>`;
 const signOut = '<form class="ff-sign-out" action="/logout" method="post"><button type="submit"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3H3v14h5m-1-7h10m-4-4 4 4-4 4"/></svg><span>Sign out</span></button></form>';
