@@ -264,3 +264,7 @@ body:has(.broadcast-workbook[data-sidebar-open="false"]) > footer { display: non
 .broadcast-dialog-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .broadcast-dialog table { width: 100%; border-collapse: collapse; }
 .broadcast-dialog :is(td, th) { padding: 5px; border-bottom: 1px solid var(--grid-line); text-align: left; }
+
+.broadcast-count { align-items: center; flex-wrap: wrap; }
+.broadcast-paging { display: inline-flex; align-items: center; gap: 6px; }
+.broadcast-grid[aria-busy="true"] { opacity: .65; }

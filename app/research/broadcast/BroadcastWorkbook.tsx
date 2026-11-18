@@ -1,19 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { filePreviewKind } from '@/lib/research/file-preview';
-import { groupRows, rowsByPeriod } from '@/lib/broadcast/grouping';
-import { calculateRadioCpm, radioCpmFormula, sheetLabels, type CellValue, type MarketIssue, type MarketOption, type ResearchRow,
-  type ResearchSheet, type SavedMarket, type SheetName, type SourceFile } from '@/lib/broadcast/workbook';
+import { cellText, currency, defaultQuery, measurementValue, radioFields, type Entry, type ViewQuery, type WorkbookView } from '@/lib/broadcast/view';
+import { calculateRadioCpm, radioCpmFormula, sheetLabels, type CellValue, type MarketIssue, type MarketOption,
+  type SavedMarket, type SheetName, type SourceFile } from '@/lib/broadcast/workbook';
 import FilePreviewDrawer from '../_components/FilePreviewDrawer';
-import FilterRibbon, { emptyFilters, filterFields, readFilters, rememberFilters, type Filters } from './FilterRibbon';
-import GroupControl, { noGrouping, readGrouping, rememberGrouping, type GroupChoice, type Grouping } from './GroupControl';
+import FilterRibbon, { readFilters, rememberFilters, type Filters } from './FilterRibbon';
+import GroupControl, { readGrouping, rememberGrouping, type Grouping } from './GroupControl';
 import { saveBroadcastMarket } from './actions';
 
 const number = new Intl.NumberFormat('en-US');
-const measurement = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
-const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const monthLabel = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 const sidebarKey = 'final-fore:broadcast-research:sidebar';
 const columnsBeforeMetrics = [
@@ -23,25 +21,9 @@ const columnsBeforeMetrics = [
 const sourceColumn = { label: 'Source file', width: 355 };
 const reviewColumn = { label: 'Market review', width: 168 };
 
-type Entry = { row: ResearchRow; market: string; files: SourceFile[]; rep: string; firm: string };
-type GroupField = GroupChoice & { value: (entry: Entry) => string };
-
 function columnLetter(index: number): string {
   const suffix = String.fromCharCode(65 + index % 26);
   return index < 26 ? suffix : columnLetter(Math.floor(index / 26) - 1) + suffix;
-}
-
-function submissionsFor(sheet: ResearchSheet, row: ResearchRow) {
-  const files = row.sourceKeys.flatMap(key => sheet.sources[key]?.files ?? []);
-  if (!row.sourceMarketId) return files;
-  return files.toSorted((a, b) => Number(b.marketId === row.sourceMarketId) - Number(a.marketId === row.sourceMarketId));
-}
-
-function cellText(cell: CellValue) {
-  if (cell === null || typeof cell !== 'object') return String(cell ?? '');
-  return cell.value === null ? 'Unavailable'
-    : cell.unit === 'USD' ? currency.format(cell.value)
-    : measurement.format(cell.value) + (cell.unit === 'percent' ? '%' : '');
 }
 
 function ResearchCell({ cell, monthStart }: { cell: CellValue; monthStart?: boolean }) {
@@ -49,11 +31,6 @@ function ResearchCell({ cell, monthStart }: { cell: CellValue; monthStart?: bool
   const source = cell.locator + ' · Source value ' + cell.raw;
   return <td className={cell.value === null ? 'broadcast-number broadcast-unavailable-value' : 'broadcast-number'}
     data-source-cell={cell.locator} data-month-start={monthStart || undefined} title={source}>{cellText(cell)}</td>;
-}
-
-function measurementValue(cell: CellValue | undefined): number | null {
-  if (typeof cell === 'number') return cell;
-  return typeof cell === 'object' && cell !== null ? cell.value : null;
 }
 
 function RadioCpmCell({ rate, aqh }: { rate: number | null; aqh: number | null }) {
@@ -79,24 +56,6 @@ function SourceCell({ entry, onOpen, onSubmissions }: {
     {files.length > 1 && <button type="button" className="broadcast-link broadcast-related"
       onClick={() => onSubmissions(files)}>{files.length} {row.sourceKeys.length > 1 ? 'sources' : 'submissions'}</button>}
   </td>;
-}
-
-function GroupBody({ entries, primary, secondary, width, renderRows }: {
-  entries: Entry[]; primary?: GroupField; secondary?: GroupField; width: number; renderRows: (entries: Entry[]) => ReactNode;
-}) {
-  function heading(field: GroupField, label: string, subgroup = false) {
-    return <tr className={subgroup ? 'broadcast-group-row broadcast-subgroup-row' : 'broadcast-group-row'}>
-      <th colSpan={width}><span><small>{field.label}</small> {label || '(Blank)'}</span></th>
-    </tr>;
-  }
-  if (!primary || entries.length === 0) return <tbody>{renderRows(entries)}</tbody>;
-  return <tbody>{groupRows(entries, primary.value).map(group => <Fragment key={group.label}>
-    {heading(primary, group.label)}
-    {secondary ? groupRows(group.rows, secondary.value).map(subgroup => <Fragment key={subgroup.label}>
-      {heading(secondary, subgroup.label, true)}
-      {renderRows(subgroup.rows)}
-    </Fragment>) : renderRows(group.rows)}
-  </Fragment>)}</tbody>;
 }
 
 function ReviewDialog({ issue, current, options, onSave, onClose }: {
@@ -182,27 +141,57 @@ function SubmissionsDialog({ files, onClose, onOpen }: {
   </dialog>;
 }
 
-export default function BroadcastWorkbook({ name, sheet, reviews }: {
-  name: SheetName; sheet: ResearchSheet | null; reviews: SavedMarket[];
+export default function BroadcastWorkbook({ name, initialView, reviews }: {
+  name: SheetName; initialView: WorkbookView | null; reviews: SavedMarket[];
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [saved, setSaved] = useState(() => new Map(reviews.map(review => [review.review_key, review])));
   const [issue, setIssue] = useState<MarketIssue | null>(null);
   const [preview, setPreview] = useState<SourceFile | null>(null);
   const [submissions, setSubmissions] = useState<SourceFile[] | null>(null);
-  const [filters, setFilters] = useState<Filters>(emptyFilters);
-  const [grouping, setGrouping] = useState<Grouping>(noGrouping);
+  const [view, setView] = useState(initialView);
+  const [query, setQuery] = useState<ViewQuery>(defaultQuery);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [refresh, setRefresh] = useState(0);
   const grid = useRef<HTMLDivElement>(null);
   const reviewTrigger = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    setFilters(readFilters());
-    setGrouping(readGrouping(name));
+    const filters = readFilters();
+    const grouping = readGrouping(name);
+    if (Object.values(filters).some(Boolean) || grouping.primary) setQuery({ filters, grouping, page: 1 });
     try {
       const preference = localStorage.getItem(sidebarKey);
       setSidebarOpen(preference === null ? !matchMedia('(max-width: 700px)').matches : preference === 'open');
     } catch { /* The control works for this page without browser storage. */ }
   }, [name]);
+
+  useEffect(() => {
+    if (query === defaultQuery && refresh === 0) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ sheet: name, ...query.filters, ...query.grouping, page: String(query.page) });
+    setLoading(true);
+    setError('');
+    async function load() {
+      try {
+        const response = await fetch('/api/research/broadcast?' + params, { signal: controller.signal, cache: 'no-store' });
+        if (!response.ok) throw new Error();
+        const next = await response.json() as { view: WorkbookView | null; reviews: SavedMarket[] };
+        if (!controller.signal.aborted) {
+          setView(next.view);
+          setSaved(new Map(next.reviews.map(item => [item.review_key, item])));
+          grid.current?.scrollTo(0, 0);
+        }
+      } catch {
+        if (!controller.signal.aborted) setError('Unable to load the selected rows.');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [name, query, refresh]);
 
   function toggleSidebar() {
     const open = !sidebarOpen;
@@ -217,78 +206,23 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
   }
 
   function changeFilters(value: Filters) {
-    setFilters(value);
+    setQuery(current => ({ ...current, filters: value, page: 1 }));
     rememberFilters(value);
-    if (grid.current) grid.current.scrollTop = 0;
   }
 
   function changeGrouping(value: Grouping) {
-    setGrouping(value);
+    setQuery(current => ({ ...current, grouping: value, page: 1 }));
     rememberGrouping(name, value);
-    grid.current?.scrollTo(0, 0);
   }
 
+  const sheet = view?.sheet;
   const isTv = name === 'tv';
-  const radioColumns = sheet && name === 'radio' ? {
-    cpm: sheet.columns.findIndex(column => column.label === 'CPM'),
-    rate: sheet.columns.findIndex(column => column.label === 'Spot rate'),
-    aqh: sheet.columns.findIndex(column => column.label === 'AQH (people)'),
-  } : null;
+  const radioColumns = sheet && radioFields(sheet, name);
   const columns = sheet ? [...columnsBeforeMetrics, ...sheet.columns, ...(isTv ? [reviewColumn] : []), sourceColumn] : [];
-  const marketName = (row: ResearchRow) => saved.get(row.issue?.key ?? '')?.market_name ?? row.market;
-  const rows = sheet && (isTv && saved.size > 0
-    ? sheet.rows.toSorted((a, b) => marketName(a).localeCompare(marketName(b))) : sheet.rows);
-  const entries: Entry[] = sheet && rows ? rows.map(row => {
-    const files = submissionsFor(sheet, row);
-    return { row, market: marketName(row), files,
-      rep: [...new Set(files.map(file => file.rep))].join(', '),
-      firm: [...new Set(files.map(file => file.firm))].join(', ') };
-  }) : [];
-  const filterOptions = {
-    market: [...new Set(entries.map(entry => entry.market))],
-    rep: [...new Set(entries.flatMap(entry => entry.files.map(file => file.rep)))],
-    client: [...new Set(entries.map(entry => entry.row.client))],
-    firm: [...new Set(entries.flatMap(entry => entry.files.map(file => file.firm)))],
-  };
-  for (const field of filterFields) filterOptions[field] = filterOptions[field].filter(Boolean).sort((a, b) => a.localeCompare(b));
-  const visible = entries.filter(({ row, market, files }) =>
-    (!filters.market || market === filters.market) &&
-    (!filters.client || row.client === filters.client) &&
-    (!(filters.rep || filters.firm) || files.some(file =>
-      (!filters.rep || file.rep === filters.rep) && (!filters.firm || file.firm === filters.firm))));
-
-  const groupFields: GroupField[] = columnsBeforeMetrics.map(({ label }) => ({
-    id: label, label,
-    value: (entry) => label === 'Client' ? entry.row.client : entry[label.toLowerCase() as 'market' | 'rep' | 'firm'],
-  }));
-  const metricGroups = sheet?.groups?.flatMap(group => Array<string>(group.span).fill(group.label)) ?? [];
-  for (const [index, column] of (sheet?.columns ?? []).entries()) {
-    const label = [metricGroups[index], column.label].filter(Boolean).join(' · ');
-    groupFields.push({
-      id: label + '/' + index,
-      label,
-      value: ({ row }) => {
-        if (radioColumns?.cpm !== index) return cellText(row.cells[index]);
-        const cpm = calculateRadioCpm(measurementValue(row.cells[radioColumns.rate]), measurementValue(row.cells[radioColumns.aqh]));
-        return cpm === null ? '' : currency.format(cpm);
-      },
-    });
-  }
-  if (isTv) groupFields.push({ id: reviewColumn.label, label: reviewColumn.label,
-    value: ({ row }) => row.issue ? (saved.has(row.issue.key) ? 'Reviewed' : row.issue.sourceMarket) : '' });
-  groupFields.push({ id: sourceColumn.label, label: sourceColumn.label, value: ({ files }) => files[0]?.name ?? '' });
-  const primary = groupFields.find(field => field.id === grouping.primary);
-  const secondary = primary && grouping.secondary !== primary.id ? groupFields.find(field => field.id === grouping.secondary) : undefined;
-  const activeGrouping = { primary: primary?.id ?? '', secondary: secondary?.id ?? '' };
-
-  const useRadioMatrix = radioColumns && primary && secondary &&
-    [primary.label, secondary.label].includes('Market') && [primary.label, secondary.label].includes('Daypart');
-  const periodFor = ({ row }: Entry) => row.period ?? '';
-  const periods = useRadioMatrix ? [...new Set(visible.map(periodFor))].sort() : [];
+  const useRadioMatrix = view?.matrix;
+  const periods = view?.periods ?? [];
   const matrixMetrics = ['AQH (people)', 'AQH Share', 'Cume (people)'];
-  if (useRadioMatrix && visible.some(({ row }) => measurementValue(row.cells[radioColumns.rate]) !== null)) {
-    matrixMetrics.push('Spot rate', 'CPM');
-  }
+  if (view?.hasRates) matrixMetrics.push('Spot rate', 'CPM');
   const radioIndices = new Map(sheet?.columns.map((column, index) => [column.label, index]));
   const matrixColumns = [
     { label: 'Station', width: 106 },
@@ -314,6 +248,7 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
       .map(x => [x.market_id, { id: x.market_id, name: x.market_name }])).values()),
   ].sort((a, b) => a.name.localeCompare(b.name));
 
+  let rowNumber = view?.offset ?? 0;
   return <section className="broadcast-workbook" data-sidebar-open={sidebarOpen}>
     <header className="broadcast-header">
       <button type="button" className="broadcast-sidebar-toggle" aria-expanded={sidebarOpen}
@@ -322,10 +257,11 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
       </button>
       <h1>Broadcast Research</h1>
     </header>
-    {sheet && <FilterRibbon filters={filters} options={filterOptions} onChange={changeFilters}>
-      <GroupControl choices={groupFields} grouping={activeGrouping} onChange={changeGrouping} />
+    {view && <FilterRibbon filters={query.filters} options={view.filterOptions} onChange={changeFilters}>
+      <GroupControl choices={view.groupFields} grouping={query.grouping} onChange={changeGrouping} />
     </FilterRibbon>}
-    {sheet && rows ? <div ref={grid} className="broadcast-grid" role="region" aria-label={sheetLabels[name] + ' sheet'} tabIndex={0}>
+    {error && <p role="alert">{error} <button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button></p>}
+    {sheet && view ? <div aria-busy={loading} ref={grid} className="broadcast-grid" role="region" aria-label={sheetLabels[name] + ' sheet'} tabIndex={0}>
       <table>
         <colgroup><col style={{ width: 40 }} />{headerColumns.map((column, index) => <col key={index} style={{ width: column.width }} />)}</colgroup>
         <thead>
@@ -345,20 +281,22 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
             </th>)}
           </tr>
         </thead>
-        <GroupBody entries={visible} primary={primary} secondary={secondary} width={headerColumns.length + 1} renderRows={section => {
-          if (section.length === 0) {
-            return <tr><td colSpan={headerColumns.length + 1} className="broadcast-no-matches">No rows match these filters.</td></tr>;
-          }
-          if (useRadioMatrix && radioColumns) {
-            const stationAt = radioIndices.get('Station')!;
-            const daypartAt = radioIndices.get('Daypart')!;
-            const audienceAt = radioIndices.get('Audience')!;
-            const coverageAt = radioIndices.get('Coverage')!;
-            const series = rowsByPeriod(section, ({ row, market }) => JSON.stringify([
-              market, row.client, row.cells[stationAt], row.cells[daypartAt], row.cells[audienceAt], row.cells[coverageAt], row.sourceKeys,
-            ]), periodFor);
-            return series.map((byPeriod, index) => {
-              const lead = byPeriod.values().next().value!;
+        <tbody>
+          {!view.sections.length && <tr><td colSpan={headerColumns.length + 1} className="broadcast-no-matches">No rows match these filters.</td></tr>}
+          {view.sections.map((section, sectionIndex) => <Fragment key={JSON.stringify([section.primary, section.secondary])}>
+            {view.primaryLabel && (!sectionIndex || section.primary !== view.sections[sectionIndex - 1].primary) &&
+              <tr className="broadcast-group-row"><th colSpan={headerColumns.length + 1}><span><small>{view.primaryLabel}</small> {section.primary || '(Blank)'}</span></th></tr>}
+            {view.secondaryLabel && <tr className="broadcast-group-row broadcast-subgroup-row"><th colSpan={headerColumns.length + 1}><span><small>{view.secondaryLabel}</small> {section.secondary || '(Blank)'}</span></th></tr>}
+            {section.lines.map(line => {
+              const index = rowNumber++;
+              const entry = line[0];
+              if (useRadioMatrix && radioColumns) {
+                const stationAt = radioIndices.get('Station')!;
+                const daypartAt = radioIndices.get('Daypart')!;
+                const audienceAt = radioIndices.get('Audience')!;
+                const coverageAt = radioIndices.get('Coverage')!;
+              const byPeriod = new Map(line.map(item => [item.row.period ?? '', item]));
+              const lead = entry;
               return <tr key={lead.row.id}>
                 <td className="broadcast-row-number" aria-hidden="true">{index + 1}</td>
                 <th className="broadcast-market" scope="row">{cellText(lead.row.cells[stationAt])}</th>
@@ -376,35 +314,34 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
                 <td>{cellText(lead.row.cells[coverageAt])}</td>
                 <SourceCell entry={lead} onOpen={setPreview} onSubmissions={setSubmissions} />
               </tr>;
-            });
-          }
-          return section.map((entry, index) => {
-          const { row, market, rep, firm } = entry;
-          const review = row.issue;
-          const flagged = Boolean(row.attention || review && !saved.has(review.key));
-          function reviewMarket(element: HTMLButtonElement) {
-            reviewTrigger.current = element;
-            setIssue(review ?? null);
-          }
-          return <tr key={row.id} className={flagged ? 'broadcast-flagged' : undefined}>
-            <td className="broadcast-row-number" aria-hidden="true">{index + 2}</td>
-            <th className="broadcast-market" scope="row">
-              {market}
-              {review && flagged && <button type="button" className="broadcast-link broadcast-market-action"
-                title={'Market in file: ' + review.sourceMarket}
-                onClick={event => reviewMarket(event.currentTarget)}>Check market</button>}
-            </th>
-            <td>{row.client}</td><td>{rep}</td><td>{firm}</td>
-            {row.cells.map((cell, col) => radioColumns?.cpm === col
-              ? <RadioCpmCell key={col} rate={measurementValue(row.cells[radioColumns.rate])}
-                aqh={measurementValue(row.cells[radioColumns.aqh])} />
-              : <ResearchCell key={col} cell={cell} />)}
-            {isTv && <td>{review && <button type="button" className="broadcast-link"
-              onClick={event => reviewMarket(event.currentTarget)}>{flagged ? review.sourceMarket : 'Edit match'}</button>}</td>}
-            <SourceCell entry={entry} onOpen={setPreview} onSubmissions={setSubmissions} />
-          </tr>;
-          });
-        }} />
+              }
+              const { row, market, rep, firm } = entry;
+              const review = row.issue;
+              const flagged = Boolean(row.attention || review && !saved.has(review.key));
+              function reviewMarket(element: HTMLButtonElement) {
+                reviewTrigger.current = element;
+                setIssue(review ?? null);
+              }
+              return <tr key={row.id} className={flagged ? 'broadcast-flagged' : undefined}>
+                <td className="broadcast-row-number" aria-hidden="true">{index + 2}</td>
+                <th className="broadcast-market" scope="row">
+                  {market}
+                  {review && flagged && <button type="button" className="broadcast-link broadcast-market-action"
+                    title={'Market in file: ' + review.sourceMarket}
+                    onClick={event => reviewMarket(event.currentTarget)}>Check market</button>}
+                </th>
+                <td>{row.client}</td><td>{rep}</td><td>{firm}</td>
+                {row.cells.map((cell, col) => radioColumns?.cpm === col
+                  ? <RadioCpmCell key={col} rate={measurementValue(row.cells[radioColumns.rate])}
+                    aqh={measurementValue(row.cells[radioColumns.aqh])} />
+                  : <ResearchCell key={col} cell={cell} />)}
+                {isTv && <td>{review && <button type="button" className="broadcast-link"
+                  onClick={event => reviewMarket(event.currentTarget)}>{flagged ? review.sourceMarket : 'Edit match'}</button>}</td>}
+                <SourceCell entry={entry} onOpen={setPreview} onSubmissions={setSubmissions} />
+              </tr>;
+          })}
+          </Fragment>)}
+        </tbody>
       </table>
     </div> : <p className="broadcast-no-data">No research has been imported yet.</p>}
     <nav className="broadcast-tabs" aria-label="Workbook sheets">
@@ -412,13 +349,19 @@ export default function BroadcastWorkbook({ name, sheet, reviews }: {
         scroll={false} prefetch={false} aria-current={name === id ? 'page' : undefined}>{label}</Link>)}
     </nav>
     <div className="broadcast-count" role="status">
-      <span>{number.format(visible.length)}{visible.length !== entries.length && ' of ' + number.format(entries.length)}
+      <span>{number.format(view?.matches ?? 0)}{view && view.matches !== view.total && ' of ' + number.format(view.total)}
         {useRadioMatrix ? ' source rows' : ' rows'}</span>
+      {view && view.pages > 1 && <nav aria-label="Sheet pages" className="broadcast-paging">
+        <button type="button" disabled={loading || view.page <= 1} onClick={() => setQuery(q => ({ ...q, page: view.page - 1 }))}>Previous</button>
+        <span>Page {view.page} of {view.pages}</span>
+        <button type="button" disabled={loading || view.page >= view.pages} onClick={() => setQuery(q => ({ ...q, page: view.page + 1 }))}>Next</button>
+      </nav>}
+      {loading && <span>Loading rows…</span>}
       {radioColumns && <span>CPM = {radioCpmFormula}</span>}
       {sheet && <span>{number.format(sheet.totals.values)} values · {number.format(sheet.totals.files)} original files</span>}
     </div>
     {issue && <ReviewDialog issue={issue} current={saved.get(issue.key)} options={marketOptions} onClose={closeReview}
-      onSave={entry => { setSaved(previous => new Map(previous).set(entry.review_key, entry)); closeReview(); }} />}
+      onSave={entry => { setSaved(previous => new Map(previous).set(entry.review_key, entry)); setRefresh(value => value + 1); closeReview(); }} />}
     {submissions && <SubmissionsDialog files={submissions} onClose={() => setSubmissions(null)}
       onOpen={file => { setSubmissions(null); setPreview(file); }} />}
     {preview && <FilePreviewDrawer file={{ id: preview.id, name: preview.name, market: preview.market ?? 'Unassigned',
