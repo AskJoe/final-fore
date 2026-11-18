@@ -1,10 +1,9 @@
 'use client';
 
-import Link from 'next/link';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { filePreviewKind } from '@/lib/research/file-preview';
 import { cellText, currency, defaultQuery, measurementValue, radioFields, type Entry, type ViewQuery, type WorkbookView } from '@/lib/broadcast/view';
-import { calculateRadioCpm, radioCpmFormula, sheetLabels, type CellValue, type MarketIssue, type MarketOption,
+import { calculateRadioCpm, radioCpmFormula, isSheetName, sheetLabels, type CellValue, type MarketIssue, type MarketOption,
   type SavedMarket, type SheetName, type SourceFile } from '@/lib/broadcast/workbook';
 import FilePreviewDrawer from '../_components/FilePreviewDrawer';
 import FilterRibbon, { readFilters, rememberFilters, type Filters } from './FilterRibbon';
@@ -141,8 +140,37 @@ function SubmissionsDialog({ files, onClose, onOpen }: {
   </dialog>;
 }
 
-export default function BroadcastWorkbook({ name, initialView, reviews }: {
-  name: SheetName; initialView: WorkbookView | null; reviews: SavedMarket[];
+type WorkbookProps = { name: SheetName; initialView: WorkbookView | null; reviews: SavedMarket[] };
+
+export default function BroadcastWorkbook(props: WorkbookProps) {
+  const [tab, setTab] = useState({name: props.name, fromServer: true});
+  const activeLink = useRef<HTMLAnchorElement>(null);
+  const focusTab = useRef(false);
+  useLayoutEffect(() => {
+    if (focusTab.current) activeLink.current?.focus({preventScroll: true});
+    focusTab.current = false;
+  }, [tab.name]);
+  useEffect(() => {
+    function restore() {
+      const sheet = new URLSearchParams(location.search).get('sheet') ?? 'tv';
+      const name = isSheetName(sheet) ? sheet : 'tv';
+      setTab(previous => previous.name === name ? previous : {name, fromServer: false});
+    }
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, []);
+  function select(name: SheetName) {
+    if (name === tab.name) return;
+    focusTab.current = true;
+    window.history.pushState(null, '', '?sheet=' + name);
+    setTab({name, fromServer: false});
+  }
+  return <WorkbookSheet key={tab.name} name={tab.name} activeLink={activeLink} select={select} fromServer={tab.fromServer}
+    initialView={tab.fromServer ? props.initialView : null} reviews={tab.fromServer ? props.reviews : []} />;
+}
+
+function WorkbookSheet({name, activeLink, select, fromServer, initialView, reviews}: WorkbookProps & {
+  activeLink: React.RefObject<HTMLAnchorElement | null>; select: (name: SheetName) => void; fromServer: boolean;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [saved, setSaved] = useState(() => new Map(reviews.map(review => [review.review_key, review])));
@@ -150,25 +178,27 @@ export default function BroadcastWorkbook({ name, initialView, reviews }: {
   const [preview, setPreview] = useState<SourceFile | null>(null);
   const [submissions, setSubmissions] = useState<SourceFile[] | null>(null);
   const [view, setView] = useState(initialView);
-  const [query, setQuery] = useState<ViewQuery>(defaultQuery);
-  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState<ViewQuery>(() => fromServer ? defaultQuery : {filters: readFilters(), grouping: readGrouping(name), page: 1});
+  const [loading, setLoading] = useState(!fromServer);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const grid = useRef<HTMLDivElement>(null);
   const reviewTrigger = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    const filters = readFilters();
-    const grouping = readGrouping(name);
-    if (Object.values(filters).some(Boolean) || grouping.primary) setQuery({ filters, grouping, page: 1 });
+    if (fromServer) {
+      const filters = readFilters();
+      const grouping = readGrouping(name);
+      if (Object.values(filters).some(Boolean) || grouping.primary) setQuery({ filters, grouping, page: 1 });
+    }
     try {
       const preference = localStorage.getItem(sidebarKey);
       setSidebarOpen(preference === null ? !matchMedia('(max-width: 700px)').matches : preference === 'open');
     } catch { /* The control works for this page without browser storage. */ }
-  }, [name]);
+  }, [name, fromServer]);
 
   useEffect(() => {
-    if (query === defaultQuery && refresh === 0) return;
+    if (fromServer && query === defaultQuery && refresh === 0) return;
     const controller = new AbortController();
     const params = new URLSearchParams({ sheet: name, ...query.filters, ...query.grouping, page: String(query.page) });
     setLoading(true);
@@ -191,7 +221,7 @@ export default function BroadcastWorkbook({ name, initialView, reviews }: {
     }
     void load();
     return () => controller.abort();
-  }, [name, query, refresh]);
+  }, [name, fromServer, query, refresh]);
 
   function toggleSidebar() {
     const open = !sidebarOpen;
@@ -343,20 +373,24 @@ export default function BroadcastWorkbook({ name, initialView, reviews }: {
           </Fragment>)}
         </tbody>
       </table>
-    </div> : <p className="broadcast-no-data">No research has been imported yet.</p>}
+    </div> : <p className="broadcast-no-data" role="status">{loading ? 'Loading ' + sheetLabels[name] + '…' : error ? '' : 'No research has been imported yet.'}</p>}
     <nav className="broadcast-tabs" aria-label="Workbook sheets">
-      {Object.entries(sheetLabels).map(([id, label]) => <Link key={id} href={'/research/broadcast?sheet=' + id}
-        scroll={false} prefetch={false} aria-current={name === id ? 'page' : undefined}>{label}</Link>)}
+      {Object.entries(sheetLabels).map(([id, label]) => <a key={id} href={'/research/broadcast?sheet=' + id}
+        ref={name === id ? activeLink : undefined} aria-current={name === id ? 'page' : undefined} onClick={event => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          if (isSheetName(id)) select(id);
+        }}>{label}</a>)}
     </nav>
     <div className="broadcast-count" role="status">
-      <span>{number.format(view?.matches ?? 0)}{view && view.matches !== view.total && ' of ' + number.format(view.total)}
-        {useRadioMatrix ? ' source rows' : ' rows'}</span>
+      {view && <span>{number.format(view.matches)}{view && view.matches !== view.total && ' of ' + number.format(view.total)}
+        {useRadioMatrix ? ' source rows' : ' rows'}</span>}
       {view && view.pages > 1 && <nav aria-label="Sheet pages" className="broadcast-paging">
         <button type="button" disabled={loading || view.page <= 1} onClick={() => setQuery(q => ({ ...q, page: view.page - 1 }))}>Previous</button>
         <span>Page {view.page} of {view.pages}</span>
         <button type="button" disabled={loading || view.page >= view.pages} onClick={() => setQuery(q => ({ ...q, page: view.page + 1 }))}>Next</button>
       </nav>}
-      {loading && <span>Loading rows…</span>}
+      {loading && view && <span>Loading rows…</span>}
       {radioColumns && <span>CPM = {radioCpmFormula}</span>}
       {sheet && <span>{number.format(sheet.totals.values)} values · {number.format(sheet.totals.files)} original files</span>}
     </div>

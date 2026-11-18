@@ -3,25 +3,29 @@
 import { createHash } from 'node:crypto';
 import { requireMember } from '@/lib/access';
 import { researchAdmin } from '@/lib/research/config';
-import { loadBroadcastSheet } from '@/lib/broadcast/store';
-import { batchKey, type MarketOption, type SavedMarket } from '@/lib/broadcast/workbook';
+import { batchKey, type MarketIssue, type MarketOption, type SavedMarket } from '@/lib/broadcast/workbook';
 
 type Result = { saved: SavedMarket; error?: never } | { error: string; saved?: never };
 const nameKey = (name: string) => name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US');
 
 export async function saveBroadcastMarket(key: string, mode: string, choice: string): Promise<Result> {
-  const { user } = await requireMember();
+  const { supabase, user } = await requireMember();
   if (typeof key !== 'string' || !/^[0-9a-f]{64}$/.test(key) || typeof choice !== 'string' ||
       choice.length > 120 || !['confirm', 'change', 'create'].includes(mode)) {
     return { error: 'Choose a valid market.' };
   }
 
-  const { sheet, reviews } = await loadBroadcastSheet('tv');
-  const issue = sheet?.rows.find(row => row.issue?.key === key)?.issue;
+  const [row, catalog, reviews] = await Promise.all([
+    supabase.from('ff_tv_rows').select('issue:body->issue').eq('batch_key', batchKey).eq('issue_key', key).limit(1).maybeSingle(),
+    supabase.from('ff_tv_catalog').select('markets:header->markets').eq('batch_key', batchKey).maybeSingle(),
+    supabase.from('ff_broadcast_research_market_reviews').select('market_id,market_name').eq('batch_key', batchKey),
+  ]);
+  if (row.error || catalog.error || reviews.error) return { error: 'Unable to load the market review.' };
+  const issue = row.data?.issue as MarketIssue | undefined;
   if (!issue) return { error: 'This market review is no longer available.' };
   const options = new Map<string, MarketOption>();
-  sheet?.markets?.forEach(market => options.set(market.id, market));
-  for (const review of reviews) {
+  for (const market of (catalog.data?.markets ?? []) as MarketOption[]) options.set(market.id, market);
+  for (const review of reviews.data ?? []) {
     if (review.market_id.startsWith('broadcast-')) {
       options.set(review.market_id, { id: review.market_id, name: review.market_name });
     }

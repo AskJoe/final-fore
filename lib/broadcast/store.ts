@@ -47,48 +47,28 @@ async function readSheet(client: SheetClient, name: SheetName) {
   }
 }
 
-export async function loadBroadcastSheet(name: Exclude<SheetName, 'radio'>) {
-  const { supabase } = await requireMember();
-  const [sheet, reviews] = await Promise.all([
-    readSheet(supabase, name),
-    name === 'tv'
-      ? supabase.from('ff_broadcast_research_market_reviews').select('review_key,market_id,market_name').eq('batch_key', batchKey)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-  if (reviews.error) throw new StorageError('Unable to load Broadcast Research.');
-  return { sheet, reviews: (reviews.data ?? []) as SavedMarket[] };
+async function loadBroadcastSheet(name: Exclude<SheetName, 'radio' | 'tv'>) {
+  const {supabase} = await requireMember();
+  return {sheet: await readSheet(supabase, name), reviews: [] as SavedMarket[]};
 }
 
-type RadioPage = Omit<WorkbookView, 'sections' | 'primaryLabel' | 'secondaryLabel'> & {version: string; lines: number[][]};
+type DatabasePage = Omit<WorkbookView, 'sections' | 'primaryLabel' | 'secondaryLabel'> & {lines: Entry[][]; reviews?: SavedMarket[]};
 
-async function readRadioPage(client: SheetClient, query: ViewQuery): Promise<WorkbookView | null> {
+async function readPagedSheet(client: SheetClient, name: 'radio' | 'tv', query: ViewQuery) {
   const {filters, grouping} = query;
-  const result = await client.rpc('ff_radio_page', {
+  const result = await client.rpc(name === 'radio' ? 'ff_radio_workbook_page' : 'ff_tv_workbook_page', {
     p_batch: batchKey, p_market: filters.market, p_rep: filters.rep, p_firm: filters.firm, p_client: filters.client,
     p_primary: grouping.primary, p_secondary: grouping.secondary,
     p_page: Number.isSafeInteger(query.page) && query.page > 0 ? Math.min(query.page, 2147483647) : 1,
   });
   if (result.error) throw new StorageError('Unable to load Broadcast Research.');
-  if (!result.data) return null;
-  const {version, lines, ...page} = result.data as RadioPage;
-  const ids = lines.flat();
-  const entries: Entry[] = [];
-  // A monthly display line can contain multiple observations. Each database read
-  // is bounded even when several years of periods fit on one display page.
-  for (let start = 0; start < ids.length; start += 100) {
-    const ordinals = ids.slice(start, start + 100);
-    const response = await client.rpc('ff_radio_entries', {p_version: version, p_ordinals: ordinals});
-    if (response.error || response.data?.length !== ordinals.length) throw new StorageError('Unable to load Broadcast Research.');
-    entries.push(...response.data as Entry[]);
-  }
-  const fields = workbookFields('radio', {...page.sheet, sources: {}, rows: []}, []);
+  if (!result.data) return {view: null, reviews: [] as SavedMarket[]};
+  const {lines, reviews = [], ...page} = result.data as DatabasePage;
+  const fields = workbookFields(name, {...page.sheet, sources: {}, rows: []}, reviews);
   const primary = fields.find(field => field.id === page.grouping.primary);
   const secondary = fields.find(field => field.id === page.grouping.secondary);
   const sections: WorkbookView['sections'] = [];
-  let position = 0;
-  for (const ids of lines) {
-    const line = entries.slice(position, position + ids.length);
-    position += line.length;
+  for (const line of lines) {
     const group = primary?.value(line[0]);
     const subgroup = secondary?.value(line[0]);
     let section = sections.at(-1);
@@ -98,13 +78,13 @@ async function readRadioPage(client: SheetClient, query: ViewQuery): Promise<Wor
     }
     section.lines.push(line);
   }
-  return {...page, primaryLabel: primary?.label, secondaryLabel: secondary?.label, sections};
+  return {view: {...page, primaryLabel: primary?.label, secondaryLabel: secondary?.label, sections}, reviews};
 }
 
 export async function loadWorkbookPage(name: SheetName, query: ViewQuery) {
-  if (name === 'radio') {
+  if (name === 'radio' || name === 'tv') {
     const {supabase} = await requireMember();
-    return {view: await readRadioPage(supabase, query), reviews: [] as SavedMarket[]};
+    return readPagedSheet(supabase, name, query);
   }
   const { sheet, reviews } = await loadBroadcastSheet(name);
   return { view: sheet ? workbookView(name, sheet, reviews, query) : null, reviews };
