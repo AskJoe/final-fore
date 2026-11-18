@@ -29,7 +29,7 @@ export function radioFields(sheet: Pick<ResearchSheet, 'columns'>, name: SheetNa
   return { cpm: index('CPM'), rate: index('Spot rate'), aqh: index('AQH (people)') };
 }
 
-function indexSheet(name: SheetName, sheet: ResearchSheet, reviews: SavedMarket[]) {
+export function indexSheet(name: SheetName, sheet: ResearchSheet, reviews: SavedMarket[]) {
   const saved = new Map(reviews.map(review => [review.review_key, review.market_name]));
   const marketName = (row: ResearchRow) => saved.get(row.issue?.key ?? '') ?? row.market;
   const rows = name === 'tv' && saved.size ? sheet.rows.toSorted((a,b) => marketName(a).localeCompare(marketName(b))) : sheet.rows;
@@ -56,24 +56,8 @@ function indexSheet(name: SheetName, sheet: ResearchSheet, reviews: SavedMarket[
   return { entries, filterOptions: { market: sorted(options.market), client: sorted(options.client), rep: sorted(options.rep), firm: sorted(options.firm) } };
 }
 
-type IndexCache = WeakMap<ResearchSheet, { reviewKey: string; index: ReturnType<typeof indexSheet> }>;
-const runtime = globalThis as typeof globalThis & { ffBroadcastIndexes?: IndexCache };
-const indexes = runtime.ffBroadcastIndexes ??= new WeakMap();
-
-export function workbookView(name: SheetName, sheet: ResearchSheet, reviews: SavedMarket[], query: ViewQuery) {
-  const reviewKey = JSON.stringify(reviews);
-  let item = indexes.get(sheet);
-  if (!item || item.reviewKey !== reviewKey) {
-    item = { reviewKey, index: indexSheet(name, sheet, reviews) };
-    indexes.set(sheet, item);
-  }
-  const { entries, filterOptions } = item.index;
+export function workbookFields(name: SheetName, sheet: ResearchSheet, reviews: SavedMarket[]) {
   const saved = new Set(reviews.map(review => review.review_key));
-  const filters = query.filters;
-  const visible = Object.values(filters).some(Boolean) ? entries.filter(({row, market, files}) =>
-    (!filters.market || filters.market === market) && (!filters.client || filters.client === row.client) &&
-    (!(filters.rep || filters.firm) || files.some(file => (!filters.rep || file.rep === filters.rep) && (!filters.firm || file.firm === filters.firm)))
-  ) : entries;
   const fields: Field[] = ['Market','Client','Rep','Firm'].map(label => ({
     id: label, label, value: entry => label === 'Client' ? entry.row.client : entry[label.toLowerCase() as 'market'|'rep'|'firm'],
   }));
@@ -89,6 +73,28 @@ export function workbookView(name: SheetName, sheet: ResearchSheet, reviews: Sav
   });
   if (name === 'tv') fields.push({ id: 'Market review', label: 'Market review', value: ({row}) => row.issue ? saved.has(row.issue.key) ? 'Reviewed' : row.issue.sourceMarket : '' });
   fields.push({ id: 'Source file', label: 'Source file', value: ({files}) => files[0]?.name ?? '' });
+  return fields;
+}
+
+type IndexCache = WeakMap<ResearchSheet, { reviewKey: string; index: ReturnType<typeof indexSheet> }>;
+const runtime = globalThis as typeof globalThis & { ffBroadcastIndexes?: IndexCache };
+const indexes = runtime.ffBroadcastIndexes ??= new WeakMap();
+
+export function workbookView(name: SheetName, sheet: ResearchSheet, reviews: SavedMarket[], query: ViewQuery) {
+  const reviewKey = JSON.stringify(reviews);
+  let item = indexes.get(sheet);
+  if (!item || item.reviewKey !== reviewKey) {
+    item = { reviewKey, index: indexSheet(name, sheet, reviews) };
+    indexes.set(sheet, item);
+  }
+  const { entries, filterOptions } = item.index;
+  const filters = query.filters;
+  const visible = Object.values(filters).some(Boolean) ? entries.filter(({row, market, files}) =>
+    (!filters.market || filters.market === market) && (!filters.client || filters.client === row.client) &&
+    (!(filters.rep || filters.firm) || files.some(file => (!filters.rep || file.rep === filters.rep) && (!filters.firm || file.firm === filters.firm)))
+  ) : entries;
+  const fields = workbookFields(name, sheet, reviews);
+  const radio = radioFields(sheet, name);
   const primary = fields.find(field => field.id === query.grouping.primary);
   const secondary = primary && fields.find(field => field.id !== primary.id && field.id === query.grouping.secondary);
   const matrix = Boolean(radio && primary && secondary && [primary.label, secondary.label].includes('Market') && [primary.label, secondary.label].includes('Daypart'));
