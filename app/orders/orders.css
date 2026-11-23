@@ -434,6 +434,7 @@
 .ow-research-details dl { margin: 0 0 5px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%,100px),1fr)); row-gap: 3px }
 .ow-research-details dt { background: #e5eee7; font-weight: 700; padding: 2px 3px; }
 .ow-research-details dd { margin: 0; padding: 1px 3px; overflow-wrap: anywhere }
+.ow-research-no-history { margin: 0 0 5px; color: #4b5b51 }
 .ow-research-group { margin: 0; padding: 5px 6px; background: var(--ow-green); color: white; font-size: 12px }
 
 .ow-dialog {

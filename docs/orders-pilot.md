@@ -1,6 +1,6 @@
-# Orders pilot
+# Orders release
 
-The pilot uses the native `/orders` workspace. Its four tabs cover deadlines, station and mixed order planning, standalone Digital, and the reviewed 2026 archive. Existing links to `/orders.html?campaign=…&market=…` and `/legacy-orders.html` use their existing editors and Print. Their deadline links resolve to the existing saved campaign record. Legacy work can be tracked with the calendar's explicit status override. Official issue, download, and send receipts are available for pilot orders.
+The main Orders navigation opens the `/orders` workspace for users with Final Fore access. Its four tabs cover deadlines, station and mixed order planning, standalone Digital, and the reviewed 2026 archive. Existing links to `/orders.html?campaign=…&market=…` and `/legacy-orders.html` use their existing editors and Print. Their deadline links resolve to the existing saved campaign record. Legacy work can be tracked with the calendar's explicit status override. The workspace records issuance, downloads, and sends.
 
 ## Release baseline
 
@@ -12,10 +12,10 @@ render deploys list srv-dbqg4m8ae00c738a8t60 -o json | jq -c '[.[] | (.deploy //
 
 ## Configuration and release checks
 
-1. Keep `FINAL_FORE_ORDERS_ENABLED=0` through deployment and rollback preparations. An authorized release must apply the additive `20261122180000_orders_workspace.sql` migration, which creates the new records and private PDF bucket. The routes use the existing verified staff membership and server-only Supabase credential.
-2. Set `FINAL_FORE_ORDER_ARCHIVE_PATH` to an absolute server-owned file outside any served directory. The reviewed archive is prepared by `tsx scripts/prepare-order-archive.ts --current <current-orders.json> --families <every-market.json> --coverage <model.json> --billing <planning-model.json> --output <private-absolute-path>`. It is created with exclusive write access and mode `0600`. Keep the archive and source files out of Git.
-3. Install the pinned renderer at build time with `FINAL_FORE_ORDERS_INSTALL_CHROMIUM=1`. Set the same `PLAYWRIGHT_BROWSERS_PATH` in build and runtime on the approved host. Before enabling the pilot, verify that the runtime can start the bundled Chromium, has its required OS libraries, and can render and serve a multi-page PDF. The existing workbook intake and research workers use their current configuration.
-4. Set `FINAL_FORE_ORDERS_PILOT_USER_IDS` to the approved staff UUIDs, then enable the flag after sign-in, readback, and PDF verification. Switching the flag off restores legacy navigation. Drafts, issues, and activity stay in their protected records.
+1. Verify that the additive `20261122180000_orders_workspace.sql` migration has been applied. It creates the Orders records and private PDF bucket. The routes use the existing Final Fore access check and server-only Supabase credential.
+2. Store the reviewed archive in the existing private `ff-orders-archive` bucket. Use the archive file's SHA-256 as its object name, followed by `.json`, and set `FINAL_FORE_ORDER_ARCHIVE_STORAGE_OBJECT` to that name on Render. The launcher verifies the digest and loads a private local copy. The archive includes the workbook's historical shares, bonus impressions, and rate ranges. Keep the archive and source files out of Git.
+3. Install the pinned renderer at build time with `FINAL_FORE_ORDERS_INSTALL_CHROMIUM=1`. Set the same `PLAYWRIGHT_BROWSERS_PATH` in build and runtime. Verify that the runtime can start the bundled Chromium, has its required OS libraries, and can render and serve a multi-page PDF.
+4. After the approved release, verify sign-in and check the calendar, draft readback, historical records, and PDF downloads in the existing production app.
 
 Broadcast uses the release's paginated research data. TV benchmarks remain references until a verified quote with its schedule is available. Digital uses the EPIC3 channel workbook. Historical invoice links are shown as supporting references. New order edits and send entries have no effect on the reporting imports or research outreach queue.
 

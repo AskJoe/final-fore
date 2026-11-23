@@ -47,6 +47,7 @@ export async function legacyAsset(name:string) {
     content=content.replace('<!--SHARED_NAV-->',shell.match(/<footer>[\s\S]*?<\/footer>/)![0].replace(' aria-current="page"','').replace('Draft campaign · saved on this computer','Client and vendor directory'));
   }
   if(name.endsWith('.html')) {
+    content=content.replace('href="/orders.html" data-tab="orders"','href="/orders" data-tab="orders"');
     const links=[['clients','Clients'],['vendors','Vendors']].map(([id,label])=>`<a class="workbook-tab" href="/${id}.html" aria-label="${label}" title="${label}"${name===id+'.html'?' aria-current="page"':''}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17V6l7-3 7 3v11H3M7 8v1M13 8v1M7 12v1M13 12v1"/></svg><span class="nav-label">${label}</span></a>`).join('')+'<a class="workbook-tab" href="/research/new" aria-label="Research" title="Research"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5h16v11H2zM2 5l8 6 8-6"/></svg><span class="nav-label">Research</span></a>';
     content=content.replace(/(<nav class="workbook-nav"[^>]*>[\s\S]*?)(<\/nav>)/,(_,navigation,close)=>navigation+links+close);
     content=content.replace('<div class="sidebar-brand"><span class="sidebar-mark" aria-hidden="true">ff</span><div><strong>Final Fore</strong><span>Weed Man</span></div></div>',sidebarBrand);

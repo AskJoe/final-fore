@@ -48,12 +48,20 @@ export type ArchiveBilling = {
   sources: {label: string; url: string}[];
 };
 
+type DigitalHistoryFact = { impressionsCell: string; share?: string; bonus?: number; bonusCell?: string };
+type DigitalResearch = {
+  sheet: 'EPIC3';
+  rates: Record<string, { display: string; cell: string }>;
+  history: Record<string, DigitalHistoryFact>;
+};
+
 export type OrderArchive = {
   version: 1; year: number; orders: ArchiveRecord[];
   references?: ArchiveReference[];
   files: Record<string, ArchiveFile>; marketIds: Record<string, string>;
   coverage: CoverageEvidence[]; coverageYear: number | null;
   billing?: Record<string, ArchiveBilling>;
+  digitalResearch?: DigitalResearch;
 };
 
 export const archivePathVariable = 'FINAL_FORE_ORDER_ARCHIVE_PATH';
@@ -65,6 +73,28 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 function strings(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(item => typeof item === 'string');
+}
+function isCell(value: unknown): boolean {
+  return typeof value === 'string' && /^[A-Z]{1,3}[1-9]\d{0,3}$/.test(value);
+}
+function validateDigitalResearch(raw: unknown) {
+  if (!record(raw) || raw.sheet !== 'EPIC3' || !record(raw.rates) || !record(raw.history)) {
+    throw new Error('Invalid digital research workbook.');
+  }
+  for (const [channel, rate] of Object.entries(raw.rates)) {
+    if (!/^r\d+$/.test(channel) || !record(rate) || !isCell(rate.cell) || typeof rate.display !== 'string' ||
+        !/^\$\d+(?:\.\d{2})?–\$\d+(?:\.\d{2})?$/.test(rate.display)) {
+      throw new Error('Invalid digital research rate range.');
+    }
+  }
+  for (const [cell, fact] of Object.entries(raw.history)) {
+    if (!isCell(cell) || !record(fact) || !isCell(fact.impressionsCell) ||
+        (fact.share !== undefined && (typeof fact.share !== 'string' || !/^\d+(?:\.\d+)?%$/.test(fact.share))) ||
+        !(fact.bonus === undefined && fact.bonusCell === undefined ||
+          typeof fact.bonus === 'number' && Number.isSafeInteger(fact.bonus) && fact.bonus > 0 && isCell(fact.bonusCell))) {
+      throw new Error('Invalid digital research history cell.');
+    }
+  }
 }
 function validSourceUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
@@ -144,6 +174,7 @@ export function validateOrderArchive(raw: unknown): OrderArchive {
       }
     }
   }
+  if (raw.digitalResearch !== undefined) validateDigitalResearch(raw.digitalResearch);
   return raw as unknown as OrderArchive;
 }
 

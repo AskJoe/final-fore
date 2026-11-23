@@ -351,6 +351,31 @@ function moneyCell(value: number | null | undefined, locator: string): CellValue
 function countCell(value: number | null | undefined, locator: string): CellValue {
   return value == null ? null : { value, unit: 'impressions', locator, raw: String(value) };
 }
+type DigitalHistoryLine = { media: number; fee: number; impressions: number | null; sources: string[] };
+function digitalHistoryCells(history: DigitalHistoryLine | undefined,
+  workbook: OrderArchive['digitalResearch']): CellValue[] {
+  if (!history) return [null, null, null, null, null, null];
+  const evidence = history.sources.flatMap(cell => {
+    const fact = workbook?.history[cell];
+    return fact ? [{ cell, ...fact }] : [];
+  });
+  const bonus = evidence.reduce((sum, fact) => sum + (fact.bonus ?? 0), 0);
+  const hasActivity = history.media > 0 || history.fee > 0 || (history.impressions ?? 0) > 0 || bonus > 0;
+  if (!hasActivity) return [null, null, null, null, null, null];
+  const paidCells = history.sources.join(', ');
+  const shares = evidence.filter(fact => fact.share);
+  return [
+    history.media > 0 ? moneyCell(history.media, paidCells) : null,
+    history.fee > 0 ? moneyCell(history.fee, paidCells) : null,
+    history.media + history.fee > 0 ? moneyCell(history.media + history.fee, paidCells) : null,
+    countCell(history.impressions, evidence.map(fact => fact.impressionsCell).join(', ')),
+    shares.length === 1 ? shares[0].share! : shares.map(fact => `${fact.share} (${fact.cell})`).join(' · '),
+    bonus > 0 ? countCell(bonus, evidence.flatMap(fact => fact.bonusCell ?? []).join(', ')) : null,
+  ];
+}
+
+const digitalHistoryColumns = (year: number) =>
+  ['media', 'fee', 'gross', 'impressions', 'spend share', 'bonus impressions'].map(label => `${year} ${label}`);
 const researchSorts = new Set(['title', 'program', 'amount', 'impressions']);
 const groupLabels: Record<string, string> = {market:'Market', client:'Client', rep:'Rep', firm:'Firm'};
 function groupField(value?: string) {
@@ -407,23 +432,23 @@ export function orderResearch(archive: OrderArchive | null, directory: Directory
   const market = displayMarket(query.marketId);
   if (query.sheet === 'digital' && query.workflow === 'digital') {
     const referenceYear = query.year - 1;
-    const columnsForYear = columns(['Channel', query.year + ' allocated', query.year + ' fee', query.year + ' est. impressions',
-      referenceYear + ' media', referenceYear + ' fee', referenceYear + ' gross', referenceYear + ' impressions',
-      'Planning CPM', 'Earlier spend']);
+    const digitalWorkbook = archive?.digitalResearch;
     const history = query.clientId === 'epic3' ? CHANNEL_CATALOG.markets[query.marketId] : null;
+    const historyYears = Object.keys(history ?? {}).map(Number).filter(year => year < query.year).sort((a, b) => b - a);
+    const earlierYears = historyYears.filter(year => year < referenceYear);
+    const latestColumns = digitalHistoryColumns(referenceYear);
+    const columnsForYear = columns(['Channel', query.year + ' allocated', query.year + ' fee', query.year + ' est. impressions',
+      ...latestColumns.slice(0, 4), 'Planning CPM', 'Workbook CPM range', ...latestColumns.slice(4),
+      ...earlierYears.flatMap(digitalHistoryColumns)]);
     if (!history) return finishResearch(columnsForYear, [], query, true);
-    const historyYears = Object.keys(history).map(Number).filter(year => year < query.year).sort((a, b) => b - a);
     const plan = new Map<string, Record<string, unknown>>(channelPlan(query.marketId, query.year, query.allocation ?? null, {}).rows
       .map((row: Record<string, unknown>) => [row.id as string, row]));
     const rows: ResearchRow[] = CHANNEL_CATALOG.channels.filter((item: {kind:string}) => item.kind === 'digital')
-      .map((channel: {id:string; name:string; cpm:number; rateSource?:string}) => {
-        const prior = history[String(referenceYear)]?.lines?.[channel.id];
-        const paidPrior = prior && prior.media + prior.fee > 0;
-        const reference = [channel.rateSource, paidPrior && prior.sources.join(', ')].filter(Boolean).join(' · ');
-        const earlier = historyYears.filter(year => year < referenceYear).flatMap(year => {
-          const row = history[year]?.lines?.[channel.id];
-          return row && row.media + row.fee > 0 ? [year + ' · ' + cellText(moneyCell(row.media + row.fee, ''))] : [];
-        }).join(' / ');
+      .map((channel: {id:string; name:string; cpm:number | null; rateSource?:string}) => {
+        const latest = digitalHistoryCells(history[String(referenceYear)]?.lines?.[channel.id], digitalWorkbook);
+        const earlier = earlierYears.flatMap(year => digitalHistoryCells(history[year]?.lines?.[channel.id], digitalWorkbook));
+        const range = digitalWorkbook?.rates[channel.id];
+        const rateSource = channel.rateSource ?? (range ? '2026 CPMs · ' + range.cell : '');
         const item = plan.get(channel.id);
         const plannedGross = count(typeof item?.allocation === 'number' ? item.allocation : null);
         const plannedMedia = count(typeof item?.media === 'number' ? item.media : null);
@@ -440,17 +465,13 @@ export function orderResearch(archive: OrderArchive | null, directory: Directory
         };
         const id = 'digital-catalog|' + query.marketId + '|' + channel.id;
         const source: SourceRef = { kind: 'digital-catalog', id, title: CHANNEL_CATALOG.sourceFile,
-          url: CHANNEL_CATALOG.sourceUrl, locator: [channel.rateSource,
+          url: CHANNEL_CATALOG.sourceUrl, locator: [rateSource,
             usePlan ? query.year + ' allocation' : historicalLine && basisYear + ' media · ' + historicalLine.sources.join(', '),
           ].filter(Boolean).join(' · ') };
         return { id, marketId: query.marketId, market, program: channel.name, rep: '', firm: '', source,
-          cells: [channel.name, moneyCell(plannedGross, reference),
-            moneyCell(typeof item?.fee === 'number' ? item.fee : null, reference),
-            countCell(plannedImpressions, reference),
-            paidPrior ? moneyCell(prior.media, reference) : null, paidPrior && prior.fee ? moneyCell(prior.fee, reference) : null,
-            paidPrior ? moneyCell(prior.media + prior.fee, reference) : null,
-            paidPrior ? countCell(prior.impressions, reference) : null,
-            moneyCell(plannedCpm, reference), earlier],
+          cells: [channel.name, moneyCell(plannedGross, ''), moneyCell(typeof item?.fee === 'number' ? item.fee : null, ''),
+            countCell(plannedImpressions, ''), ...latest.slice(0, 4),
+            moneyCell(plannedCpm, rateSource), range?.display ?? null, ...latest.slice(4), ...earlier],
           line: emptyResearchLine(id, query.marketId, 'Digital', channel.name, source, basisYear),
           digitalDraftValues,
         };

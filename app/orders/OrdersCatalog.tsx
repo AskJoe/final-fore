@@ -305,10 +305,20 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
         const key = JSON.stringify([label, value]);
         if (seen.has(key)) return [];
         seen.add(key);
-        return [{ label, value, idx, summary: workflow === 'broadcast' ? summaryLabels[label] : undefined }];
+        const cell = row.cells[idx];
+        const locator = typeof cell === 'object' && cell !== null && 'locator' in cell &&
+          typeof cell.locator === 'string' ? cell.locator : undefined;
+        return [{ label, value, idx, locator, summary: workflow === 'broadcast' ? summaryLabels[label] : undefined }];
       });
       const headline = fields.filter(field => field.summary);
       const details = fields.filter(field => !field.summary);
+      const detailGroups = new Map<string, typeof details>();
+      for (const field of details) {
+        const year = workflow === 'digital' ? field.label.match(/^\d{4}\b/)?.[0] ?? '' : '';
+        const group = detailGroups.get(year);
+        if (group) group.push(field);
+        else detailGroups.set(year, [field]);
+      }
       return <Fragment key={row.id}>
         {first && (!previous || groupValue(previous, grouping.primary) !== first) && <h4 className="ow-research-group">{first}</h4>}
         {second && (!previous || groupValue(previous, grouping.primary) !== first || groupValue(previous, grouping.secondary) !== second) &&
@@ -328,8 +338,10 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
             {headline.map(item => <span key={item.idx} className="ow-research-metric"><b>{item.summary}</b> {item.value}</span>)}
           </span></summary>
           <div className="ow-research-details">
-            {!!details.length && <dl>{details.map(item =>
-              <div key={item.idx}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>}
+            {[...detailGroups].map(([year, items]) => <dl key={year}>{items.map(item =>
+              <div key={item.idx}><dt>{item.label}</dt><dd title={item.locator || undefined}>{item.value}</dd></div>)}</dl>)}
+            {workflow === 'digital' && details.every(field => !/^\d{4}\b/.test(field.label)) &&
+              <p className="ow-research-no-history">No spend or impressions recorded for this placement in {row.market}.</p>}
             {(chosenPeriod?.source || row.source) && <Source source={chosenPeriod?.source ?? row.source!}
               previewContext={{ market: row.market, sender: [row.rep, row.firm].filter(Boolean).join(' · ') || 'Published research' }} />}
             {!!row.periods && row.periods.length > 1 && <label>Quoted period

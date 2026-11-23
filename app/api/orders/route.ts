@@ -1,12 +1,11 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-import { AccessError } from '@/lib/access';
+import { AccessError, requireMember } from '@/lib/access';
 import { loadWorkbookPage } from '@/lib/broadcast/store';
 import { MARKETS, TEMPLATE } from '@/lib/domain/catalogs';
 import type { Directory } from '@/lib/domain/directory';
 import { check, Conflict, object, today, type Data } from '@/lib/domain/types';
 import { failure, json, privateHeaders, sameOrigin } from '@/lib/http';
-import { requireOrdersMember } from '@/lib/orders/access';
 import { ORDER_PDF_VERSION, renderOrderPdf } from '@/lib/orders/pdf';
 import { attestLine, verifyDraftSources } from '@/lib/orders/provenance';
 import { archiveOrderSeed, broadcastOrderResearch, loadOrderArchive, orderOpportunities, orderResearch, searchOrderArchive } from '@/lib/orders/sources';
@@ -28,13 +27,13 @@ const hash = (bytes: ArrayBuffer | Uint8Array) => createHash('sha256').update(ne
 
 function ordersSecret() {
   const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new StorageError('Orders storage is unavailable. Pilot storage must be configured.');
+  if (!key) throw new StorageError('Orders storage is unavailable.');
   return key;
 }
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) throw new StorageError('Orders storage is unavailable. Pilot storage must be configured.');
+  if (!url) throw new StorageError('Orders storage is unavailable.');
   return createClient(url, ordersSecret(), {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: { fetch: (input, init) => fetch(input, {
@@ -44,7 +43,7 @@ function adminClient() {
 }
 
 async function context() {
-  const { supabase, user } = await requireOrdersMember();
+  const { supabase, user } = await requireMember();
   const directoryStore = new SupabaseStore(supabase);
   const admin = adminClient();
   return { user, directoryStore, share: new Service(directoryStore), admin, orders: orderStore(admin) };
@@ -180,7 +179,7 @@ export async function GET(request: Request) {
         rep:get('rep'),firm:get('firm'),primary:get('primary'),secondary:get('secondary'),sort:get('sort')};
       const research = workflow === 'broadcast' && !['station-history','digital-history','digital'].includes(sheet)
         ? await broadcastOrderResearch(directory,scope,loadWorkbookPage)
-        : await orderResearch(workflow === 'digital' ? null : await loadOrderArchive(),directory,scope);
+        : orderResearch(await loadOrderArchive(),directory,scope);
       const key = ordersSecret();
       return json({...research,rows:research.rows.map(row=>({
         ...row,line:row.line && attestLine(row.line,scope,key),
