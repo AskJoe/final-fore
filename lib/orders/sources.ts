@@ -2,8 +2,8 @@ import { CHANNEL_CATALOG, MARKETS, TEMPLATE } from '../domain/catalogs';
 import { channelPlan } from '../domain/campaigns';
 import type { Directory } from '../domain/directory';
 import { InputError } from '../domain/types';
-import { cellText, measurementValue, type Entry, type ViewQuery, type WorkbookView } from '../broadcast/view';
-import type { CellValue, SheetName } from '../broadcast/workbook';
+import { cellText, measurementValue, radioFields, type Entry, type ViewQuery, type WorkbookView } from '../broadcast/view';
+import { calculateRadioCpm, type CellValue, type SheetName } from '../broadcast/workbook';
 import { StorageError } from '../store';
 import marketLinks from '../../data/research-market-links.json';
 import assignmentEvidence from '../../data/research-assignment-seed.json';
@@ -22,6 +22,7 @@ export type ResearchQuery = Scope & {
   marketId: string; workflow: OrderWorkflow; sheet: string; page?: number; q?: string;
   rep?: string; firm?: string; primary?: string; secondary?: string; sort?: string;
   allocation?: number | null;
+  quotesOnly?: boolean;
 };
 export type DigitalDraftValues = Pick<OrderLine, 'amount' | 'impressions' | 'cpm'>;
 export type ResearchRow = {
@@ -512,7 +513,8 @@ function exactLabels(items: string[], desired: string, compare = normalize) {
   return matches.length ? matches : [desired];
 }
 
-export async function broadcastOrderResearch(directory: Directory, query: ResearchQuery, load: WorkbookLoader) {
+export async function broadcastOrderResearch(directory: Directory, query: ResearchQuery, load: WorkbookLoader,
+  radioQuoteDetails?: OrderArchive['radioQuoteDetails']) {
   const client = selectedMarket(directory, query.clientId, query.marketId);
   const name = query.sheet;
   if (query.workflow !== 'broadcast' || !['tv','radio','notes','reference','demographics'].includes(name)) {
@@ -520,7 +522,7 @@ export async function broadcastOrderResearch(directory: Directory, query: Resear
   }
   const market = displayMarket(query.marketId);
   const [rep, firm] = [query.rep ?? '', query.firm ?? ''];
-  const searchAll = Boolean(query.q?.trim()) || researchSorts.has(query.sort ?? '');
+  const searchAll = query.quotesOnly || Boolean(query.q?.trim()) || researchSorts.has(query.sort ?? '');
   const viewQuery = {
     filters: { market, client: String(client.id).toUpperCase(), rep, firm },
     grouping: { primary: groupField(query.primary), secondary: groupField(query.secondary) },
@@ -544,7 +546,7 @@ export async function broadcastOrderResearch(directory: Directory, query: Resear
   const seen = new Set<string>();
   function append(result: Awaited<ReturnType<WorkbookLoader>>, filters: ViewQuery['filters']) {
     if (!result.view) throw new StorageError('Broadcast Research changed while loading the results. Try again.');
-    for (const item of broadcastResearchRows(result.view, result.reviews, {...query,market,rep:filters.rep,firm:filters.firm})) {
+    for (const item of broadcastResearchRows(result.view, result.reviews, {...query,market,rep:filters.rep,firm:filters.firm},radioQuoteDetails)) {
       if (!seen.has(item.id)) rows.push(item);
       seen.add(item.id);
     }
@@ -572,9 +574,12 @@ export async function broadcastOrderResearch(directory: Directory, query: Resear
 }
 
 function broadcastResearchRows(view: WorkbookView, reviews: Awaited<ReturnType<WorkbookLoader>>['reviews'],
-  query: ResearchQuery & {market:string;rep:string;firm:string}) {
+  query: ResearchQuery & {market:string;rep:string;firm:string}, radioQuoteDetails?: OrderArchive['radioQuoteDetails']) {
   const { sheet:name, market, rep, firm } = query;
   const labels = view.sheet.columns;
+  const radio = name === 'radio' ? radioFields(view.sheet, name) : null;
+  const spotRate = labels.findIndex(col => col.label === 'Spot rate');
+  const televisionCpm = name === 'tv' ? labels.findIndex(col => col.label === 'Calculated CPM') : -1;
   const rows: ResearchRow[] = [];
   for (const entry of view.sections.flatMap(section => section.lines.flat())) {
     const row: PublishedRow = entry.row;
@@ -584,7 +589,23 @@ function broadcastResearchRows(view: WorkbookView, reviews: Awaited<ReturnType<W
     const file = entry.files.find(item => item.marketId === query.marketId &&
       (!rep || item.rep === rep) && (!firm || item.firm === firm));
     const source: SourceRef | null = file ? { kind: 'broadcast-research', id: file.id, title: file.name, locator: row.locator } : null;
-    const cell = (field: string) => row.cells[labels.findIndex(col => col.label === field)];
+    const cells = [...row.cells];
+    const cell = (field: string) => cells[labels.findIndex(col => col.label === field)];
+    const quote = cell('Spot rate');
+    const supplement = name === 'radio' ? radioQuoteDetails?.[row.id] : undefined;
+    const reviewed = supplement && supplement.marketId === attribution && supplement.locator === row.locator &&
+      typeof quote === 'object' && quote && supplement.rateCell === quote.locator && supplement.rate === quote.value
+      ? supplement : undefined;
+    const cpmIndex = radio?.cpm ?? televisionCpm;
+    const calculated = calculateRadioCpm(measurementValue(quote), measurementValue(cell(radio ? 'AQH (people)' : 'Audience count')));
+    if (reviewed) {
+      for (const [index, { label }] of labels.entries()) {
+        if (Object.hasOwn(reviewed.fields, label)) cells[index] = reviewed.fields[label];
+      }
+    }
+    if (cpmIndex >= 0 && (cells[cpmIndex] === undefined || cells[cpmIndex] === null) && calculated !== null) {
+      cells[cpmIndex] = moneyCell(cents(calculated), typeof quote === 'object' && quote ? quote.locator : '');
+    }
     const station = cellText(cell('Station') ?? '');
     const program = cellText(cell(name === 'radio' ? 'Daypart' : 'Program') ?? '');
     const title = program || station || cellText(row.cells[0] ?? '') || 'Workbook reference';
@@ -592,12 +613,11 @@ function broadcastResearchRows(view: WorkbookView, reviews: Awaited<ReturnType<W
     let line: OrderLine | null = null;
     let periods: ResearchRow['periods'];
     if (maySelect) {
-      const quote = cell('Spot rate');
       const quoteSource = { ...source, locator: typeof quote === 'object' && quote ? quote.locator : source.locator };
       const draft = { ...emptyResearchLine(row.id, query.marketId, name === 'radio' ? 'Radio' : 'TV', program, quoteSource, query.year),
         station, format: cellText(cell('Spot (sec)') ?? ''), days: cellText(cell('Schedule') ?? ''),
         audience: count(measurementValue(cell(name === 'radio' ? 'AQH (people)' : 'Audience count'))),
-        cpm: cents(measurementValue(cell(name === 'radio' ? 'CPM' : 'Reported CPM'))) };
+        cpm: cents(measurementValue(cell(name === 'radio' ? 'CPM' : 'Reported CPM')) ?? calculated) };
       if (row.pricePeriods?.length) {
         periods = row.pricePeriods.flatMap(period => {
           const rate = cents(period.rate.value);
@@ -607,19 +627,36 @@ function broadcastResearchRows(view: WorkbookView, reviews: Awaited<ReturnType<W
           const periodSource = { ...source, locator: period.rate.locator || source.locator };
           return [{ label: period.start + ' – ' + period.through + ' · ' + cellText(moneyCell(rate, period.rate.locator)),
             source: periodSource, line: { ...draft, start: period.start, end: period.through, rate,
-              cpm: cents(measurementValue(period.cpm)) ?? draft.cpm,
+              cpm: cents(measurementValue(period.cpm)) ??
+                cents(calculateRadioCpm(period.rate.value, draft.audience ?? null)) ?? draft.cpm,
               source: lineSource(periodSource, query.year) } }];
         });
-      } else if (row.avail && query.year === 2027) {
+      } else if (reviewed?.year === query.year || row.avail && query.year === 2027) {
         line = { ...draft, rate: cents(measurementValue(quote)) };
       } else {
         // A station schedule can be copied without applying an unverified current rate.
         line = draft;
       }
     }
-    if (contains([title, entry.rep, entry.firm, source?.title, ...row.cells.map(cellText)], query.q)) {
+    if (periods?.length) {
+      for (const [index, key] of [[spotRate, 'rate'], [televisionCpm, 'cpm']] as const) {
+        if (index < 0 || cells[index] != null && cells[index] !== '') continue;
+        const amounts = periods.flatMap(({ line }) => {
+          const rate = line.rate;
+          if (rate === null || rate === undefined) return [];
+          return key === 'rate' ? [rate] : cents(calculateRadioCpm(rate / 100,line.audience ?? null)) ?? [];
+        });
+        if (!amounts.length) continue;
+        const low = Math.min(...amounts), high = Math.max(...amounts);
+        const sourceCell = periods[0].source.locator ?? '';
+        cells[index] = low === high ? moneyCell(low,sourceCell) :
+          [low,high].map(value => cellText(moneyCell(value,sourceCell))).join('–');
+      }
+    }
+    if (query.quotesOnly && line?.rate == null && !periods?.length) continue;
+    if (contains([title, entry.rep, entry.firm, source?.title, ...cells.map(cellText)], query.q)) {
       rows.push({ id: row.id, marketId: query.marketId, market,
-      program: title, firm: file?.firm || entry.firm, rep: file?.rep || entry.rep, cells: row.cells, source, line,
+      program: title, firm: file?.firm || entry.firm, rep: file?.rep || entry.rep, cells, source, line,
       ...(periods?.length && {periods}) });
     }
   }

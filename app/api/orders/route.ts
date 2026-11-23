@@ -176,9 +176,11 @@ export async function GET(request: Request) {
       const workflow = workflowName(get('workflow'));
       const sheet = get('sheet') || (workflow === 'digital' ? 'digital' : 'tv');
       const scope = {clientId,marketId,year,workflow,sheet,page:Number(get('page')||1),q:get('q').slice(0,200),
-        rep:get('rep'),firm:get('firm'),primary:get('primary'),secondary:get('secondary'),sort:get('sort')};
+        rep:get('rep'),firm:get('firm'),primary:get('primary'),secondary:get('secondary'),sort:get('sort'),
+        quotesOnly:(sheet === 'radio' || sheet === 'tv') && get('avails') === '1'};
       const research = workflow === 'broadcast' && !['station-history','digital-history','digital'].includes(sheet)
-        ? await broadcastOrderResearch(directory,scope,loadWorkbookPage)
+        ? await broadcastOrderResearch(directory,scope,loadWorkbookPage,
+          sheet === 'radio' ? (await loadOrderArchive())?.radioQuoteDetails : undefined)
         : orderResearch(await loadOrderArchive(),directory,scope);
       const key = ordersSecret();
       return json({...research,rows:research.rows.map(row=>({

@@ -211,10 +211,11 @@ export function HistoricalOrders({ hidden, client, markets, currentYear, canEdit
 
 const broadcastSheets = { tv: 'TV', radio: 'Radio', 'digital-history': 'Station digital history', demographics: 'Demographics', notes: 'Notes', reference: 'Reference' };
 const summaryLabels: Record<string, string> = {
-  Station: 'Station', Schedule: 'Schedule', Period: 'Period', 'Spot rate': 'Rate', 'AQH (people)': 'AQH', 'Audience count': 'Viewers',
-  'Reported CPM': 'Rpt. CPM', CPM: 'CPM', 'Spot (sec)': 'Sec', 'Spots per week': 'Spots/wk',
-  'Gross impressions': 'Imps', 'Extended cost': 'Ext. cost', Audience: 'Demo',
+  Station: 'Station', 'Spot rate': 'Rate', CPM: 'CPM', 'Calculated CPM': 'Calc. CPM', 'Reported CPM': 'Rpt. CPM',
+  'AQH (people)': 'AQH', 'Audience count': 'Viewers', 'Spot (sec)': 'Sec', 'Spots per week': 'Spots/wk',
+  'Gross impressions': 'Imps', 'Extended cost': 'Ext. cost', Audience: 'Demo', Schedule: 'Schedule',
 };
+const summaryOrder = Object.keys(summaryLabels);
 
 function cellText(cell: ResearchCell | undefined) {
   const raw = typeof cell === 'object' && cell ? cell.value ?? cell.raw : cell;
@@ -232,6 +233,8 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
 }) {
   const startingMarket = marketIds[0] ?? '';
   const [sheet, setSheet] = useState(workflow === 'digital' ? 'digital' : initialSheet === 'radio' ? 'radio' : 'tv');
+  const [quotesOnly, setQuotesOnly] = useState(true);
+  const hasAvails = workflow === 'broadcast' && (sheet === 'radio' || sheet === 'tv');
   const [filters, setFilters] = useState<Filters>({
     ...emptyFilters, market: markets.find(item => item.id === startingMarket)?.name ?? '',
     client: client.name, rep: workflow === 'broadcast' ? document.rep : '', firm: workflow === 'broadcast' ? document.vendor : '',
@@ -248,6 +251,7 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
   const { value, error, busy, retry } = useOrdersGet<ResearchPage>(!marketId ? '' : ordersUrl({
     view: 'research', clientId: client.id, marketId, year, workflow, sheet, rep: filters.rep, firm: filters.firm,
     q: search, primary: grouping.primary, secondary: grouping.secondary, sort, page,
+    avails: hasAvails && quotesOnly ? '1' : undefined,
   }));
   const replacing = document.lines.find(item => item.id === target);
   const options: Record<keyof Filters, string[]> = {
@@ -268,6 +272,10 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
       {Object.entries(broadcastSheets).map(([key, title]) => <button type="button" key={key} aria-pressed={sheet === key}
         onClick={() => { setSheet(key); changeQuery(); }}>{title}</button>)}
     </div>}
+    {hasAvails && <div className="ow-sheet-tabs" role="group" aria-label="Research type">
+      <button type="button" aria-pressed={quotesOnly} onClick={() => { setQuotesOnly(true); changeQuery(); }}>Avails</button>
+      <button type="button" aria-pressed={!quotesOnly} onClick={() => { setQuotesOnly(false); changeQuery(); }}>All research</button>
+    </div>}
     <div className="ow-research-filters">
       <FilterRibbon filters={filters} options={options} onChange={next => { setFilters({ ...next, client: client.name }); changeQuery(); }}>
         <GroupControl choices={groups} grouping={grouping} onChange={next => { setGrouping(next); changeQuery(); }} />
@@ -284,7 +292,8 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
     {busy && <p className="ow-empty" role="status">Loading research…</p>}
     {error && <p className="ow-empty" role="alert">{error} <button type="button" onClick={retry}>Retry</button></p>}
     {!busy && value && !value.rows.length && <p className="ow-empty">{value.availability === 'unconfigured'
-      ? 'This research source is not configured.' : 'No research matches these filters.'}</p>}
+      ? 'This research source is not configured.' : hasAvails && quotesOnly
+        ? 'No available quotes match these filters.' : 'No research matches these filters.'}</p>}
     {value?.rows.map((row, index) => {
       const groupValue = (item: ResearchRow, key: string) => key === 'market' ? item.market : key === 'firm' ? item.firm : key === 'rep' ? item.rep : '';
       const previous = value.rows[index - 1];
@@ -310,7 +319,8 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
           typeof cell.locator === 'string' ? cell.locator : undefined;
         return [{ label, value, idx, locator, summary: workflow === 'broadcast' ? summaryLabels[label] : undefined }];
       });
-      const headline = fields.filter(field => field.summary);
+      const headline = fields.filter(field => field.summary)
+        .sort((a, b) => summaryOrder.indexOf(a.label) - summaryOrder.indexOf(b.label));
       const details = fields.filter(field => !field.summary);
       const detailGroups = new Map<string, typeof details>();
       for (const field of details) {

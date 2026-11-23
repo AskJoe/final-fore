@@ -1,6 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { StorageError } from '../store';
+import type { CellValue } from '../broadcast/workbook';
 
 export type SourceRef = {
   kind: 'signed-order' | 'historical-order' | 'digital-catalog' | 'broadcast-research';
@@ -55,6 +56,11 @@ type DigitalResearch = {
   history: Record<string, DigitalHistoryFact>;
 };
 
+export type ReviewedRadioQuote = {
+  marketId: string; locator: string; rateCell: string; rate: number; year: number;
+  fields: Record<string, CellValue>;
+};
+
 export type OrderArchive = {
   version: 1; year: number; orders: ArchiveRecord[];
   references?: ArchiveReference[];
@@ -62,6 +68,7 @@ export type OrderArchive = {
   coverage: CoverageEvidence[]; coverageYear: number | null;
   billing?: Record<string, ArchiveBilling>;
   digitalResearch?: DigitalResearch;
+  radioQuoteDetails?: Record<string, ReviewedRadioQuote>;
 };
 
 export const archivePathVariable = 'FINAL_FORE_ORDER_ARCHIVE_PATH';
@@ -175,6 +182,19 @@ export function validateOrderArchive(raw: unknown): OrderArchive {
     }
   }
   if (raw.digitalResearch !== undefined) validateDigitalResearch(raw.digitalResearch);
+  if (raw.radioQuoteDetails !== undefined) {
+    if (!record(raw.radioQuoteDetails)) throw new Error('Invalid reviewed radio quotes.');
+    for (const [id, quote] of Object.entries(raw.radioQuoteDetails)) {
+      if (!validArchiveId.test(id) || !record(quote) || typeof quote.marketId !== 'string' ||
+          typeof quote.locator !== 'string' || typeof quote.rateCell !== 'string' || typeof quote.rate !== 'number' ||
+          !Number.isFinite(quote.rate) || quote.rate < 0 || !Number.isSafeInteger(quote.year) || !record(quote.fields) ||
+          !Object.values(quote.fields).every(cell => typeof cell === 'string' ||
+            record(cell) && typeof cell.value === 'number' && Number.isFinite(cell.value) &&
+            ['unit','locator','raw'].every(key => typeof cell[key] === 'string'))) {
+        throw new Error('Invalid reviewed radio quote.');
+      }
+    }
+  }
   return raw as unknown as OrderArchive;
 }
 
