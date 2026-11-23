@@ -3,6 +3,7 @@
 .next-local-test
 .local-migration
 .env*
+/orders-staging-archive.json
 node_modules
 test-results
 playwright-report
