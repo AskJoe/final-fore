@@ -146,7 +146,10 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
                   {marketIds.map(id => <option key={id} value={id}>{marketName(id)}</option>)}
                 </select>}</td>}
                 {!digital && <td>{field(line, 'station', index)}</td>}
-                <td>{field(line, 'program', index)}</td><td>{field(line, 'format', index)}</td><td>{field(line, 'days', index)}</td>
+                <td>{field(line, 'program', index)}
+                  {line.source?.kind === 'digital' && line.source.year && (line.amount !== null || line.impressions !== null) &&
+                    <small className="ow-order-line-basis">{line.source.year} workbook reference</small>}
+                </td><td>{field(line, 'format', index)}</td><td>{field(line, 'days', index)}</td>
                 <td>{field(line, 'start', index, 'date')}{field(line, 'end', index, 'date')}</td>
                 {!digital && <><td>{field(line, 'rate', index, 'money')}</td><td>{field(line, 'quantity', index, 'number')}</td></>}
                 <td>{line.noCharge ? 'No charge' : line.amount == null && line.rate != null && line.quantity != null
@@ -345,7 +348,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   }
 
   return <section className="ow-editor" aria-label="Order editor">
-    <div className="ow-bar ow-editor-head">
+    <div className="ow-bar ow-compact ow-editor-head">
       <button type="button" onClick={onBack}>‹ {fromCalendar ? 'Back to calendar' : 'Back to orders'}</button>
       <h2 ref={heading} tabIndex={-1}>{document.number || (selection.workflow === 'digital' ? 'Digital order' : 'Broadcast order')}</h2>
       <span className="ow-pill">{issue ? 'Finalized' : 'Draft'}</span>
@@ -359,7 +362,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       {source.related?.map(item => <Source key={item.id} source={item} />)}
     </div>}
     {source?.billing && <PriorBilling reference={source.billing} />}
-    <div className="ow-bar ow-editor-tools">
+    <div className="ow-bar ow-compact ow-editor-tools">
       <span>{selection.year} · {client.name} · {scope.join(', ')}</span>
       <button type="button" aria-pressed={researchOpen} onClick={() => setResearchOpen(!researchOpen)}>{researchOpen ? 'Hide research' : 'Show research'}</button>
       {issue && <>

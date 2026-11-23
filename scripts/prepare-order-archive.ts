@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, relative } from 'node:path';
 import { parseArgs } from 'node:util';
-import { validateOrderArchive, type ArchiveFile, type ArchiveRecord, type CoverageEvidence } from '../lib/orders/archive-source';
+import { archiveReferenceRoles, validateOrderArchive, type ArchiveFile, type ArchiveRecord, type CoverageEvidence } from '../lib/orders/archive-source';
 
 const { values } = parseArgs({ options: {
   current: { type: 'string' }, families: { type: 'string' }, coverage: { type: 'string' },
@@ -21,8 +21,11 @@ async function main() {
     json(values.current), json(values.families), values.coverage ? json(values.coverage) : Promise.resolve(null),
     values.billing ? json(values.billing) : Promise.resolve(null),
   ]);
-  const familyById = new Map<string, { signed?: string; files: string[] }>();
-  for (const order of families.orders) familyById.set(String(order.id), order);
+  type DocumentFamily = Omit<ArchiveRecord, 'source' | 'version' | 'signedBy' | 'related'> & {
+    file: string; files: string[]; scope: string; rev: string; signer: string;
+  };
+  const reviewedFamilies: DocumentFamily[] = families.orders;
+  const familyById = new Map(reviewedFamilies.map(order => [String(order.id), order]));
   const files: Record<string, ArchiveFile> = {};
   function include(fileId: string) {
     const file = current.files[fileId] ?? families.files[fileId];
@@ -30,14 +33,13 @@ async function main() {
     files[fileId] = { ...file, id: fileId };
   }
   const digitalVendorCompanion: Record<string, string> = { '23':'24', '200':'201', '218':'217', '18':'19', '220':'221' };
-  const supportingTypes = new Set(['Publisher insertion order', 'Makegood', 'Supporting document']);
-  const orders = current.orders.map((order: ArchiveRecord) => {
+  function withSources(order: Omit<ArchiveRecord, 'signed' | 'related'>) {
     const id = String(order.id);
     const source = String(order.source);
     const family = familyById.get(id);
     if (!family) throw new Error('A current order is missing its reviewed document family.');
     const signed = family.signed ? String(family.signed) : null;
-    const related = family.files.map(String).filter(key => supportingTypes.has(families.files[key]?.kind));
+    const related = family.files.map(String);
     if (digitalVendorCompanion[source]) related.push(digitalVendorCompanion[source]);
     const uniqueRelated = [...new Set(related)].filter(key => key !== source && key !== signed);
     for (const key of [source, signed, ...uniqueRelated]) if (key) include(key);
@@ -47,6 +49,15 @@ async function main() {
       fmt: line.fmt ?? '', context: line.context ?? '', amount: line.amount ?? null,
     }));
     return { ...order, id, source, signed, related: uniqueRelated, lines };
+  }
+  const orders: ArchiveRecord[] = current.orders.map(withSources);
+  const currentIds = new Set(orders.map(order => order.id));
+  const references = reviewedFamilies.filter(family => !currentIds.has(String(family.id))).map(family => {
+    const { id, market, name, type, issued, ref, client, media, amount, basis, imps, targets, lines, note } = family;
+    const referenceRole = archiveReferenceRoles.find(role => role === family.scope);
+    if (!referenceRole) throw new Error('A reviewed order is missing from the current archive: ' + id);
+    return { ...withSources({ id, market, name, type, issued, ref, client, media, amount, basis, imps, targets, lines, note,
+      source: family.file, version: family.rev, signedBy: family.signer, signedOn: family.signedOn }), referenceRole };
   });
   const coverage: CoverageEvidence[] = [];
   if (reference) {
@@ -69,13 +80,13 @@ async function main() {
     Object.assign(billing, { [weather.id]: { ...reviewed, year: 2025, amount: Math.round(reviewed.amount * 100) } });
   }
   const archive = validateOrderArchive({
-    version: 1, year: 2026, orders, files, marketIds: current.marketIds,
+    version: 1, year: 2026, orders, references, files, marketIds: { ...families.marketIds, ...current.marketIds },
     coverage, coverageYear: reference?.year ?? null, billing,
   });
   // Exclusive creation prevents overwriting a previously reviewed release.
   await writeFile(values.output, JSON.stringify(archive), { flag: 'wx', mode: 0o600 });
-  const placements = archive.orders.reduce((total, order) => total + order.lines.length, 0);
-  console.log(`Prepared ${archive.orders.length} orders, ${placements} placement and adjustment rows, ` +
+  const placements = [...archive.orders, ...(archive.references ?? [])].reduce((total, order) => total + order.lines.length, 0);
+  console.log(`Prepared ${archive.orders.length} orders, ${archive.references?.length ?? 0} reference records, ${placements} placement and adjustment rows, ` +
     `${Object.keys(archive.files).length} original source links, ${archive.coverage.length} market coverage references and ` +
     `${Object.keys(billing).length} billing references.`);
 }

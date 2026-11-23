@@ -34,6 +34,10 @@ export type ArchiveRecord = {
   signedOn: string; signedBy: string; note: string; signed: string | null; related: string[];
 };
 
+export const archiveReferenceRoles = ['Archived subgroup', 'Proposed alternative', 'Internal working file'] as const;
+export type ArchiveReferenceRole = typeof archiveReferenceRoles[number];
+export type ArchiveReference = ArchiveRecord & { referenceRole: ArchiveReferenceRole };
+
 export type CoverageEvidence = {
   clientId: string; marketId: string; firm: string; rep: string; media: string[];
   evidence: string[];
@@ -46,6 +50,7 @@ export type ArchiveBilling = {
 
 export type OrderArchive = {
   version: 1; year: number; orders: ArchiveRecord[];
+  references?: ArchiveReference[];
   files: Record<string, ArchiveFile>; marketIds: Record<string, string>;
   coverage: CoverageEvidence[]; coverageYear: number | null;
   billing?: Record<string, ArchiveBilling>;
@@ -75,7 +80,7 @@ function validSourceUrl(value: unknown): value is string {
 export function validateOrderArchive(raw: unknown): OrderArchive {
   if (!record(raw) || raw.version !== 1 || !Number.isInteger(raw.year) ||
       !record(raw.files) || !record(raw.marketIds) || !Array.isArray(raw.orders) ||
-      !Array.isArray(raw.coverage) ||
+      !Array.isArray(raw.coverage) || (raw.references !== undefined && !Array.isArray(raw.references)) ||
       !(raw.coverageYear === null || Number.isInteger(raw.coverageYear))) {
     throw new Error('Invalid Order Archive manifest.');
   }
@@ -90,7 +95,13 @@ export function validateOrderArchive(raw: unknown): OrderArchive {
   }
   const ids = new Set<string>();
   const files = raw.files as OrderArchive['files'];
-  for (const order of raw.orders) {
+  const references = raw.references ?? [];
+  for (const reference of references) {
+    if (!record(reference) || !archiveReferenceRoles.some(role => role === reference.referenceRole)) {
+      throw new Error('Invalid Order Archive reference role.');
+    }
+  }
+  for (const order of [...raw.orders, ...references]) {
     if (!record(order) || typeof order.id !== 'string' || !validArchiveId.test(order.id) || ids.has(order.id) ||
       typeof order.source !== 'string' || !Object.hasOwn(files, order.source) ||
       !(order.signed === null || typeof order.signed === 'string' && Object.hasOwn(files, order.signed) &&

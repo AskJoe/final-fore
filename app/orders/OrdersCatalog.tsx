@@ -2,18 +2,20 @@ import { Fragment, useEffect, useState } from 'react';
 import FilePreviewDrawer from '@/app/research/_components/FilePreviewDrawer';
 import FilterRibbon, { emptyFilters, type Filters } from '@/app/research/broadcast/FilterRibbon';
 import GroupControl, { noGrouping, type Grouping } from '@/app/research/broadcast/GroupControl';
+import type { DigitalDraftValues } from '@/lib/orders/sources';
 import type { OrderDocument, OrderLine, OrderWorkflow } from '@/lib/orders/store';
 import { filePreviewKind } from '@/lib/research/file-preview';
 import type { ClientOption, MarketOption } from './OrderCalendar';
+import { OrderMenu } from './OrderToolbar';
 export type { OrderOpportunity } from '@/lib/orders/sources';
 
 export type SourceLink = { id: string; kind?: string; title?: string; label?: string; url?: string; locator?: string };
 export type BillingReference = { number: string; year: number; issued: string; amount: number; sources: { label: string; url: string }[] };
-type ArchiveLine = Partial<OrderLine> & { id: string; market?: string };
+type ArchiveLine = Partial<OrderLine> & { id: string; market?: string; flight?: string; impressionsText?: string };
 export type ArchiveRecord = {
   id: string; title: string; clientId: string; year: number; marketIds: string[]; market: string; media: string | string[];
   workflow: OrderWorkflow; firm: string; rep: string; orderNumber: string; orderDate: string; amount: number | null;
-  impressions: number | null; note?: string; lines: ArchiveLine[];
+  impressions: number | null; note?: string; referenceRole?: string; lines: ArchiveLine[];
   signed?: SourceLink | null; latest?: SourceLink | null; related?: SourceLink[];
   billing?: BillingReference | null;
   seedAvailable: boolean;
@@ -24,9 +26,11 @@ type ResearchCell = string | number | null | boolean | { value?: string | number
 type ResearchRow = {
   id: string; marketId: string; market: string; program: string; firm: string; rep: string; cells: ResearchCell[];
   source: SourceLink | null; line: OrderLine | null; periods?: ResearchPeriod[];
+  digitalDraftValues?: DigitalDraftValues;
 };
 type ResearchPage = {
   columns: { label: string }[]; rows: ResearchRow[]; total: number; page: number; pageCount: number; availability?: string;
+  groups?: { label: string; span: number }[];
   filterOptions?: Partial<Record<keyof Filters, string[]>>;
   groupOptions?: { id: string; label: string }[];
 };
@@ -102,7 +106,7 @@ export function PriorBilling({ reference }: { reference: BillingReference }) {
 }
 
 function Paging({ page, pageCount, total, onPage }: { page: number; pageCount: number; total: number; onPage: (page: number) => void }) {
-  return <div className="ow-bar ow-paging" aria-label="Results pages">
+  return <div className="ow-bar ow-compact ow-paging" aria-label="Results pages">
     <span>{quantity.format(total)} {total === 1 ? 'result' : 'results'}</span>
     {pageCount > 1 && <>
       <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)}>Previous</button>
@@ -136,45 +140,47 @@ export function HistoricalOrders({ hidden, client, markets, currentYear, canEdit
     });
   }
   return <section hidden={hidden} aria-label="Historical orders">
-    <div className="ow-bar">
-      <label className="ow-select-label">Archive year<input type="number" min={1900} max={2100} value={year}
+    <div className="ow-bar ow-compact">
+      <label className="ow-select-label ow-year">Archive year<input type="number" min={1900} max={2100} value={year}
         onChange={event => { setYear(event.target.valueAsNumber || currentYear - 1); setPage(1); }} /></label>
-      <select aria-label="Historical order market" value={market}
+      <OrderMenu aria-label="Historical order market" text={markets.find(item => item.id === market)?.name || 'Markets'} value={market}
         onChange={event => { setMarket(event.target.value); setPage(1); }}>
-        <option value="">All markets</option>{markets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select>
-      <select aria-label="Historical order media" value={media}
+        <option value="">Markets</option>{markets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </OrderMenu>
+      <OrderMenu aria-label="Historical order media" text={media || 'Media'} value={media}
         onChange={event => { setMedia(event.target.value); setPage(1); }}>
-        <option value="">All media</option><option>TV</option><option>Radio</option><option>Digital</option>
-      </select>
-      <input type="search" aria-label="Search historical orders" placeholder="Search historical orders"
+        <option value="">Media</option><option>TV</option><option>Radio</option><option>Digital</option>
+      </OrderMenu>
+      <input type="search" aria-label="Search historical orders" placeholder="Search"
         value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} />
-      <select aria-label="Sort historical orders" value={sort}
+      <OrderMenu aria-label="Sort historical orders" text={sort === 'title' ? 'Title' : sort === 'amount' ? 'Amount' : 'Source order'} value={sort}
         onChange={event => { setSort(event.target.value); setPage(1); }}>
         <option value="">Source order</option><option value="title">Title</option><option value="amount">Amount</option>
-      </select>
+      </OrderMenu>
     </div>
     {busy && <p className="ow-empty" role="status">Loading historical orders…</p>}
     {error && <p className="ow-empty" role="alert">{error} <button type="button" onClick={retry}>Retry</button></p>}
     {!busy && value && (!value.orders.length ? <p className="ow-empty">{value.availability === 'unconfigured'
       ? 'Historical order sources are not configured.' : 'No historical orders match this view.'}</p> :
-      <div className="ow-table-viewport"><table className="ow-table" aria-label="Historical orders and placements">
-        <thead><tr><th scope="col">Order</th><th scope="col">Market</th><th scope="col">Vendor / rep</th><th scope="col">Media</th>
-          <th scope="col">Order amount</th><th scope="col">Original documents</th></tr></thead>
+      <div className="ow-table-viewport"><table className="ow-table ow-history-table" aria-label="Historical orders and placements">
+        <thead><tr>{['Order / Placement', 'Market', 'Media', 'Flight', 'Rate', 'Spots', 'Amount', 'Imps', 'Original documents'].map(label =>
+          <th scope="col" key={label}>{label}</th>)}</tr></thead>
         <tbody>{value.orders.map(item => {
           const pick = seedMarket[item.id] || market || (item.marketIds.length === 1 ? item.marketIds[0] : '');
           return <Fragment key={item.id}>
-            <tr>
+            <tr className="ow-archive-order">
               <th scope="row"><button type="button" className="ow-link" aria-expanded={open.has(item.id)} onClick={() => toggle(item.id)}>{item.title}</button>
-                <small>{[item.orderNumber, item.orderDate].filter(Boolean).join(' · ')}</small></th>
+                {item.referenceRole && <small><strong>{item.referenceRole}</strong></small>}
+                <small>{[item.orderNumber, item.orderDate, item.firm, item.rep].filter(Boolean).join(' · ')}</small></th>
               <td>{item.market || item.marketIds.map(id => markets.find(row => row.id === id)?.name || id).join(', ')}</td>
-              <td>{[item.firm, item.rep].filter(Boolean).join(' · ') || '—'}</td>
               <td>{Array.isArray(item.media) ? item.media.join(', ') : item.media}</td>
+              <td colSpan={3}></td>
               <td>{item.amount == null ? '—' : usd.format(item.amount / 100)}</td>
+              <td>{item.impressions == null ? '—' : quantity.format(item.impressions)}</td>
               <td>{item.signed && <div><Source source={item.signed} /> <small>Signed</small></div>}
                 {item.latest && item.latest.id !== item.signed?.id && <div><Source source={item.latest} /> <small>Latest</small></div>}</td>
             </tr>
-            {open.has(item.id) && <tr className="ow-expanded"><td colSpan={6}>
+            {open.has(item.id) && <tr className="ow-expanded"><td colSpan={9}>
               {item.note && <p>{item.note}</p>}
               {!!item.related?.length && <ul>{item.related.map(source => <li key={source.id}><Source source={source} /></li>)}</ul>}
               {item.billing && <PriorBilling reference={item.billing} />}
@@ -186,13 +192,16 @@ export function HistoricalOrders({ hidden, client, markets, currentYear, canEdit
                 <button type="button" className="ow-link" disabled={!pick}
                   onClick={() => onSeed(item, pick)}>Start {currentYear} draft from signed order</button>
               </div>}
-              {!!item.lines.length && <table className="ow-table" aria-label={item.title + ' placements'}>
-                <thead><tr><th>Market</th><th>Media</th><th>Station / placement</th><th>Amount</th><th>Impressions</th></tr></thead>
-                <tbody>{item.lines.map(line => <tr key={line.id}>
-                  <td>{line.market ?? line.marketId ?? '—'}</td><td>{line.media}</td><td>{[line.station, line.program].filter(Boolean).join(' · ') || '—'}</td>
-                  <td>{line.amount == null ? '—' : usd.format(line.amount / 100)}</td><td>{line.impressions == null ? '—' : quantity.format(line.impressions)}</td>
-                </tr>)}</tbody></table>}
             </td></tr>}
+            {item.lines.map(line => <tr className="ow-archive-placement" key={line.id}>
+              <th scope="row">{[line.station, line.program].filter(Boolean).join(' · ') || '—'}
+                {(line.format || line.notes) && <small>{[line.format, line.notes].filter(Boolean).join(' · ')}</small>}</th>
+              <td>{line.market ?? line.marketId ?? '—'}</td><td>{line.media}</td>
+              <td>{line.flight || '—'}{line.days && <small>{line.days}</small>}</td>
+              <td>{line.rate == null ? '—' : usd.format(line.rate / 100)}</td><td>{line.quantity ?? '—'}</td>
+              <td>{line.amount == null ? '—' : usd.format(line.amount / 100)}</td>
+              <td>{line.impressions == null ? line.impressionsText || '—' : quantity.format(line.impressions)}</td><td></td>
+            </tr>)}
           </Fragment>;
         })}</tbody>
       </table></div>)}
@@ -201,12 +210,20 @@ export function HistoricalOrders({ hidden, client, markets, currentYear, canEdit
 }
 
 const broadcastSheets = { tv: 'TV', radio: 'Radio', 'digital-history': 'Station digital history', demographics: 'Demographics', notes: 'Notes', reference: 'Reference' };
+const summaryLabels: Record<string, string> = {
+  Station: 'Station', Schedule: 'Schedule', Period: 'Period', 'Spot rate': 'Rate', 'AQH (people)': 'AQH', 'Audience count': 'Viewers',
+  'Reported CPM': 'Rpt. CPM', CPM: 'CPM', 'Spot (sec)': 'Sec', 'Spots per week': 'Spots/wk',
+  'Gross impressions': 'Imps', 'Extended cost': 'Ext. cost', Audience: 'Demo',
+};
 
 function cellText(cell: ResearchCell | undefined) {
-  if (cell == null) return '—';
-  if (typeof cell === 'number') return quantity.format(cell);
-  if (typeof cell === 'object') return typeof cell.value === 'number' && cell.unit === 'USD' ? usd.format(cell.value) : cell.value ?? cell.raw ?? '—';
-  return String(cell);
+  const raw = typeof cell === 'object' && cell ? cell.value ?? cell.raw : cell;
+  if (typeof raw === 'number') {
+    const unit = typeof cell === 'object' && cell ? cell.unit : undefined;
+    return unit === 'USD' ? usd.format(raw) : quantity.format(raw) + (unit === 'percent' ? '%' : '');
+  }
+  const text = String(raw ?? '').trim();
+  return /^[—–-]+$/.test(text) ? '' : text;
 }
 
 export function OrderResearch({ client, markets, marketIds, workflow, year, initialSheet, document, target, onApply, canEdit }: {
@@ -224,16 +241,14 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
   const [sort, setSort] = useState('');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState('');
-  const [periodIndex, setPeriodIndex] = useState(-1);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [periodIndexes, setPeriodIndexes] = useState<Record<string, number>>({});
   const search = useSettledSearch(query);
   const marketId = markets.find(item => item.name === filters.market)?.id || startingMarket;
   const { value, error, busy, retry } = useOrdersGet<ResearchPage>(!marketId ? '' : ordersUrl({
     view: 'research', clientId: client.id, marketId, year, workflow, sheet, rep: filters.rep, firm: filters.firm,
     q: search, primary: grouping.primary, secondary: grouping.secondary, sort, page,
   }));
-  const selectedRow = value?.rows.find(row => row.id === selected);
-  const chosenPeriod = selectedRow?.periods?.[periodIndex];
-  const line = selectedRow?.periods?.length ? chosenPeriod?.line : selectedRow?.line;
   const replacing = document.lines.find(item => item.id === target);
   const options: Record<keyof Filters, string[]> = {
     client: [client.name],
@@ -242,7 +257,11 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
     firm: value?.filterOptions?.firm ?? [...new Set(value?.rows.map(row => row.firm).filter(Boolean) ?? [])],
   };
   const groups = value?.groupOptions ?? [{ id: 'market', label: 'Market' }, { id: 'rep', label: 'Rep' }, { id: 'firm', label: 'Firm' }];
-  function changeQuery() { setPage(1); setSelected(''); setPeriodIndex(-1); }
+  const bands = value?.groups?.flatMap(group => Array<string>(group.span).fill(group.label)) ?? [];
+  const repeatedFields = new Set(value?.columns.flatMap(({label}, index, columns) =>
+    columns.some((column, idx) => idx !== index && column.label === label) ? [label] : []));
+  function resetRows() { setSelected(''); setExpanded(new Set()); setPeriodIndexes({}); }
+  function changeQuery() { setPage(1); resetRows(); }
   return <aside className="ow-research" aria-label="Order research">
     <h3>{workflow === 'digital' ? 'Digital campaign research' : 'Broadcast research'}</h3>
     {workflow === 'broadcast' && <div className="ow-sheet-tabs" role="group" aria-label="Research sheets">
@@ -254,8 +273,8 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
         <GroupControl choices={groups} grouping={grouping} onChange={next => { setGrouping(next); changeQuery(); }} />
       </FilterRibbon>
     </div>
-    <div className="ow-bar">
-      <input type="search" aria-label="Search order research" placeholder="Search research" value={query}
+    <div className="ow-bar ow-compact">
+      <input type="search" aria-label="Search order research" placeholder="Search" value={query}
         onChange={event => { setQuery(event.target.value); changeQuery(); }} />
       <select aria-label="Sort order research" value={sort} onChange={event => { setSort(event.target.value); changeQuery(); }}>
         <option value="">Source order</option><option value="program">Placement</option><option value="amount">Amount</option>
@@ -271,40 +290,76 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
       const previous = value.rows[index - 1];
       const first = groupValue(row, grouping.primary);
       const second = groupValue(row, grouping.secondary);
+      const periodIndex = periodIndexes[row.id] ?? (row.periods?.length === 1 ? 0 : -1);
+      const chosenPeriod = row.periods?.[periodIndex];
+      const line = row.periods?.length ? chosenPeriod?.line
+        : row.line && { ...row.line, ...row.digitalDraftValues };
       const canAdd = Boolean(line && marketIds.includes(line.marketId));
       const canReplace = Boolean(canAdd && replacing && line?.marketId === replacing.marketId);
+      const canSelect = canEdit && Boolean(row.line || row.periods?.length);
+      const seen = new Set<string>();
+      const fields = value.columns.flatMap((column, idx) => {
+        const value = cellText(row.cells[idx]);
+        if (!value || ['Channel', 'Program', 'Daypart'].includes(column.label) && value === row.program) return [];
+        const label = repeatedFields.has(column.label) && bands[idx] ? bands[idx] + ' ' + column.label : column.label;
+        const key = JSON.stringify([label, value]);
+        if (seen.has(key)) return [];
+        seen.add(key);
+        return [{ label, value, idx, summary: workflow === 'broadcast' ? summaryLabels[label] : undefined }];
+      });
+      const headline = fields.filter(field => field.summary);
+      const details = fields.filter(field => !field.summary);
       return <Fragment key={row.id}>
         {first && (!previous || groupValue(previous, grouping.primary) !== first) && <h4 className="ow-research-group">{first}</h4>}
         {second && (!previous || groupValue(previous, grouping.primary) !== first || groupValue(previous, grouping.secondary) !== second) &&
           <h5 className="ow-research-group">{second}</h5>}
-        <details className="ow-research-record" open={row.id === selected}
-          onToggle={event => { if (!event.currentTarget.open && row.id === selected) setSelected(''); }}>
+        <div className="ow-research-result" data-selectable={canSelect} data-selected={selected === row.id}>
+        <details className="ow-research-record" open={expanded.has(row.id)}>
           <summary onClick={event => {
             event.preventDefault();
-            setSelected(row.id === selected ? '' : row.id);
-            setPeriodIndex(-1);
-          }}><strong>{row.program || 'Research entry'}</strong><span>{row.market}</span><span className="ow-link">Select</span></summary>
+            setExpanded(current => {
+              const next = new Set(current);
+              if (!next.delete(row.id)) next.add(row.id);
+              return next;
+            });
+          }}><span className="ow-research-headline">
+            <strong>{row.program || 'Research entry'}</strong>
+            {workflow === 'digital' && <span>{row.market}</span>}
+            {headline.map(item => <span key={item.idx} className="ow-research-metric"><b>{item.summary}</b> {item.value}</span>)}
+          </span></summary>
           <div className="ow-research-details">
-            <dl>{value.columns.map((column, idx) => <div key={column.label + idx}><dt>{column.label}</dt><dd>{cellText(row.cells[idx])}</dd></div>)}</dl>
+            {!!details.length && <dl>{details.map(item =>
+              <div key={item.idx}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>}
             {(chosenPeriod?.source || row.source) && <Source source={chosenPeriod?.source ?? row.source!}
               previewContext={{ market: row.market, sender: [row.rep, row.firm].filter(Boolean).join(' · ') || 'Published research' }} />}
-            {!!row.periods?.length && <label>Quoted period
-              <select value={periodIndex} onChange={event => setPeriodIndex(Number(event.target.value))}>
+            {!!row.periods && row.periods.length > 1 && <label>Quoted period
+              <select value={periodIndex} onChange={event => {
+                const next = Number(event.target.value);
+                setPeriodIndexes(current => ({ ...current, [row.id]: next }));
+              }}>
                 <option value={-1}>Choose period</option>
                 {row.periods.map((period, idx) => <option key={period.label + idx} value={idx}>{period.label}</option>)}
               </select></label>}
-            {canEdit && <div className="ow-bar">
-              <button disabled={!canAdd} type="button" onClick={() => line && onApply(line, false)}>Add line</button>
-              <button disabled={!canReplace}
+            {canSelect && selected === row.id && <div className="ow-bar ow-compact">
+              <button className="ow-link" disabled={!canAdd} type="button" onClick={() => line && onApply(line, false)}>Add line</button>
+              <button className="ow-link" disabled={!canReplace}
                 type="button" onClick={() => line && onApply(line, true)}>
                 {replacing ? 'Replace ' + (replacing.program || 'selected line') : 'Replace selected line'}
               </button>
               {line && !canAdd && <span>Choose research for a market on this order to add a line.</span>}
+              {canAdd && row.digitalDraftValues?.amount == null && row.digitalDraftValues?.impressions == null && row.digitalDraftValues &&
+                <span>The workbook has no media spend or impressions for this channel in this market.</span>}
             </div>}
           </div>
         </details>
+        {canSelect && <button type="button" className="ow-link ow-research-select" aria-label={`Select ${row.program || 'research entry'}`}
+          onClick={() => {
+            setSelected(row.id);
+            setExpanded(current => new Set(current).add(row.id));
+          }}>Select</button>}
+        </div>
       </Fragment>;
     })}
-    {value && <Paging {...value} onPage={next => { setPage(next); setSelected(''); setPeriodIndex(-1); }} />}
+    {value && <Paging {...value} onPage={next => { setPage(next); resetRows(); }} />}
   </aside>;
 }

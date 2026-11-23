@@ -2,6 +2,7 @@ import { createContext, useContext, useId, useRef, useEffect, useState, type Rea
 import type { Calendar, Deadline, DeadlineStatus, DeadlineStep, LegacyOrderReference, OrderSummary } from '@/lib/orders/store';
 import type { OrderOpportunity } from '@/lib/orders/sources';
 import type { LegacyOrder } from './OrdersWorkspace';
+import { OrderMenu } from './OrderToolbar';
 
 export type ClientOption = { id: string; name: string; marketIds: string[] };
 export type MarketOption = { id: string; name: string };
@@ -174,8 +175,8 @@ function DeadlineOrders({ deadline, choices, legacy, opportunities, market, busy
   </div>;
 }
 
-export function OrderCalendar({ hidden, client, year, calendars, orders, legacy, opportunities, markets, busy, canEdit, mutate, refresh, onOpen, onCreate }: {
-  hidden: boolean; client: ClientOption | undefined; year: number; calendars: Calendar[];
+export function OrderCalendar({ hidden, client, year, scope, calendars, orders, legacy, opportunities, markets, busy, canEdit, mutate, refresh, onOpen, onCreate }: {
+  hidden: boolean; client: ClientOption | undefined; year: number; scope: ReactNode; calendars: Calendar[];
   orders: OrderSummary[]; legacy: LegacyOrder[]; opportunities: OrderOpportunity[]; markets: MarketOption[]; busy: boolean; canEdit: boolean;
   mutate: Mutate; refresh: () => Promise<void>;
   onOpen: (id: string, from: Deadline) => void; onCreate: (from: Deadline, item?: OrderOpportunity) => void;
@@ -203,7 +204,8 @@ export function OrderCalendar({ hidden, client, year, calendars, orders, legacy,
   const search = query.trim().toLowerCase();
   const matchesPeriod = (dueDate: string, selected: string) => (mode === 'day' ? dueDate === selected : dueDate.slice(0, 7) === selected.slice(0, 7));
   const deadlines = (calendar?.deadlines ?? []).filter(item => {
-    if (market && item.marketId !== market || step && item.step !== step || status && item.status !== status) return false;
+    if (market && item.marketId !== market || step && item.step !== step ||
+        status && (status === 'Overdue' || status === 'Due today' ? urgency(item) !== status : item.status !== status)) return false;
     const numbers = orders.filter(order => item.orderIds.includes(order.id)).map(order => order.number);
     const older = item.legacyRefs?.map(order => order.title) ?? [];
     return !search || [marketName(item.marketId), steps[item.step], item.dueDate, item.status, ...numbers, ...older].join(' ').toLowerCase().includes(search);
@@ -278,20 +280,24 @@ export function OrderCalendar({ hidden, client, year, calendars, orders, legacy,
   }
 
   function statusControl(item: Deadline, compact = false) {
-    return canEdit ? <select className="ow-status" key={item.revision}
+    const text = compact ? item.status === 'Not started' && !item.statusOverride ? '—' : shortStatus[item.status] : item.status;
+    return canEdit ? <span className="ow-status ow-status-link" title={[item.status, urgency(item)].filter(Boolean).join(' · ')}>
+      <span aria-hidden="true">{text}</span>
+      <select key={item.revision}
       aria-label={marketName(item.marketId) + ' ' + steps[item.step] + ' status'}
-      data-status={item.status} title={item.status} disabled={busy}
+      title={item.status} disabled={busy}
       value={item.statusOverride ?? ''}
       onChange={event => void changeDeadline(item, { statusOverride: event.target.value || null })}>
-      <option value="">{compact && !item.statusOverride ? shortStatus[item.status] : item.status + ' · Automatic'}</option>
-      {statuses.map(option => <option key={option} value={option}>{compact && item.statusOverride === option ? shortStatus[option] : option}</option>)}
-    </select> : <span className="ow-status" data-status={item.status}>{compact ? shortStatus[item.status] : item.status}</span>;
+      <option value="">{item.statusOverride ? 'Automatic' : 'Automatic · ' + item.status}</option>
+      {statuses.map(option => <option key={option} value={option}>{option}</option>)}
+    </select></span> : <span className="ow-status" title={item.status}>{text}</span>;
   }
 
-  function orderLink(item: Deadline) {
+  function orderLink(item: Deadline, compact = false) {
     return <button className="ow-link ow-step" type="button" disabled={busy}
+      aria-label={steps[item.step]} title={steps[item.step]}
       onClick={event => follow(item, event.currentTarget)}>
-      {steps[item.step]}
+      {compact && item.step === 'copy' ? 'Ad copy' : steps[item.step]}
     </button>;
   }
 
@@ -310,36 +316,28 @@ export function OrderCalendar({ hidden, client, year, calendars, orders, legacy,
     return [...groups].map(([marketId, items]) => <div className="ow-day-market" key={marketId}>
       <strong>{marketName(marketId)}</strong>
       {items.map(item => <div className="ow-day-item" key={item.id} data-urgency={urgency(item)}>
-        {orderLink(item)}{statusControl(item, true)}
+        {orderLink(item, true)}{statusControl(item, true)}
       </div>)}
     </div>);
   }
 
-  return <section hidden={hidden} aria-label="Deadline calendar" className="ow-calendar">
-    <div className="ow-bar">
-      <label className="ow-select-label">Calendar
-        <select value={calendar?.id ?? ''} onChange={event => {
-          const next = scoped.find(item => item.id === event.target.value);
-          if (next) chooseCalendar(next);
-        }}>
-          {!scoped.length && <option value="">No calendars</option>}
-          {scoped.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-      </label>
-      {canEdit && client && <details className="ow-menu" onClick={event => {
+  const manage = canEdit && client && <details className="ow-menu" onClick={event => {
         if (event.target instanceof HTMLElement && event.target.closest('button')) event.currentTarget.open = false;
       }}>
         <summary>Manage</summary>
+        <div className="ow-menu-items">
         <button type="button" onClick={() => setPanel('calendar')}>New calendar</button>
         {calendar && <>
           <button type="button" onClick={() => setPanel('rename')}>Rename calendar</button>
           <button type="button" onClick={() => setPanel('market')}>Add market</button>
           <button type="button" onClick={() => setPanel('deadline')}>Add deadline</button>
         </>}
-      </details>}
-    </div>
-    {calendar ? <>
-      <div className="ow-bar ow-period">
+        </div>
+      </details>;
+  return <section hidden={hidden} aria-label="Deadline calendar" className="ow-calendar">
+    <div className="ow-calendar-toolbar">
+    {calendar && <div className="ow-bar ow-compact ow-period">
+      <div className="ow-period-range">
         <button type="button" aria-label={'Previous ' + mode} onClick={() => chooseDate(shiftDate(visibleDate, -1, mode))}>‹</button>
         <button type="button" className="ow-period-label" title="Choose a date" onClick={() => {
           const input = dateInput.current;
@@ -351,37 +349,62 @@ export function OrderCalendar({ hidden, client, year, calendars, orders, legacy,
           tabIndex={pickerFallback ? 0 : -1} value={visibleDate} onChange={event => { chooseDate(event.target.value); setPickerFallback(false); }}
           onKeyDown={event => { if (event.key === 'Escape') setPickerFallback(false); }} />
         <button type="button" aria-label={'Next ' + mode} onClick={() => chooseDate(shiftDate(visibleDate, 1, mode))}>›</button>
-        <button type="button" onClick={() => chooseDate(today)}>Today</button>
-        <div className="ow-segmented" role="group" aria-label="Calendar view">
+      </div>
+        <div className="ow-calendar-view" role="group" aria-label="Calendar view">
           <button type="button" aria-pressed={mode === 'month'} onClick={() => setMode('month')}>Month</button>
           <button type="button" aria-pressed={mode === 'day'} onClick={() => setMode('day')}>Day</button>
         </div>
+        <button type="button" onClick={() => chooseDate(today)}>Today</button>
+        {manage}
+    </div>}
+    <div className="ow-bar ow-compact ow-calendar-context">
+      <div className="ow-calendar-selection" role="group" aria-label="Calendar selection">
+        {scope}
+        <OrderMenu aria-label="Calendar" text={calendar?.name || 'No calendar'} value={calendar?.id ?? ''} disabled={!scoped.length}
+          onChange={event => {
+            const next = scoped.find(item => item.id === event.target.value);
+            if (next) chooseCalendar(next);
+          }}>
+          {!scoped.length && <option value="">No calendar</option>}
+          {scoped.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </OrderMenu>
+        {!calendar && manage}
       </div>
-      <div className="ow-bar ow-calendar-filters">
-        <input type="search" aria-label="Search deadlines" placeholder="Search deadlines" value={query}
-          onChange={event => { setQuery(event.target.value); setPickedQueryDate(''); }} />
-        <select aria-label="Calendar market" value={market} onChange={event => setMarket(event.target.value)}>
-          <option value="">All markets</option>{markets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-        <select aria-label="Calendar step" value={step} onChange={event => setStep(event.target.value)}>
-          <option value="">All steps</option>{Object.entries(steps).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-        </select>
-        <select aria-label="Calendar status" value={status} onChange={event => setStatus(event.target.value)}>
-          <option value="">All statuses</option>{statuses.map(item => <option key={item}>{item}</option>)}
-        </select>
-        {search && <label className="ow-select-label">Matches
-          <select value={mode === 'day' ? visibleDate : visibleDate.slice(0, 7) + '-01'} onChange={event => chooseDate(event.target.value)}>
+      {calendar && <div className="ow-calendar-filters" role="group" aria-label="Deadline filters">
+        <OrderMenu aria-label="Calendar market" text={market ? marketName(market) : 'Markets'} value={market} onChange={event => setMarket(event.target.value)}>
+          <option value="">Markets</option>{markets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </OrderMenu>
+        <OrderMenu aria-label="Calendar step" text={step ? steps[step as DeadlineStep] : 'Steps'} value={step} onChange={event => setStep(event.target.value)}>
+          <option value="">Steps</option>{Object.entries(steps).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </OrderMenu>
+        <OrderMenu aria-label="Calendar status" text={status || 'Status'} value={status} onChange={event => setStatus(event.target.value)}>
+          <option value="">Status</option>{[...statuses, 'Overdue', 'Due today'].map(item => <option key={item}>{item}</option>)}
+        </OrderMenu>
+        <span className="ow-search">
+          <input type="search" aria-label="Search deadlines" placeholder="Search" value={query}
+            onChange={event => { setQuery(event.target.value); setPickedQueryDate(''); }} />
+        </span>
+        {(query || market || step || status) && <button className="ow-link" type="button" onClick={() => {
+          setQuery(''); setPickedQueryDate(''); setMarket(''); setStep(''); setStatus('');
+        }}>Clear</button>}
+        {search && relevantDates.length > 1 && <OrderMenu aria-label="Matches" text="Matches"
+          value={mode === 'day' ? visibleDate : visibleDate.slice(0, 7) + '-01'} onChange={event => chooseDate(event.target.value)}>
             {!relevantDates.includes(mode === 'day' ? visibleDate : visibleDate.slice(0, 7) + '-01') && <option value="">Choose date</option>}
             {relevantDates.map(day => <option key={day} value={day}>
               {displayDay(day, mode === 'day' ? { month: 'short', day: 'numeric', year: 'numeric' } : { month: 'short', year: 'numeric' })}
             </option>)}
-          </select>
-        </label>}
-      </div>
+        </OrderMenu>}
+      </div>}
+    </div>
+    </div>
+    {calendar ? <>
       {mode === 'month' ? <table className="ow-month" aria-label={displayDay(visibleDate, { month: 'long', year: 'numeric' }) + ' deadlines'}>
         <thead><tr>{weekdays.map(day => <th key={day} scope="col" title={day}>{day.slice(0, 3)}</th>)}</tr></thead>
         <tbody>{calendarWeeks(visibleDate).map(week => <tr key={week[0]}>{week.map(day => <td key={day}
-          data-outside={day.slice(0, 7) !== visibleDate.slice(0, 7)}>
+          data-outside={day.slice(0, 7) !== visibleDate.slice(0, 7)}
+          onClick={event => {
+            if (!(event.target as Element).closest('button, select, .ow-status-link')) { chooseDate(day); setMode('day'); }
+          }}>
           <button className="ow-day-number" type="button" aria-current={day === today ? 'date' : undefined}
             aria-label={'View ' + displayDay(day, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             onClick={() => { chooseDate(day); setMode('day'); }}>{Number(day.slice(-2))}</button>

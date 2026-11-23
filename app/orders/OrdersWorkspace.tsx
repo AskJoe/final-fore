@@ -5,6 +5,7 @@ import type { Deadline, OrderDetail, OrderSummary, OrderWorkflow, OrderWorkspace
 import { businessDate, OrderCalendar, displayTime, OrderFeedbackContext, type ClientOption, type MarketOption, type Mutate, type OrderAction } from './OrderCalendar';
 import { HistoricalOrders, ordersJson, ordersUrl, useOrdersGet, type OrderOpportunity } from './OrdersCatalog';
 import { OrderEditor, type OpenOrder } from './OrderEditor';
+import { OrderMenu } from './OrderToolbar';
 
 export type LegacyOrder = {
   campaignId: string; marketId: string; title: string; year: number; clientId: string; media: string | string[]; href: string;
@@ -42,16 +43,17 @@ function OrderList({ workflow, orders, opportunities, legacy, markets, filter, c
   const heading = workflow === 'digital' ? 'Digital orders' : 'Order planning';
 
   return <section className="ow-order-list" aria-label={heading}>
-    <div className="ow-bar">
-      <label className="ow-select-label">Market
-        <select value={filter.market} onChange={event => onFilter({ market: event.target.value })}>
-          <option value="">All markets</option>
+    <div className="ow-bar ow-compact">
+        <OrderMenu aria-label="Order market" text={filter.market ? marketName(filter.market) : 'Markets'}
+          value={filter.market} onChange={event => onFilter({ market: event.target.value })}>
+          <option value="">Markets</option>
           {markets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select></label>
-      <select value={filter.status} aria-label="Order status" onChange={event => onFilter({ status: event.target.value })}>
-        <option value="">All statuses</option><option>Draft</option><option>Finalized</option><option>Sent</option>
-      </select>
-      <input type="search" aria-label="Search orders" placeholder="Search orders" value={filter.query}
+        </OrderMenu>
+      <OrderMenu value={filter.status} text={filter.status || 'Status'} aria-label="Order status"
+        onChange={event => onFilter({ status: event.target.value })}>
+        <option value="">Status</option><option>Draft</option><option>Finalized</option><option>Sent</option>
+      </OrderMenu>
+      <input type="search" aria-label="Search orders" placeholder="Search" value={filter.query}
         onChange={event => onFilter({ query: event.target.value })} />
       {canEdit && <button className="ow-primary" type="button" disabled={!filter.market}
         onClick={() => onStart(filter.market, workflow)}>New {workflow === 'digital' ? 'digital' : 'broadcast'} order</button>}
@@ -278,9 +280,34 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
 
   const editorClient = data?.clients.find(item => item.id === editor?.clientId);
   const currentArea = editor ? (editor.workflow === 'digital' ? 'digital' : 'planning') : area;
+  const scope = !editor && data && <>
+    <OrderMenu aria-label="Client" text={client?.name || 'Client'} value={client?.id ?? ''} disabled={operation} onChange={event => {
+      setError(''); setNotice(''); setClientChoice(event.target.value); setFilter(emptyFilter);
+    }}>
+      {!data.clients.length && <option value="">No clients available</option>}
+      {data.clients.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+    </OrderMenu>
+    <form className="ow-year" onSubmit={event => {
+      event.preventDefault();
+      const next = Number(new FormData(event.currentTarget).get('year'));
+      if (next !== year && Number.isInteger(next) && next >= 2000 && next <= 2100) {
+        setYearChoice(next); setFilter(emptyFilter); setArchiveYear(next - 1);
+      }
+    }}>
+      <input key={year} type="number" name="year" aria-label="Planning year" title="Planning year"
+        min={2000} max={2100} defaultValue={year} required disabled={operation}
+        onBlur={event => {
+          if (event.target.validity.valid) event.target.form?.requestSubmit();
+          else event.target.value = String(year);
+        }} />
+    </form>
+  </>;
   return <OrderFeedbackContext.Provider value={error}><div className="orders-workspace" role="region" aria-label="Orders">
     <header className="ow-heading"><h1>Orders</h1>
-      <a href="/orders.html">Campaign Orders</a><a href="/legacy-orders.html">Workbook Orders</a>
+      <details className="ow-menu ow-legacy-menu">
+        <summary>Legacy orders</summary>
+        <div className="ow-menu-items"><a href="/orders.html">Campaign Orders</a><a href="/legacy-orders.html">Workbook Orders</a></div>
+      </details>
     </header>
     <nav className="ow-tabs" aria-label="Orders sections">
       {(Object.entries(areas) as [Area, string][]).map(([key, title]) => <button type="button" key={key}
@@ -293,27 +320,9 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
     {notice && <div className="ow-feedback ow-success" role="status">{notice}</div>}
     {workspace.error && <div className="ow-feedback" role="alert">{workspace.error} <button type="button" onClick={workspace.retry}>Retry</button></div>}
     {(workspace.busy || loadingOrder) && <p className="ow-empty" role="status">{loadingOrder ? 'Opening order…' : 'Loading Orders…'}</p>}
-    {!editor && data && <div className="ow-bar ow-scope">
-      <label className="ow-select-label">Client
-        <select value={client?.id ?? ''} disabled={operation} onChange={event => {
-          setError(''); setNotice(''); setClientChoice(event.target.value); setFilter(emptyFilter);
-        }}>
-          {!data.clients.length && <option value="">No clients available</option>}
-          {data.clients.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select></label>
-      <form onSubmit={event => {
-        event.preventDefault();
-        const next = Number(new FormData(event.currentTarget).get('year'));
-        if (Number.isInteger(next) && next >= 2000 && next <= 2100) { setYearChoice(next); setFilter(emptyFilter); setArchiveYear(next - 1); }
-      }}>
-        <label className="ow-select-label">Planning year
-          <input key={year} type="number" name="year" aria-label="Planning year" min={2000} max={2100}
-            defaultValue={year} required disabled={operation} /></label>
-        <button type="submit" disabled={operation}>Go</button>
-      </form>
-    </div>}
+    {scope && area !== 'calendar' && <div className="ow-bar ow-compact ow-scope">{scope}</div>}
     <OrderCalendar key={client?.id + ':' + year} hidden={!!editor || area !== 'calendar' || !data}
-      client={client} year={year} calendars={data?.calendars ?? []} orders={orders} markets={markets} busy={operation}
+      client={client} year={year} scope={scope} calendars={data?.calendars ?? []} orders={orders} markets={markets} busy={operation}
       legacy={data?.legacyOrders ?? []} opportunities={data?.opportunities ?? []}
       canEdit={editable} mutate={mutate} refresh={refresh} onOpen={openOrder}
       onCreate={(item, opportunity) => void startOrder(item.marketId, item.step === 'digital' ? 'digital' : 'broadcast',

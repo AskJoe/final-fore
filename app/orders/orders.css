@@ -68,29 +68,95 @@
   min-width: 0;
   flex-wrap: wrap;
 }
-.ow-heading { margin-bottom: 8px; column-gap: 14px }
-.ow-heading h1 { margin: 0 auto 0 0; font-size: 26px; line-height: 1.2; color: #131e17; letter-spacing: -.7px }
-.ow-heading a { font-size: 12px }
-.ow-tabs { column-gap: 0; margin-bottom: 9px; border-bottom: 1px solid var(--ow-line) }
-.ow-tabs button {
+.ow-heading { margin-bottom: 6px; column-gap: 14px }
+.ow-heading h1 { margin: 0 auto 0 0; font-size: 20px; line-height: 1.2; color: #131e17; letter-spacing: -.35px }
+.ow-tabs { flex-wrap: nowrap; gap: 6px; margin-bottom: 5px; border-block: 1px solid var(--ow-line); overflow-x: auto; }
+.research-app .orders-workspace .ow-tabs button {
+  flex: none;
+  min-height: 32px;
   border: 0;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
   border-radius: 0;
-  padding: 7px 9px 6px;
+  padding: 4px 6px;
   color: var(--ow-muted);
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 400;
   background: transparent;
 }
-.ow-tabs button[aria-current="page"] { border-bottom-color: var(--ow-green); color: var(--ow-text); background: var(--ow-tint) }
+.research-app .orders-workspace .ow-tabs button:first-child { padding-inline-start: 0; }
+.research-app .orders-workspace .ow-tabs button[aria-current="page"] { border-bottom-color: var(--ow-green); color: var(--ow-text); font-weight: 700; }
 .ow-bar { margin-block: 7px; column-gap: 9px }
-.ow-scope { padding-bottom: 8px; border-bottom: 1px solid var(--ow-line) }
+.ow-scope { padding-bottom: 3px; border-bottom: 1px solid var(--ow-line) }
 .ow-scope form, .orders-workspace .ow-select-label { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center }
 .ow-select-label { color: var(--ow-muted); font-size: 12px; font-weight: 600 }
 .ow-select-label :is(input, select) { color: var(--ow-text); font-size: 13px; font-weight: normal }
 .ow-select-label input[type="number"] { width: 6ch; min-width: 66px }
-.ow-period { position: relative; align-items: center; gap: 5px }
-.ow-period > button:not(.ow-period-label) { min-width: 28px }
-.orders-workspace .ow-period-label { min-width: 8rem; font-weight: 700; background: transparent; border-color: transparent; text-align: center }
+.ow-calendar-toolbar { padding-block: 2px 4px; }
+.ow-period { position: relative; align-items: center; gap: 10px }
+.ow-period-range, .ow-calendar-view, .ow-calendar-selection, .ow-calendar-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px 9px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.ow-period-range { gap: 4px; position: relative; flex-wrap: nowrap; }
+.ow-calendar-context { column-gap: 15px; }
+.research-app .orders-workspace .ow-compact {
+  row-gap: 1px;
+  margin-block: 2px;
+  font-size: 12px;
+}
+.research-app .orders-workspace .ow-compact :is(button, select, input) {
+  min-height: 24px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+}
+.research-app .orders-workspace .ow-compact select { width: auto; field-sizing: content; max-inline-size: 150px; cursor: pointer; }
+.research-app .orders-workspace .ow-compact input[type=search] {
+  inline-size: 100px;
+  min-inline-size: 0;
+}
+.research-app .orders-workspace .ow-compact button:hover:not(:disabled) { text-decoration: underline; }
+.research-app .orders-workspace .ow-compact :is(.ow-link, .ow-primary) { color: var(--ow-magenta); text-decoration: underline; }
+.research-app .orders-workspace .ow-period .ow-period-label { font-size: 16px; font-weight: 700; text-align: center; }
+.research-app .orders-workspace .ow-period-range > button[aria-label] { min-width: 18px; font-size: 20px; line-height: 1; }
+.research-app .orders-workspace .ow-calendar-view [aria-pressed=true] { font-weight: 700; }
+.research-app .orders-workspace .ow-calendar-view [aria-pressed=false] { text-decoration: underline; text-underline-offset: 3px; }
+.research-app .orders-workspace .ow-year input { inline-size: 5ch; appearance: textfield; font-variant-numeric: tabular-nums; }
+.ow-year input::-webkit-inner-spin-button, .ow-year input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.ow-text-menu, .ow-status-link { display: inline-flex; align-items: center; position: relative; min-inline-size: 0; }
+.ow-text-menu { gap: 5px; max-inline-size: min(160px, 45vw); }
+.ow-text-menu > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ow-text-menu::after, .ow-menu summary::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border: solid currentColor;
+  border-width: 0 1px 1px 0;
+  transform: translateY(-2px) rotate(45deg);
+  pointer-events: none;
+  flex: none;
+}
+.research-app .orders-workspace :is(.ow-text-menu, .ow-status-link) > select {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  min-height: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.orders-workspace :is(.ow-text-menu, .ow-status-link):hover { text-decoration: underline; }
+.orders-workspace :is(.ow-text-menu, .ow-status-link):focus-within { outline: 2px solid var(--ow-focus); outline-offset: 2px; }
+.ow-search { display: inline-flex; align-items: center; }
+.ow-search::before { content: ""; inline-size: 7px; block-size: 7px; margin-inline-end: 5px; border: 1px solid; border-radius: 50%; }
+.research-app .orders-workspace .ow-calendar-filters .ow-search input { inline-size: 74px; }
 .research-app .orders-workspace .ow-calendar-picker {
   position: absolute;
   inline-size: 1px;
@@ -102,28 +168,24 @@
   opacity: 0;
   pointer-events: none;
 }
-.ow-segmented { display: inline-flex }
-.ow-segmented button { border-radius: 0 }
-.ow-segmented button:first-child { border-radius: 4px 0 0 4px }
-.ow-segmented button:last-child { margin-inline-start: -1px; border-radius: 0 4px 4px 0 }
-.ow-segmented button[aria-pressed="true"], .ow-sheet-tabs button[aria-pressed="true"] { color: var(--ow-green); background: var(--ow-tint); font-weight: 700 }
-.ow-menu { position: relative; color: var(--ow-magenta); font-weight: 600 }
-.ow-menu summary { min-height: 28px; display: list-item; padding: 4px 7px; cursor: pointer }
+.ow-menu { position: relative; color: var(--ow-magenta); font-size: 12px; }
+.ow-menu summary { min-height: 24px; display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer }
+.ow-menu summary::-webkit-details-marker { display: none }
+.ow-menu summary:hover { text-decoration: underline }
 .ow-menu[open] { z-index: 2; }
-.ow-menu button {
-  display: block;
-  width: 11rem;
-  text-align: left;
-  border-radius: 0;
-  border-color: transparent;
-  background: white;
-  box-shadow: 0 0 0 1px var(--ow-line);
+.ow-menu-items {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  min-inline-size: max-content;
+  display: grid;
+  padding: 4px 8px;
+  border: 1px solid var(--ow-line);
+  background: #fff;
+  box-shadow: 0 3px 10px #243c3020;
 }
-.ow-menu button:hover, .ow-menu button:focus-visible { background: var(--ow-tint) }
-.ow-menu[open] button:first-of-type { position: absolute }
-.ow-menu[open] button:nth-of-type(2) { position: absolute; top: calc(100% + 29px) }
-.ow-menu[open] button:nth-of-type(3) { position: absolute; top: calc(100% + 58px) }
-.ow-menu[open] button:nth-of-type(4) { position: absolute; top: calc(100% + 87px) }
+.ow-legacy-menu .ow-menu-items { inset-inline: auto 0; }
+.research-app .orders-workspace .ow-menu-items :is(a, button) { display: flex; min-height: 24px; align-items: center; text-align: start; }
 
 .ow-month, .ow-table { border-collapse: collapse; width: 100%; min-width: 0; text-align: left }
 .ow-month { table-layout: fixed }
@@ -166,8 +228,8 @@
 .ow-day-item {
   display: flex;
   align-items: start;
-  flex-wrap: wrap;
-  gap: 1px 4px;
+  flex-wrap: nowrap;
+  gap: 1px 2px;
   justify-content: space-between;
   padding: 2px 3px;
   border-left: 2px solid #7f9f87;
@@ -178,7 +240,7 @@
 }
 .ow-day-item[data-urgency="Overdue"] { border-left-color: #a70042; background: #fceff4 }
 .ow-day-item[data-urgency="Due today"] { border-left-color: #997010; background: #fcf5df }
-.ow-day-item .ow-step { min-width: 0; flex: 1 1 auto }
+.ow-day-item .ow-step { min-width: 0; flex: 1 1 auto; white-space: normal; overflow-wrap: anywhere; }
 .research-app .orders-workspace .ow-status {
   background: transparent;
   border: 0;
@@ -188,6 +250,14 @@
   min-height: 20px;
   color: var(--ow-green);
   font-weight: 700;
+}
+.research-app .orders-workspace .ow-status-link {
+  color: var(--ow-magenta);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+  flex: none;
+  min-height: 0;
 }
 .orders-workspace .ow-status[data-status="Needs decision"] { color: #825800 }
 .orders-workspace .ow-status[data-status="Complete"] { color: #235a2c }
@@ -201,6 +271,9 @@
 .ow-table :is(td, th) > small { display: block; color: var(--ow-muted); font-weight: normal }
 .ow-table .ow-expanded > td { background: var(--ow-tint) }
 .ow-table .ow-expanded :is(ul,p) { margin: 4px 0 }
+.ow-history-table { min-width: 680px }
+.ow-history-table .ow-archive-order > :is(th,td) { background: var(--ow-tint); border-top: 1px solid var(--ow-line) }
+.ow-history-table .ow-archive-placement th { font-weight: 400 }
 .ow-empty { color: var(--ow-muted); margin: 12px 0 }
 .ow-feedback { padding: 6px 8px; border-left: 3px solid #a70042; background: #fff5f7; color: #77182e; margin-block: 8px }
 .ow-feedback.ow-success { border-left-color: var(--ow-green); background: var(--ow-tint); color: var(--ow-green) }
@@ -266,6 +339,7 @@
 .ow-paper-lines :is(th,td) { padding: 2px 3px; vertical-align: top; font-size: 11px }
 .ow-paper-lines thead th { border-bottom: 1px solid #30332f }
 .ow-paper-lines tbody tr[data-selected="true"] > td { background: var(--ow-tint) }
+.ow-order-line-basis { display: block; color: var(--ow-muted); font-size: 10px; }
 .ow-paper-lines .ow-line-details td { padding: 0 3px 3px; color: var(--ow-muted) }
 .ow-line-details :is(summary,label) { cursor: pointer }
 .ow-line-details :is(.ow-source,.ow-link) { display: block; margin: 2px 0 }
@@ -294,11 +368,20 @@
 .ow-research h3 { font-size: 16px; margin: 0; padding: 8px 9px 5px; }
 .ow-research > :is(.ow-bar,.ow-empty,.ow-research-filters) { padding-inline: 6px }
 .ow-sheet-tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 5px 5px }
-.ow-sheet-tabs button { font-size: 11px; min-height: 24px; padding: 3px 5px }
+.research-app .orders-workspace .ow-sheet-tabs button {
+  font-size: 11px;
+  min-height: 22px;
+  padding: 2px 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+}
+.research-app .orders-workspace .ow-sheet-tabs button[aria-pressed=true] { border-bottom-color: var(--ow-green); font-weight: 700 }
 .ow-research-filters .broadcast-filters { display: flex; flex-wrap: wrap; gap: 4px;align-items:center; }
 .ow-research-filters .broadcast-filter { position: relative }
-.ow-research-filters :is(.broadcast-filter-button,.broadcast-group-summary) {
-  padding: 4px 3px; min-height: 24px; font-size: 11px; border: 1px solid var(--ow-line); border-radius: 4px;
+.research-app .orders-workspace .ow-research-filters :is(.broadcast-filter-button,.broadcast-group-summary) {
+  padding: 2px 3px; min-height: 22px; font-size: 11px; border: 0; background: transparent;
 }
 .ow-research-filters .broadcast-group-summary { box-sizing: border-box; display: block; cursor: pointer }
 .ow-research-filters .broadcast-filter-options {
@@ -307,20 +390,48 @@
 }
 .ow-research-filters .broadcast-filter-options :is(button,label) { text-align: start; font-size: 12px }
 .ow-research-filters .broadcast-filter-options label { display: grid }
-.ow-research-record { border-top: 1px solid #ebcadf; }
+.ow-research-result { border-top: 1px solid #ebcadf; position: relative }
 .ow-research-record summary {
   cursor: pointer;
-  display: grid;
-  grid-template-columns: minmax(0,2fr) minmax(0,1fr) auto;
+  display: flex;
+  align-items: baseline;
   gap: 6px;
   font-size: 12px;
   padding: 6px;
   background: #fcf0f7;
   overflow-wrap: anywhere;
+  list-style: none;
 }
-.ow-research-record[open] summary { background: #f7dfef }
+.ow-research-result[data-selectable=true] summary { padding-inline-end: 48px }
+.ow-research-record summary::-webkit-details-marker { display: none }
+.ow-research-record summary::before {
+  content: "";
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border: solid currentColor;
+  border-width: 1px 1px 0 0;
+  transform: rotate(45deg);
+}
+.ow-research-record[open] summary::before { transform: rotate(135deg) translate(-2px, 1px) }
+.ow-research-headline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.ow-research-headline strong { font-size: 13px; }
+.ow-research-metric { font-size: 11px; }
+.ow-research-metric b { color: #69465d; }
+.research-app .orders-workspace .ow-research-select {
+  position: absolute;
+  inset: 6px 6px auto auto;
+  font-size: 12px;
+  line-height: 1.4;
+  background: transparent;
+  color: var(--ow-magenta);
+  border: 0;
+  min-height: 0;
+  padding: 0;
+}
+.ow-research-result[data-selected=true] summary { background: #f7dfef }
 .ow-research-details { padding: 5px 6px 7px; font-size: 11px }
-.ow-research-details dl { margin: 0 0 5px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%,100px),1fr)); gap: 2px 5px }
+.ow-research-details dl { margin: 0 0 5px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%,100px),1fr)); row-gap: 3px }
 .ow-research-details dt { background: #e5eee7; font-weight: 700; padding: 2px 3px; }
 .ow-research-details dd { margin: 0; padding: 1px 3px; overflow-wrap: anywhere }
 .ow-research-group { margin: 0; padding: 5px 6px; background: var(--ow-green); color: white; font-size: 12px }
@@ -378,6 +489,6 @@
 }
 @media (max-width: 480px) {
   .orders-workspace { font-size: 13px }
-  .ow-tabs button { padding-inline: 5px; font-size: 12px }
-  .ow-period .ow-period-label { min-width: 6rem }
+  .research-app .orders-workspace .ow-tabs button { padding-inline: 4px; font-size: 12px }
+  .ow-tabs { gap: 2px }
 }

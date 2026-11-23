@@ -32,8 +32,10 @@ FINAL_FORE_ORDER_ARCHIVE_PATH=<private-absolute-path> node_modules/.bin/tsx scri
 FINAL_FORE_TEST_BUILD=1 NEXT_TELEMETRY_DISABLED=1 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54329 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=local-test-key FINAL_FORE_ORDER_ARCHIVE_PATH=<private-absolute-path> node_modules/.bin/tsx scripts/check-orders-workflow.ts
 ```
 
-The legacy browser suite passed its legacy order, campaign order, PDF, and reporting checks. It stopped at the existing directory assertion `25 franchise markets`. The released `data/vendor-reference.json` contains 34 for EPIC3 and the directory displays 34. The assertion and directory data are unchanged.
+The legacy browser suite passed all 31 checks in an isolated browser environment. The directory assertion now expects the 34 EPIC3 franchise markets listed in the released directory.
 
 The local run passed 130 unit tests, typecheck, both application builds, and the Orders browser and HTTP harness. The harness opened the blank Arkansas Digital order, exercised keyboard and inline editing at 569 px, and checked finalization, a browser download, matching bytes across repeat downloads, access rejection, a recorded send, and a revision returning to in-progress status. Separate PostgreSQL checks covered retention of already scheduled dates during four-step setup, two linked orders, send corrections, and overrides.
 
-The standalone archive fixture contains 110 order records, 771 placement and adjustment rows, and 227 original document links. The KIGL and Weather export checks reconciled six and 20 placements respectively. Inspection of the PDFs confirmed the print logo, one-page KIGL layout, repeated Weather table header, totals, and signature lines. The reviewed Broadcast Research fixture retained the attributed rows in all 92 tested sheet and market scopes.
+The reviewed 2026 archive contains 110 order records, eight reference records, 815 lines, and 342 source documents. The KIGL and Weather export checks reconciled six and 20 placements respectively. Inspection of the PDFs confirmed the print logo, one-page KIGL layout, repeated Weather table header, totals, and signature lines.
+
+The local Broadcast Research fixture adds 19 KING and 11 KONG spot quotes from the original Seattle workbooks. The Orders editor copies the rate, length, flight, and source into a draft. A separate local Supabase rehearsal applied the Orders migration and verified staff sign-in, private PDF storage, download history, send corrections, and deadline progress. Hosted staging verification is pending.

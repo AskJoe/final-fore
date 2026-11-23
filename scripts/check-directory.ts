@@ -8,10 +8,10 @@ export async function checkDirectory(page:Page,context:BrowserContext,base:strin
   await page.setViewportSize({width:1440,height:1000});
   await page.goto(base+'/clients.html');await expect(page.getByRole('button',{name:'Add client',exact:true})).toBeEnabled();
   await expect(page.getByRole('heading',{name:'Clients',exact:true})).toBeVisible();
-  await expect(page.locator('#table-body')).toContainText('Epic3');await expect(page.locator('#table-body')).toContainText('Weed Man');await expect(page.locator('#table-body')).toContainText('25 franchise markets');
+  await expect(page.locator('#table-body')).toContainText('Epic3');await expect(page.locator('#table-body')).toContainText('Weed Man');await expect(page.locator('#table-body')).toContainText('34 franchise markets');
   await expect(page.getByRole('link',{name:'Clients',exact:true})).toHaveAttribute('aria-current','page');
   await page.screenshot({path:'.local-migration/clients-desktop.png',fullPage:true});
-  pass('clients distinguish Epic3, Weed Man brand and 25 franchise markets');
+  pass('clients distinguish Epic3, Weed Man brand and 34 franchise markets');
   await page.getByRole('button',{name:'Add client',exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Browser Test Client');await page.getByLabel('Franchise brand',{exact:true}).fill('Test Brand');await saveDialog();
   let data=await read();const client=data.directory.clients.find((r:any)=>r.name==='Browser Test Client');assert.ok(client);assert.equal(client.brand,'Test Brand');assert.equal(data.referenceOnly,false);
   await page.reload();await expect(page.locator('#table-body')).toContainText('Browser Test Client');

@@ -13,9 +13,11 @@ function fail(error:{code?:string;message:string}):never {
 export class SupabaseResearchStore implements ResearchRepository {
   constructor(private db:SupabaseClient){}
   async listTemplates(){
-    const {data,error}=await this.db.from('ff_research_templates').select('payload').order('id');
+    const {data,error,status}=await this.db.from('ff_research_templates').select('payload').order('id');
     if(error){
-      if(['42P01','PGRST205'].includes(error.code))return {templates:sourceTemplates(),installed:false};
+      // A development gateway can report a missing relation as an uncoded 404.
+      const missingStorage = ['42P01','PGRST205'].includes(error.code) || (status === 404 && !error.code);
+      if(missingStorage)return {templates:sourceTemplates(),installed:false};
       fail(error);
     }
     const stored=(data??[]).map(r=>inlineTemplateSchedule(r.payload as TemplateDraft)),ids=new Set(stored.map(t=>t.id));

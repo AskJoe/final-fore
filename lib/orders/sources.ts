@@ -7,7 +7,7 @@ import type { CellValue, SheetName } from '../broadcast/workbook';
 import { StorageError } from '../store';
 import marketLinks from '../../data/research-market-links.json';
 import assignmentEvidence from '../../data/research-assignment-seed.json';
-import { type ArchiveFile, type ArchiveLine, type ArchiveRecord, type OrderArchive, type SourceRef } from './archive-source';
+import { type ArchiveFile, type ArchiveLine, type ArchiveRecord, type ArchiveReferenceRole, type OrderArchive, type SourceRef } from './archive-source';
 import type { OrderDocument, OrderLine, OrderSource, OrderWorkflow } from './store';
 
 export { loadOrderArchive, type OrderArchive, type SourceRef } from './archive-source';
@@ -23,9 +23,11 @@ export type ResearchQuery = Scope & {
   rep?: string; firm?: string; primary?: string; secondary?: string; sort?: string;
   allocation?: number | null;
 };
+export type DigitalDraftValues = Pick<OrderLine, 'amount' | 'impressions' | 'cpm'>;
 export type ResearchRow = {
   id: string; marketId: string; market: string; program: string; firm: string; rep: string;
   cells: CellValue[]; source: SourceRef | null; line: OrderLine | null;
+  digitalDraftValues?: DigitalDraftValues;
   periods?: { label: string; line: OrderLine; source: SourceRef }[];
 };
 
@@ -122,25 +124,26 @@ function lineSource(ref: SourceRef, year: number): OrderSource {
   };
 }
 
-function sourceMatchesClient(record: ArchiveRecord, lineClient: string, clientId: string) {
-  const name = normalize(lineClient || record.client);
+function sourceMatchesClient(label: string, clientId: string, owned: string[]) {
+  const name = normalize(label);
   if (name.includes('epic3')) return clientId === 'epic3';
-  return name.includes('steve') && clientId === 'steve';
+  return name.includes('steve') && owned.includes('steve-minneapolis');
 }
 function archiveScope(archive: OrderArchive, record: ArchiveRecord, clientId: string, owned: string[]) {
   const sourceMarket = orderMarket(archive, record.market);
   const referenceMarkets = record.targets.map(target => orderMarket(archive, target));
-  const declared = sourceMatchesClient(record, '', clientId);
+  const matchesClient = (lineClient = '') => sourceMatchesClient(lineClient || record.client, clientId, owned);
+  const declared = matchesClient();
   const lines = record.lines.flatMap((line, index) => {
     const marketId = line.target ? orderMarket(archive, line.target) : sourceMarket;
-    if (!marketId || !owned.includes(marketId) || !sourceMatchesClient(record, line.client, clientId)) return [];
+    if (!marketId || !owned.includes(marketId) || !matchesClient(line.client)) return [];
     return [{ line, index, marketId }];
   });
   const marketIds = [...new Set([...lines.map(line => line.marketId),
     ...(declared ? [sourceMarket, ...referenceMarkets].filter(id => id && owned.includes(id)) : [])])];
   return { marketIds, lines, entire: declared && lines.length === record.lines.length &&
     referenceMarkets.every(id => owned.includes(id)),
-    sharedAcrossClients: !declared || record.lines.some(line => !sourceMatchesClient(record, line.client, clientId)) };
+    sharedAcrossClients: !declared || record.lines.some(line => !matchesClient(line.client)) };
 }
 
 function canSeed(archive: OrderArchive, record: ArchiveRecord, scope: ReturnType<typeof archiveScope>) {
@@ -198,7 +201,9 @@ const contains = (haystack: (string | number | undefined)[], query?: string) => 
 
 export function searchOrderArchive(archive: OrderArchive | null, directory: Directory, query: ArchiveQuery) {
   const client = query.marketId ? selectedMarket(directory, query.clientId, query.marketId) : selectedClient(directory, query.clientId);
-  const orders = !archive || query.year !== undefined && query.year !== archive.year ? [] : archive.orders.flatMap(record => {
+  const records: (ArchiveRecord & { referenceRole?: ArchiveReferenceRole })[] = archive
+    ? [...archive.orders, ...(archive.references ?? [])] : [];
+  const orders = !archive || query.year !== undefined && query.year !== archive.year ? [] : records.flatMap(record => {
     const scope = archiveScope(archive, record, query.clientId, client.marketIds);
     if (!scope.marketIds.length || query.marketId && !scope.marketIds.includes(query.marketId)) return [];
     const file = archive.files[record.source], workflow = workflowFor(record);
@@ -217,11 +222,11 @@ export function searchOrderArchive(archive: OrderArchive | null, directory: Dire
       clientId: query.clientId, year: archive.year, marketIds: scope.marketIds, market: record.market,
       workflow, media, firm: file.firm, rep: file.rep, amount: scope.entire ? cents(record.amount) : null,
       amountBasis: scope.entire ? record.basis : '', impressions: scope.entire ? count(record.imps) : null,
-      note: scope.sharedAcrossClients ? 'Only the placements assigned to this client are shown.' : record.note,
+      referenceRole: record.referenceRole, note: scope.sharedAcrossClients ? 'Only the placements assigned to this client are shown.' : record.note,
       lines: scoped.map(line => archivePlacement(latest, archive, record, line)),
       latest, signed: record.signed ? sourceRef(archive.files[record.signed], !scope.sharedAcrossClients) : null,
       related: scope.sharedAcrossClients ? [] : record.related.map(id => sourceRef(archive.files[id])),
-      seedAvailable: canSeed(archive, record, scope), billing: scope.entire ? archive.billing?.[record.id] ?? null : null,
+      seedAvailable: !record.referenceRole && canSeed(archive, record, scope), billing: scope.entire ? archive.billing?.[record.id] ?? null : null,
     }];
   });
   if (query.sort === 'amount') orders.sort((a, b) => (b.amount ?? -1) - (a.amount ?? -1));
@@ -407,6 +412,7 @@ export function orderResearch(archive: OrderArchive | null, directory: Directory
       'Planning CPM', 'Earlier spend']);
     const history = query.clientId === 'epic3' ? CHANNEL_CATALOG.markets[query.marketId] : null;
     if (!history) return finishResearch(columnsForYear, [], query, true);
+    const historyYears = Object.keys(history).map(Number).filter(year => year < query.year).sort((a, b) => b - a);
     const plan = new Map<string, Record<string, unknown>>(channelPlan(query.marketId, query.year, query.allocation ?? null, {}).rows
       .map((row: Record<string, unknown>) => [row.id as string, row]));
     const rows: ResearchRow[] = CHANNEL_CATALOG.channels.filter((item: {kind:string}) => item.kind === 'digital')
@@ -414,25 +420,39 @@ export function orderResearch(archive: OrderArchive | null, directory: Directory
         const prior = history[String(referenceYear)]?.lines?.[channel.id];
         const paidPrior = prior && prior.media + prior.fee > 0;
         const reference = [channel.rateSource, paidPrior && prior.sources.join(', ')].filter(Boolean).join(' · ');
-        const earlier = Object.keys(history).filter(year => Number(year) < referenceYear).sort().flatMap(year => {
+        const earlier = historyYears.filter(year => year < referenceYear).flatMap(year => {
           const row = history[year]?.lines?.[channel.id];
           return row && row.media + row.fee > 0 ? [year + ' · ' + cellText(moneyCell(row.media + row.fee, ''))] : [];
         }).join(' / ');
         const item = plan.get(channel.id);
+        const plannedGross = count(typeof item?.allocation === 'number' ? item.allocation : null);
+        const plannedMedia = count(typeof item?.media === 'number' ? item.media : null);
+        const plannedImpressions = count(typeof item?.impressions === 'number' ? item.impressions : null);
+        const plannedCpm = cents(typeof item?.cpm === 'number' ? item.cpm : channel.cpm);
+        const historicalYear = historyYears.find(year => history[year]?.lines?.[channel.id]?.media > 0);
+        const historicalLine = historicalYear === undefined ? null : history[historicalYear].lines[channel.id];
+        const usePlan = plannedMedia !== null && plannedMedia > 0;
+        const basisYear = usePlan ? query.year : historicalYear ?? referenceYear;
+        const digitalDraftValues: DigitalDraftValues = {
+          amount: usePlan ? plannedMedia : count(historicalLine?.media),
+          impressions: usePlan ? plannedImpressions : count(historicalLine?.impressions) || null,
+          cpm: plannedCpm,
+        };
         const id = 'digital-catalog|' + query.marketId + '|' + channel.id;
         const source: SourceRef = { kind: 'digital-catalog', id, title: CHANNEL_CATALOG.sourceFile,
-          url: CHANNEL_CATALOG.sourceUrl, locator: reference };
-        const plannedCpm = typeof item?.cpm === 'number' ? item.cpm : null;
-        const plannedAmount = typeof item?.allocation === 'number' ? item.allocation : null;
+          url: CHANNEL_CATALOG.sourceUrl, locator: [channel.rateSource,
+            usePlan ? query.year + ' allocation' : historicalLine && basisYear + ' media · ' + historicalLine.sources.join(', '),
+          ].filter(Boolean).join(' · ') };
         return { id, marketId: query.marketId, market, program: channel.name, rep: '', firm: '', source,
-          cells: [channel.name, moneyCell(plannedAmount, reference),
+          cells: [channel.name, moneyCell(plannedGross, reference),
             moneyCell(typeof item?.fee === 'number' ? item.fee : null, reference),
-            countCell(typeof item?.impressions === 'number' ? item.impressions : null, reference),
+            countCell(plannedImpressions, reference),
             paidPrior ? moneyCell(prior.media, reference) : null, paidPrior && prior.fee ? moneyCell(prior.fee, reference) : null,
             paidPrior ? moneyCell(prior.media + prior.fee, reference) : null,
             paidPrior ? countCell(prior.impressions, reference) : null,
-            moneyCell(plannedCpm !== null ? Math.round(plannedCpm * 100) : cents(channel.cpm), reference), earlier],
-          line: emptyResearchLine(id, query.marketId, 'Digital', channel.name, source, referenceYear),
+            moneyCell(plannedCpm, reference), earlier],
+          line: emptyResearchLine(id, query.marketId, 'Digital', channel.name, source, basisYear),
+          digitalDraftValues,
         };
       });
     return finishResearch(columnsForYear, rows, query, true);
@@ -460,7 +480,7 @@ export function orderResearch(archive: OrderArchive | null, directory: Directory
   throw new InputError('Choose research that matches this order workflow.');
 }
 
-type RatePeriod = { start: string; through: string; rate: {value: number | null; locator: string} };
+type RatePeriod = { start: string; through: string; rate: {value: number | null; locator: string}; cpm?: CellValue };
 type PublishedRow = Entry['row'] & { avail?: boolean; pricePeriods?: RatePeriod[] };
 type WorkbookLoader = (sheet: SheetName, query: ViewQuery) =>
   Promise<{ view: WorkbookView | null; reviews: {review_key:string;market_id:string}[] }>;
@@ -525,7 +545,7 @@ export async function broadcastOrderResearch(directory: Directory, query: Resear
     }
   }
   if (combinePages) orderResearchRows(rows,view.sheet.columns,query);
-  return { columns:view.sheet.columns,...(combinePages ? paginate(rows,query.page) :
+  return { columns:view.sheet.columns,groups:view.sheet.groups,...(combinePages ? paginate(rows,query.page) :
     {rows,total:singleView.matches,page:singleView.page,pageCount:singleView.pages}),groupOptions:view.groupFields,
     filterOptions:options,availability:'available' as const };
 }
@@ -566,6 +586,7 @@ function broadcastResearchRows(view: WorkbookView, reviews: Awaited<ReturnType<W
           const periodSource = { ...source, locator: period.rate.locator || source.locator };
           return [{ label: period.start + ' – ' + period.through + ' · ' + cellText(moneyCell(rate, period.rate.locator)),
             source: periodSource, line: { ...draft, start: period.start, end: period.through, rate,
+              cpm: cents(measurementValue(period.cpm)) ?? draft.cpm,
               source: lineSource(periodSource, query.year) } }];
         });
       } else if (row.avail && query.year === 2027) {
