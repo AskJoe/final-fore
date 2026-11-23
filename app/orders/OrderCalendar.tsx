@@ -104,25 +104,49 @@ function DeadlineForm({ calendar, markets, date, busy, mutate, onSave }: {
   </form>;
 }
 
-function MarketDeadlinesForm({ calendar, markets, date, busy, mutate, onSave }: {
-  calendar: Calendar; markets: MarketOption[]; date: string; busy: boolean; mutate: Mutate; onSave: (dueDate: string) => void;
+function MarketDeadlinesForm({ calendar, markets, selectedMarketId, date, busy, mutate, onSave }: {
+  calendar: Calendar; markets: MarketOption[]; selectedMarketId?: string; date: string;
+  busy: boolean; mutate: Mutate; onSave: (dueDate: string) => void;
 }) {
   return <form className="ow-form" onSubmit={async event => {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     const dueDate = String(values.get('date'));
     const saved = await mutate<Calendar>({
-      action: 'saveMarketDeadlines', calendarId: calendar.id, marketId: String(values.get('market')), dueDate,
+      action: 'saveMarketDeadlines', calendarId: calendar.id,
+      marketId: selectedMarketId ?? String(values.get('market')), dueDate,
     });
     if (saved) onSave(dueDate);
   }}>
-    <label>Market<select name="market" required defaultValue=""><option value="" disabled>Choose market</option>
+    {!selectedMarketId && <label>Market<select name="market" required defaultValue=""><option value="" disabled>Choose market</option>
       {markets.map(market => <option key={market.id} value={market.id}>{market.name}</option>)}
-    </select></label>
-    <label>Starting due date<input name="date" type="date" required defaultValue={date} /></label>
+    </select></label>}
+    <label>Starting due date<input name="date" type="date" required defaultValue={date} autoFocus={!!selectedMarketId} /></label>
     <p>Add missing TV, Radio, Digital, and Ad Copy Sent to Reps steps. Each step can then be scheduled separately.</p>
-    <button className="ow-primary" disabled={busy || !markets.length}>Add market</button>
+    <button className="ow-primary" disabled={busy || (!selectedMarketId && !markets.length)}>Add market</button>
   </form>;
+}
+
+function UnscheduledMarketsDialog({ calendar, markets, date, busy, canEdit, mutate, onClose, onSave }: {
+  calendar: Calendar; markets: MarketOption[]; date: string; busy: boolean; canEdit: boolean;
+  mutate: Mutate; onClose: () => void; onSave: (dueDate: string) => void;
+}) {
+  const [selected, setSelected] = useState<MarketOption>();
+  const [lastSelectedId, setLastSelectedId] = useState('');
+  return <OrdersDialog title={selected ? 'Schedule ' + selected.name : 'Unscheduled markets'} onClose={onClose}>
+    {selected ? <>
+      <button type="button" className="ow-link" disabled={busy} onClick={() => setSelected(undefined)}>Back to markets</button>
+      <MarketDeadlinesForm calendar={calendar} markets={markets} selectedMarketId={selected.id}
+        date={date} busy={busy} mutate={mutate} onSave={onSave} />
+    </> : markets.length ? <ul className="ow-link-orders">
+      {markets.map(market => <li key={market.id}>
+        {canEdit ? <button type="button" className="ow-link" autoFocus={lastSelectedId === market.id} onClick={() => {
+          setLastSelectedId(market.id);
+          setSelected(market);
+        }}>{market.name}</button> : market.name}
+      </li>)}
+    </ul> : <p>All client markets are on this calendar.</p>}
+  </OrdersDialog>;
 }
 
 const legacyKey = (item: LegacyOrderReference) => item.campaignId + ':' + item.marketId;
@@ -191,6 +215,7 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
   const [step, setStep] = useState('');
   const [status, setStatus] = useState('');
   const [panel, setPanel] = useState<'calendar' | 'rename' | 'deadline' | 'market' | null>(null);
+  const [unscheduledOpen, setUnscheduledOpen] = useState(false);
   const [orderSelection, setOrderSelection] = useState<string | null>(null);
   const [copySelection, setCopySelection] = useState<string | null>(null);
   const dateInput = useRef<HTMLInputElement>(null);
@@ -200,6 +225,9 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
   const marketName = (id: string) => markets.find(item => item.id === id)?.name ?? id;
   const selectedDeadline = calendar?.deadlines.find(item => item.id === orderSelection);
   const copyDeadline = calendar?.deadlines.find(item => item.id === copySelection);
+  const scheduledMarketIds = new Set(calendar?.deadlines.map(item => item.marketId));
+  const unscheduledMarkets = markets.filter(item => !scheduledMarketIds.has(item.id))
+    .sort((left, right) => left.name.localeCompare(right.name));
   const today = businessDate();
   const search = query.trim().toLowerCase();
   const matchesPeriod = (dueDate: string, selected: string) => (mode === 'day' ? dueDate === selected : dueDate.slice(0, 7) === selected.slice(0, 7));
@@ -240,12 +268,16 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
     if (search) setPickedQueryDate(next);
   }
 
+  function clearFilters() {
+    setMarket(''); setStep(''); setStatus(''); setQuery(''); setPickedQueryDate('');
+  }
+
   function chooseCalendar(next: Calendar) {
     setCalendarId(next.id);
     const first = next.deadlines.map(item => item.dueDate).sort().find(day => day >= today)
       ?? next.deadlines.map(item => item.dueDate).sort()[0];
     setDate(first ?? today);
-    setMarket(''); setStep(''); setStatus(''); setQuery(''); setPickedQueryDate('');
+    clearFilters();
   }
 
   async function changeDeadline(item: Deadline, patch: Record<string, unknown>) {
@@ -356,6 +388,9 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
         </div>
         <button type="button" onClick={() => chooseDate(today)}>Today</button>
         {manage}
+        <button type="button" className="ow-link" aria-haspopup="dialog" onClick={() => setUnscheduledOpen(true)}>
+          Unscheduled markets ({unscheduledMarkets.length})
+        </button>
     </div>}
     <div className="ow-bar ow-compact ow-calendar-context">
       <div className="ow-calendar-selection" role="group" aria-label="Calendar selection">
@@ -384,9 +419,7 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
           <input type="search" aria-label="Search deadlines" placeholder="Search" value={query}
             onChange={event => { setQuery(event.target.value); setPickedQueryDate(''); }} />
         </span>
-        {(query || market || step || status) && <button className="ow-link" type="button" onClick={() => {
-          setQuery(''); setPickedQueryDate(''); setMarket(''); setStep(''); setStatus('');
-        }}>Clear</button>}
+        {(query || market || step || status) && <button className="ow-link" type="button" onClick={clearFilters}>Clear</button>}
         {search && relevantDates.length > 1 && <OrderMenu aria-label="Matches" text="Matches"
           value={mode === 'day' ? visibleDate : visibleDate.slice(0, 7) + '-01'} onChange={event => chooseDate(event.target.value)}>
             {!relevantDates.includes(mode === 'day' ? visibleDate : visibleDate.slice(0, 7) + '-01') && <option value="">Choose date</option>}
@@ -432,6 +465,14 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
       </table>{!dayItems.length && <p className="ow-empty">No deadlines on this date.</p>}</div>}
       {search && !deadlines.length && <p className="ow-empty">No deadlines match this search.</p>}
     </> : <p className="ow-empty">{client ? 'No calendars for ' + client.name + ' in ' + year + '.' : 'Choose a client to see deadlines.'}</p>}
+    {unscheduledOpen && calendar && <UnscheduledMarketsDialog calendar={calendar} markets={unscheduledMarkets}
+      date={visibleDate} busy={busy} canEdit={canEdit} mutate={mutate} onClose={() => setUnscheduledOpen(false)}
+      onSave={dueDate => {
+        setUnscheduledOpen(false);
+        clearFilters();
+        setDate(dueDate);
+        void refresh();
+      }} />}
     {panel && client && <OrdersDialog title={panel === 'deadline' ? 'Add deadline' : panel === 'rename' ? 'Rename calendar'
       : panel === 'market' ? 'Add market' : 'New calendar'}
       onClose={() => setPanel(null)}>
