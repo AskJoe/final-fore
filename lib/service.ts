@@ -8,6 +8,7 @@ import { OPTIONS } from './domain/catalogs';
 import { StorageError, type Store } from './store';
 import * as directory from './domain/directory';
 import * as planning from './domain/planning';
+import { clientDisplayName } from './domain/client-labels';
 export const campaignKey = (id: string) => 'campaign:' + id;
 export const orderKey = (id: string, market: string) => 'order:' + JSON.stringify([id, market]);
 export class Service {
@@ -22,7 +23,7 @@ export class Service {
     if (path === 'directory') { const {record,data}=await this.directory();return {directory:data,revision:record?.version??0,referenceOnly:!record,...directory.catalog()}; }
     if (path === 'campaign/catalog') {
       const {data}=await this.directory(),result=campaigns.catalog();
-      result.catalog.client={id:'epic3',name:data.clients.find(c=>c.id==='epic3')?.name??'Epic3'};
+      result.catalog.client={id:'epic3',name:data.clients.find(c=>c.id==='epic3')?.name??'Topco'};
       result.catalog.clients=data.clients;
       result.draft=campaigns.calculate(directory.campaignClient(campaigns.defaults(),data));
       return result;
@@ -33,7 +34,11 @@ export class Service {
     if (path === 'campaign-order') {
       const id = query.get('campaign') ?? '', market = query.get('market') ?? '';
       const saved = await this.store.get(orderKey(id, market));
-      if (saved) return campaignOrders.model(saved.payload.source, saved.payload.details, saved.payload.revision);
+      if (saved) {
+        const source = saved.payload.source;
+        const clientName = typeof source.clientName === 'string' ? clientDisplayName(source.clientName) : source.clientName;
+        return campaignOrders.model({ ...source, clientName }, saved.payload.details, saved.payload.revision);
+      }
       const c = await this.required(campaignKey(id)); return campaignOrders.model(campaignOrders.source(directory.campaignClient(c.payload,(await this.directory()).data), market), campaignOrders.defaults(), 0);
     }
     const w = (await this.required('workbook')).payload as Workbook;

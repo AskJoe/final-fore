@@ -1,3 +1,4 @@
+import { clientDisplayName } from '@/lib/domain/client-labels';
 import { groupRows, rowsByPeriod } from './grouping';
 import { calculateRadioCpm, type CellValue, type ResearchRow, type ResearchSheet, type SavedMarket, type SheetName, type SourceFile } from './workbook';
 
@@ -59,7 +60,7 @@ export function indexSheet(name: SheetName, sheet: ResearchSheet, reviews: Saved
 export function workbookFields(name: SheetName, sheet: ResearchSheet, reviews: SavedMarket[]) {
   const saved = new Set(reviews.map(review => review.review_key));
   const fields: Field[] = ['Market','Client','Rep','Firm'].map(label => ({
-    id: label, label, value: entry => label === 'Client' ? entry.row.client : entry[label.toLowerCase() as 'market'|'rep'|'firm'],
+    id: label, label, value: entry => label === 'Client' ? clientDisplayName(entry.row.client) : entry[label.toLowerCase() as 'market'|'rep'|'firm'],
   }));
   const radio = radioFields(sheet, name);
   const bands = sheet.groups?.flatMap(group => Array<string>(group.span).fill(group.label)) ?? [];

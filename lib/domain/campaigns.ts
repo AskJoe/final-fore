@@ -19,7 +19,7 @@ export function distribute(total:number,weighted:Record<string,Decimal.Value>) {
 }
 export function cleanChannels(raw:any) {
   check(object(raw)&&Object.keys(raw).length<=Object.keys(CHANNELS).length,'Invalid channel allocations.');
-  const result:Data={}; for(const [k,v] of Object.entries(raw)){check(Object.hasOwn(CHANNELS,k),'Choose a channel from EPIC3.');result[k]=money(v,'Channel allocation');} return result;
+  const result:Data={}; for(const [k,v] of Object.entries(raw)){check(Object.hasOwn(CHANNELS,k),'Choose a channel from the media plan.');result[k]=money(v,'Channel allocation');} return result;
 }
 export function channelPlan(marketId:string,year:number,budget:number|null,overrides:Data):Data {
   const history=CHANNEL_CATALOG.markets[marketId]??{},years=Object.entries(history).filter(([y])=>Number(y)<year) as [string,Data][];

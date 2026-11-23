@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { clientDisplayName } from '@/lib/domain/client-labels';
 import { filePreviewKind } from '@/lib/research/file-preview';
 import { cellText, currency, defaultQuery, measurementValue, radioFields, type Entry, type ViewQuery, type WorkbookView } from '@/lib/broadcast/view';
 import { calculateRadioCpm, radioCpmFormula, isSheetName, sheetLabels, type CellValue, type MarketIssue, type MarketOption,
@@ -339,7 +340,7 @@ function WorkbookSheet({name, activeLink, select, fromServer, initialView, revie
                       aqh={measurementValue(row.cells[radioColumns.aqh])} />
                     : <ResearchCell key={key} monthStart={metricIndex === 0} cell={row.cells[radioIndices.get(metric)!] ?? null} />;
                 }))}
-                <td>{lead.market}</td><td>{lead.row.client}</td><td>{lead.rep}</td><td>{lead.firm}</td>
+                <td>{lead.market}</td><td>{clientDisplayName(lead.row.client)}</td><td>{lead.rep}</td><td>{lead.firm}</td>
                 <td>{cellText(lead.row.cells[daypartAt])}</td><td>{cellText(lead.row.cells[audienceAt])}</td>
                 <td>{cellText(lead.row.cells[coverageAt])}</td>
                 <SourceCell entry={lead} onOpen={setPreview} onSubmissions={setSubmissions} />
@@ -360,7 +361,7 @@ function WorkbookSheet({name, activeLink, select, fromServer, initialView, revie
                     title={'Market in file: ' + review.sourceMarket}
                     onClick={event => reviewMarket(event.currentTarget)}>Check market</button>}
                 </th>
-                <td>{row.client}</td><td>{rep}</td><td>{firm}</td>
+                <td>{clientDisplayName(row.client)}</td><td>{rep}</td><td>{firm}</td>
                 {row.cells.map((cell, col) => radioColumns?.cpm === col
                   ? <RadioCpmCell key={col} rate={measurementValue(row.cells[radioColumns.rate])}
                     aqh={measurementValue(row.cells[radioColumns.aqh])} />

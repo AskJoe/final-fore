@@ -1,5 +1,6 @@
 'use client';
 
+import { clientDisplayName } from '@/lib/domain/client-labels';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 const labels = {
@@ -63,19 +64,20 @@ export default function FilterRibbon({ filters, options, onChange, children }: {
       const label = labels[field];
       const selected = filters[field];
       const expanded = open === field;
+      const display = field === 'client' ? clientDisplayName : (value: string) => value;
       return <div key={field} className="broadcast-filter">
         <button type="button" className="broadcast-filter-button" data-active={Boolean(selected)}
           aria-expanded={expanded} aria-controls={expanded ? 'broadcast-filter-' + field : undefined}
-          title={selected ? label.name + ' · ' + selected : label.name}
+          title={selected ? label.name + ' · ' + display(selected) : label.name}
           onClick={event => { trigger.current = event.currentTarget; setOpen(expanded ? null : field); }}>
-          <span>{label.name}{selected && <span className="broadcast-filter-value"> · {selected}</span>}</span>
+          <span>{label.name}{selected && <span className="broadcast-filter-value"> · {display(selected)}</span>}</span>
           <span aria-hidden="true">▾</span>
         </button>
         {expanded && <div id={'broadcast-filter-' + field} className="broadcast-filter-options"
           role="group" aria-label={label.name + ' choices'}>
           <button type="button" aria-pressed={!selected} onClick={() => choose(field, '')}>{label.all}</button>
           {options[field].map(value => <button key={value} type="button" aria-pressed={selected === value}
-            onClick={() => choose(field, value)}>{value}</button>)}
+            onClick={() => choose(field, value)}>{display(value)}</button>)}
         </div>}
       </div>;
     })}
