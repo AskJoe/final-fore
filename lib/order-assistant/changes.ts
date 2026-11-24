@@ -40,20 +40,34 @@ export function buildOrderChanges(order:OrderDetail,raw:unknown,rows:ResearchRow
     }else quote=row.line;
     check(quote&&quote.marketId===marketId&&quote.media===(changes.sheet==='tv'?'TV':'Radio')&&
       quote.source?.kind==='broadcast','Choose a verified current quote and exact period.');
-    const line={...structuredClone(quote),id:makeId(),quantity:addition.quantity??null,amount:null,
-      weeks:addition.weeks??null,spotsPerWeek:addition.spotsPerWeek??null,spotsPerDay:null,impressions:null};
+    const quotedSchedule = quote.media === 'Radio' && quote.start && quote.end &&
+      quote.quantity != null && quote.spotsPerWeek != null && quote.weeks != null;
+    const weeklyEdit = addition.spotsPerWeek !== undefined || addition.weeks !== undefined;
+    const scheduleEdit = weeklyEdit || addition.quantity !== undefined;
+    const keepQuote = quotedSchedule && !scheduleEdit;
+    const line = { ...structuredClone(quote), id: makeId(),
+      quantity: addition.quantity !== undefined ? addition.quantity : keepQuote ? quote.quantity : null,
+      weeks: addition.weeks !== undefined ? addition.weeks : quotedSchedule ? quote.weeks : null,
+      spotsPerWeek: addition.spotsPerWeek !== undefined ? addition.spotsPerWeek
+        : quotedSchedule && (weeklyEdit || !scheduleEdit) ? quote.spotsPerWeek : null,
+      amount: keepQuote ? quote.amount : null, spotsPerDay: null, impressions: keepQuote ? quote.impressions : null };
     const periodUnit=line.source?.facts?.find(fact=>fact.label==='Quote rate unit');
     const unit=periodUnit ? periodUnit.value : line.source?.facts?.find(fact=>fact.label==='Spot rate')?.unit;
     if(typeof unit!=='string'||!/^USD(?:\s*(?:\/|per)\s*spot)?$/i.test(unit))line.rate=null;
-    if(document.start&&document.end&&line.start&&line.end)
-      check(line.start<=document.end&&line.end>=document.start,'This quote is outside the order flight.');
     // Unknown effective dates never become an assumed purchase price.
-    if(!line.start||!line.end||!document.start||!document.end)line.rate=null;
+    if(!line.start||!line.end)line.rate=null;
     else {
-      line.start=line.start<document.start?document.start:line.start;
-      line.end=line.end>document.end?document.end:line.end;
+      check((!document.end || line.start <= document.end) && (!document.start || line.end >= document.start),
+        'This quote is outside the order flight.');
+      const start = document.start && line.start < document.start ? document.start : line.start;
+      const end = document.end && line.end > document.end ? document.end : line.end;
+      check(!keepQuote || start === line.start && end === line.end,
+        'Choose a spot schedule for the part of the quote within the order flight.');
+      line.start = start;
+      line.end = end;
     }
-    if(addition.spotsPerWeek!==undefined||addition.weeks!==undefined){
+    if(line.rate===null)line.amount=null;
+    if(weeklyEdit){
       const schedule=spreadsheetScheduleChanges(line,{spotsPerWeek:line.spotsPerWeek,weeks:line.weeks});
       Object.assign(line,schedule);
       if(addition.quantity!==undefined){
@@ -61,6 +75,7 @@ export function buildOrderChanges(order:OrderDetail,raw:unknown,rows:ResearchRow
         line.quantity=addition.quantity;
       }
     }
+    if (!keepQuote) line.impressions = line.audience != null && line.quantity != null ? line.audience * line.quantity : null;
     check(!document.lines.some(existing=>identity(existing)===identity(line)),'This placement and period are already on the order.');
     document.lines.push(line);
   }

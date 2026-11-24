@@ -568,7 +568,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   function updateLine(id: string, patch: Partial<OrderLine>) {
     setDocument(current=>({...current,lines:current.lines.map(line=>{
       if(line.id!==id)return line;
-      const changes = spreadsheet ? spreadsheetScheduleChanges(line, patch) : patch;
+      const changes = spreadsheetScheduleChanges(line, patch);
       const next={...line,...changes,
         ...(changes.amount===undefined && ('rate' in changes || 'quantity' in changes) && line.media!=='Digital' ? {amount:null}: {})};
       return {...next,calculatedCpm:calculatedOrderCpm(next)};

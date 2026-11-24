@@ -9,8 +9,14 @@ export function calculatedOrderCpm(line: Pick<OrderLine,'rate'|'quantity'|'amoun
 }
 
 export function replaceResearchLine(target:OrderLine,quote:OrderLine):OrderLine {
-  const next={...quote,id:target.id,marketId:target.marketId,
-    start:quote.start||target.start,end:quote.end||target.end,quantity:quote.quantity??target.quantity};
+  const digital = quote.media === 'Digital';
+  const quantity = digital ? quote.quantity ?? target.quantity : target.quantity ?? quote.quantity;
+  const scheduleChanged = !digital && quantity !== quote.quantity;
+  const next = { ...quote, id: target.id, marketId: target.marketId, quantity,
+    start: target.start || quote.start, end: target.end || quote.end,
+    ...(scheduleChanged && { amount: null, impressions: quote.audience != null && quantity != null ? quote.audience * quantity : null }),
+    ...(scheduleChanged && quote.media === 'Radio' && quote.spotsPerWeek != null &&
+      { weeks: target.weeks ?? quote.weeks, spotsPerWeek: target.spotsPerWeek ?? null }) };
   return {...next,calculatedCpm:calculatedOrderCpm(next)};
 }
 

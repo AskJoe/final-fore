@@ -9,6 +9,7 @@ import marketLinks from '../../data/research-market-links.json';
 import assignmentEvidence from '../../data/research-assignment-seed.json';
 import { type ArchiveFile, type ArchiveLine, type ArchiveRecord, type ArchiveReferenceRole, type OrderArchive, type SourceRef } from './archive-source';
 import { calculatedOrderCpm } from './metrics';
+import { validOrderDate } from './dates';
 import { isResearchSelected, type ResearchSelection } from './research-selection';
 import type { OrderDocument, OrderLine, OrderSource, OrderSourceFact, OrderWorkflow } from './store';
 
@@ -746,6 +747,19 @@ export async function broadcastOrderResearch(directory: Directory, query: Resear
     filterOptions:options,quoteFacets:facets,availability:'available' as const };
 }
 
+function quotedFlight(value: string, year: number) {
+  const match = value.match(/\b(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})(?:,\s*(\d+)\s+ACTIVE weeks?)?/i);
+  if (!match) return null;
+  const asDate = (value: string) => {
+    const [month, day, year] = value.split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+  const start = asDate(match[1]), end = asDate(match[2]);
+  if (!validOrderDate(start) || !validOrderDate(end) || start > end ||
+      Number(start.slice(0, 4)) !== year || Number(end.slice(0, 4)) !== year) return null;
+  return { start, end, weeks: count(match[3]) };
+}
+
 function broadcastResearchRows(view: WorkbookView, reviews: Awaited<ReturnType<WorkbookLoader>>['reviews'],
   query: ResearchQuery & {market:string;rep:string;firm:string}, radioQuoteDetails?: OrderArchive['radioQuoteDetails']) {
   const { sheet:name, market, rep, firm } = query;
@@ -765,6 +779,9 @@ function broadcastResearchRows(view: WorkbookView, reviews: Awaited<ReturnType<W
     const cells = [...row.cells];
     const cell = (field: string) => cells[labels.findIndex(col => col.label === field)];
     const quote = cell('Spot rate');
+    // The published proposal provides the full flight. Reviewed details may show only active week starts.
+    const radioFlight = radio && cellText(cell('Source type') ?? '') === 'Radio proposal'
+      ? quotedFlight(cellText(cell('Quoted flight') ?? ''), query.year) : null;
     const supplement = name === 'radio' ? radioQuoteDetails?.[row.id] : undefined;
     const reviewed = supplement && supplement.marketId === attribution && supplement.locator === row.locator &&
       typeof quote === 'object' && quote && supplement.rateCell === quote.locator && supplement.rate === quote.value
@@ -776,9 +793,9 @@ function broadcastResearchRows(view: WorkbookView, reviews: Awaited<ReturnType<W
       }
     }
     const calculated=calculateRadioCpm(measurementValue(quote),measurementValue(cell(radio?'AQH (people)':'Audience count')));
-    const reportedCell=cell(name==='radio'?'CPM':'Reported CPM');
-    const reported=reportedCell && typeof reportedCell==='object' && 'derived' in reportedCell && reportedCell.derived
-      ? null : measurementValue(reportedCell);
+    const reportedValue = (quoteCell: CellValue | undefined) =>
+      quoteCell && typeof quoteCell === 'object' && 'derived' in quoteCell && quoteCell.derived ? null : measurementValue(quoteCell);
+    const reported = reportedValue(cell('Reported CPM')) ?? (radio ? reportedValue(cell('CPM')) : null);
     if (cpmIndex>=0 && (cells[cpmIndex]===undefined || cells[cpmIndex]===null) && calculated!==null) {
       cells[cpmIndex]={value:calculated,raw:String(calculated),unit:'USD',locator:typeof quote==='object'&&quote?quote.locator:'',derived:true} as CellValue;
     }
@@ -819,8 +836,17 @@ function broadcastResearchRows(view: WorkbookView, reviews: Awaited<ReturnType<W
                 {label:'Selected period start',value:period.start},{label:'Selected period end',value:period.through},
                 ...researchFacts([{label:'Selected period rate'},{label:'Selected period reported CPM'}],[{...period.rate,unit:period.rate.unit??'USD',raw:period.rate.raw??String(period.rate.value)},period.cpm??null])]} } }];
         });
+      } else if (radioFlight && quote && typeof quote === 'object' && /^USD(?:\s*(?:\/|per)\s*spot)?$/i.test(quote.unit ?? '')) {
+        const spotsPerWeek = count(measurementValue(cell('Spots per week')));
+        const quantity = radioFlight.weeks !== null && spotsPerWeek !== null ? radioFlight.weeks * spotsPerWeek : null;
+        const days = draft.days || program.match(/^(M-F|Mo-Fr|Mon-Fri|M-Su|Mo-Su|Sat-Sun|Sat|Sun)(?=\s|$)/i)?.[0] || '';
+        line = { ...draft, ...radioFlight, days, spotsPerWeek, quantity, rate: cents(measurementValue(quote)),
+          amount: cents(measurementValue(cell('Extended cost'))),
+          impressions: count(measurementValue(cell('Gross impressions'))) ??
+            (draft.audience !== null && quantity !== null ? draft.audience * quantity : null) };
       } else if (reviewed?.year === query.year || row.avail && query.year === 2027) {
-        line = { ...draft, rate: cents(measurementValue(quote)) };
+        const tvFlight = name === 'tv' ? quotedFlight(cellText(cell('Effective dates') ?? ''), query.year) : null;
+        line = { ...draft, ...(tvFlight && { start: tvFlight.start, end: tvFlight.end }), rate: cents(measurementValue(quote)) };
       } else {
         // A station schedule can be copied without applying an unverified current rate.
         line = {...draft,cpm:null,reportedCpm:null,calculatedCpm:null};
