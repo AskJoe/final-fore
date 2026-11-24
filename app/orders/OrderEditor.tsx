@@ -1,12 +1,12 @@
 import { Fragment, createContext,useContext,useCallback, useEffect, useRef, useState } from 'react';
-import { calculatedOrderCpm, replaceResearchLine, spreadsheetScheduleChanges } from '@/lib/orders/metrics';
+import { calculatedOrderCpm, isBroadcastPlacement, replaceResearchLine, spreadsheetScheduleChanges } from '@/lib/orders/metrics';
 import type { OrderDetail, OrderDocument, OrderEvent, OrderIssue, OrderLine, OrderWorkflow } from '@/lib/orders/store';
 import { OrderAssistantChanges } from './OrderAssistantChanges';
 import { useDraftSync } from './useDraftSync';
 import { useOrderResearchState,assistantRequest } from './useOrderResearchState';
 import { parseEditorValue } from '@/lib/orders/editor-values';
 import { orderPdfMarkup } from '@/lib/orders/print-markup';
-import { isOrderAdjustment, orderVendorGroups, orderVendorLabel } from '@/lib/orders/vendor-groups';
+import { orderVendorGroups, orderVendorLabel } from '@/lib/orders/vendor-groups';
 import type { ResearchView } from '@/lib/order-assistant/types';
 import { displayTime, OrdersDialog, type ClientOption, type MarketOption, type Mutate } from './OrderCalendar';
 import { OrderResearch, ordersUrl, PriorBilling, quantity, Source, usd, type BillingReference } from './OrdersCatalog';
@@ -187,7 +187,7 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, de
                 readOnly={readOnly || formula} onChange={next => onLine(line.id, { [key]: next })} />
             </td>;
           })}
-          <td>{line.source || readOnly ? isOrderAdjustment(line) ? 'Adjustment' : line.media : <select aria-label={'Channel, line ' + (index + 1)} value={line.media}
+          <td>{line.source || readOnly ? line.media : <select aria-label={'Channel, line ' + (index + 1)} value={line.media}
             onChange={event => onLine(line.id, { media: event.target.value as OrderLine['media'] })}>
             <option>TV</option><option>Radio</option>{line.media === 'Digital' && <option>Digital</option>}
           </select>}</td>
@@ -297,7 +297,7 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
                 <PlacementCell label="Channel">{!digital && !readOnly && !line.source
                   ? <select aria-label={'Media for line ' + (index + 1)} value={line.media} onChange={event => onLine(line.id, { media: event.target.value as OrderLine['media'] })}>
                     <option>TV</option><option>Radio</option>
-                  </select> : isOrderAdjustment(line) ? 'Adjustment' : line.media}</PlacementCell>
+                  </select> : line.media}</PlacementCell>
                 {marketIds.length > 1 && <PlacementCell label="Market">{readOnly || line.source ? marketName(line.marketId) : <select aria-label={'Market for line ' + (index + 1)}
                   value={line.marketId} onChange={event => onLine(line.id, { marketId: event.target.value })}>
                   {marketIds.map(id => <option key={id} value={id}>{marketName(id)}</option>)}
@@ -769,7 +769,8 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
     </div>}
     {history && order && <OrderHistory order={order} canRestore={canEdit && !issue && !dirty} busy={busy}
       onRestore={event => { showHistory(false); confirm(event); }} onDownload={onDownload} onClose={() => showHistory(false)} />}
-    {printing && !issue && <PrintOrderDialog document={document} markets={markets} onClose={() => setPrinting(false)} />}
+    {printing && !issue && <PrintOrderDialog document={{...document,lines:document.lines.filter(isBroadcastPlacement)}}
+      markets={markets} onClose={() => setPrinting(false)} />}
     {send && order && issue && <SendDialog mode={send} issue={issue} order={order} busy={busy}
       mutate={mutate} onUpdate={onUpdate} onClose={() => setSend(null)}
       onDownload={broadcast && send === 'send' ? onDownload : undefined} />}

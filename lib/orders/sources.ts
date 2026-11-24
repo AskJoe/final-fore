@@ -199,10 +199,9 @@ function archivePlacement(ref: SourceRef, archive: OrderArchive, order: ArchiveR
 }
 type ArchivePlacement = ReturnType<typeof archivePlacement>;
 
-function draftPlacement(item: ArchivePlacement, includeAdjustment = false): OrderLine | null {
-  const adjustment = includeAdjustment && item.kind === 'Adjustment';
-  const media = medium(item.media) ?? (adjustment && item.media === 'Broadcast' ? 'TV' : null);
-  if (!media || item.kind !== 'Placement' && !adjustment) return null;
+function draftPlacement(item: ArchivePlacement): OrderLine | null {
+  const media = medium(item.media);
+  if (!media || item.kind !== 'Placement') return null;
   // Keep the prior flight on the source. A new issue needs an explicitly selected flight.
   const amount = item.rate !== null && item.quantity !== null && item.rate * item.quantity === item.amount
     ? null : item.amount;
@@ -490,11 +489,12 @@ function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof s
     const source = sourceRef(file, !scope.sharedAcrossClients);
     const buyerOrder = record.type === 'Market purchase order' || record.type === 'Shared purchase order';
     return scope.lines.flatMap(item => {
-      if (item.marketId !== marketId || !['Placement', 'Adjustment'].includes(item.line.kind)) return [];
       const line = item.line;
+      const channel = medium(line.medium);
+      if (item.marketId !== marketId || line.kind !== 'Placement' || (channel !== 'TV' && channel !== 'Radio')) return [];
       const identity = JSON.stringify([line.medium, stationKey(line.station), normalize(line.placement),
         normalize(line.fmt), normalize(line.days)]);
-      const key = record.ref.trim() ? JSON.stringify([normalize(record.ref), identity, normalize(line.flight),
+      const key = record.ref.trim() ? JSON.stringify([normalize(record.ref), identity,
         cents(line.amount), cents(line.rate), count(line.spots), count(line.impressions)]) : null;
       const vendor = { firm: file.firm.trim(), rep: file.rep.trim() };
       return [{ record, item, source, buyerOrder, identity, key, vendor }];
@@ -505,7 +505,9 @@ function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof s
   const copies = new Map<typeof rows[number], typeof rows>();
   const paired = new Set<typeof rows[number]>();
   for (const vendor of vendorRows) {
-    const exact = vendor.key ? purchaseRows.filter(buyer => buyer.key === vendor.key) : [];
+    const exact = vendor.key ? purchaseRows.filter(buyer => buyer.key === vendor.key &&
+      (normalize(buyer.item.line.flight) === normalize(vendor.item.line.flight)
+        || overlappingArchiveFlights(buyer.item.line.flight, vendor.item.line.flight))) : [];
     const net = exact.length ? [] : purchaseRows.filter(buyer => {
       if (buyer.identity !== vendor.identity || !buyer.item.line.fee) return false;
       const buyerNet = cents(buyer.item.line.net);
@@ -528,12 +530,15 @@ function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof s
       .map(entry => [JSON.stringify([normalizedFirm(entry.firm), normalize(entry.rep)]), entry]));
     const assigned = !buyerOrder ? vendor : attributions.size === 1 ? [...attributions.values()][0] : {firm: '', rep: ''};
     const placement = archivePlacement(source, archive, record, item);
+    const signedFlights = new Set(evidence.filter(copy => copy.source.kind === 'signed-order')
+      .map(copy => copy.item.line.flight.trim()).filter(Boolean));
+    if (signedFlights.size === 1) placement.flight = [...signedFlights][0];
     const copyImpressions = new Set(evidence.map(copy => count(copy.item.line.impressions)).filter(value => value != null));
     if (placement.impressions === null && copyImpressions.size === 1) {
       placement.impressions = [...copyImpressions][0];
       placement.impressionsText = String(placement.impressions);
     }
-    const draft = draftPlacement(placement, true);
+    const draft = draftPlacement(placement);
     if (!draft?.source) return [];
     return [{ ...draft, noCharge: draft.noCharge || normalize(item.line.context) === 'trade',
       source: {...draft.source, facts: [...(draft.source.facts ?? []),

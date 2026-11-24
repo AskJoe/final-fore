@@ -1,6 +1,6 @@
 import originalTemplate from '../../epic3/order-template.json';
 import type { OrderLine } from './store';
-import { isOrderAdjustment, orderVendorGroups, orderVendorLabel } from './vendor-groups';
+import { orderVendorGroups, orderVendorLabel } from './vendor-groups';
 
 type PrintLine = {
   id: string; media: string; marketId: string; station: string; program: string;
@@ -54,14 +54,17 @@ export function orderPdfMarkup(doc: PrintOrder, logo: string, markets: Readonly<
     const columns = digital
       ? ['Placement / Market', 'Length', 'Run Days', 'Total Wks', 'Flight Dates', 'Total $', 'IMPs']
       : ['Station / channel', 'Placement / program', 'Rate', 'Schedule', 'Flight', 'Spots', 'Total $', 'Imps', 'CPM', 'Audience'];
-    const schedule = (line: PrintLine) => [line.days, line.spotsPerDay == null ? '' : number(line.spotsPerDay) + '/day',
-      line.spotsPerWeek == null ? '' : number(line.spotsPerWeek) + '/wk',
-      line.weeks == null ? '' : number(line.weeks) + ' wks'].filter(Boolean).map(escape).join('<br>');
+    const schedule = (line: PrintLine) => {
+      const days = [line.days, line.weeks == null ? '' : number(line.weeks) + ' wks'];
+      const spots = [line.spotsPerDay == null ? '' : number(line.spotsPerDay) + '/day',
+        line.spotsPerWeek == null ? '' : number(line.spotsPerWeek) + '/wk'];
+      return [days, spots].map(values => values.filter(Boolean).map(escape).join(' · ')).filter(Boolean).join('<br>');
+    };
     const renderRow = (line: PrintLine) => '<tr>' + (digital
       ? '<td class="description">' + placement(line) + '<div>' + escape(markets[line.marketId] || '') + '</div></td>' +
         '<td>' + escape(line.format) + '</td><td>' + escape(line.days) + '</td><td class="num">' + number(line.weeks) +
         '</td><td>' + flight(line) + '</td>' + amounts(line)
-      : '<td><strong>' + escape(line.station) + '</strong><small>' + (isOrderAdjustment(line) ? 'Adjustment' : escape(line.media)) + '</small></td><td>' +
+      : '<td><strong>' + escape(line.station) + '</strong><small>' + escape(line.media) + '</small></td><td>' +
         placement(line) + '<small>' + escape(line.format) + '</small></td><td class="num">' + money(line.rate) +
         '</td><td>' + schedule(line) + '</td><td>' + flight(line) + '</td><td class="num">' + number(line.quantity) +
         '</td>' + amounts(line) +
@@ -129,8 +132,8 @@ ${section('broadcast')}${section('digital')}
 <section class="notes"><h2>Order notes</h2><p class="note-space">${escape(doc.notes)}</p></section>
 ${doc.lines.some(line => line.media !== 'Digital') ? `<section class="notes sample-notes"><h2>Sample notes</h2>
 <ul><li>${escape(originalTemplate.rateNote.trim())}</li><li>${escape(originalTemplate.stationNote)}</li></ul></section>` : ''}
-<footer class="acceptance">
-${draft ? '' : `<p>Please sign and date below. By signing this Final Fore Media Order, the media company's representative acknowledges and accepts the order and its terms.</p>
-<div class="signatures"><div><div class="signature"></div>Signature</div><div><div class="signature"></div>Date</div></div>`}
-</footer></html>`;
+${draft ? '' : `<footer class="acceptance">
+<p>Please sign and date below. By signing this Final Fore Media Order, the media company's representative acknowledges and accepts the order and its terms.</p>
+<div class="signatures"><div><div class="signature"></div>Signature</div><div><div class="signature"></div>Date</div></div>
+</footer>`}</html>`;
 }

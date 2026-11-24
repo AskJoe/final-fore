@@ -12,7 +12,8 @@ import { loadOrderResearch } from '../orders/research-service';
 import { stateCommand } from '../orders/research-state';
 import { orderLineAmount, orderTotal,type OrderDetail, type OrderLine } from '../orders/store';
 import { archiveOrderSeed } from '../orders/sources';
-import { isOrderAdjustment, orderVendorGroups } from '../orders/vendor-groups';
+import { orderVendorGroups } from '../orders/vendor-groups';
+import { isBroadcastPlacement } from '../orders/metrics';
 import { selectedResearchKeys } from '../orders/research-selection';
 import mapping from '../../data/research-market-links.json';
 import { buildOrderChanges,cleanOrderChanges } from './changes';
@@ -125,20 +126,22 @@ export class MarketOrderAssistant {
     if(digest(before)!==digest(after))throw new Conflict('Research changed while comparing the market. Try again.');
     if(latestOrder?.revision!==order.revision)throw new Conflict('The order changed while comparing the market. Try again.');
     const group=(lines:OrderLine[])=>orderVendorGroups(lines,line=>line).map(({vendor,rep,items})=>({
-      vendor,rep,placements:items.map(line=>({id:line.id,station:line.station,channel:isOrderAdjustment(line) ? 'Adjustment' : line.media,
+      vendor,rep,placements:items.map(line=>({id:line.id,station:line.station,channel:line.media,
         program:line.program,format:line.format,flight:[line.start,line.end].filter(Boolean).join(' – '),
         priorFlight:line.priorFlight,rate:line.rate,spots:line.quantity,
         amount:orderLineAmount(line),impressions:line.impressions,source:line.source?.label,locator:line.source?.locator})),
     }));
+    const broadcastLines=order.document.lines.filter(isBroadcastPlacement);
     return {marketId:context.marketId,marketName:String(MARKETS[context.marketId]?.name??context.marketId),orderYear:order.year,
       scope:'whole_market',sample:archive && sample ? {year:archive.year,groups:group(sample.lines),placementCount:sample.lines.length} : null,
-      currentOrder:{revision:order.revision,groups:group(order.document.lines),placementCount:order.document.lines.length},
+      currentOrder:{revision:order.revision,groups:group(broadcastLines),placementCount:broadcastLines.length},
       research,sources:after,checkedAt:new Date().toISOString()};
   }
   async search(contextId:string,override:unknown={},wholeMarket=false){
     const {context,order}=await this.scoped(contextId);
     const state=await stateCommand(this.runtime,order.id,'get');
     const view=cleanResearchView({...(!wholeMarket && state.view || {sheet:'tv'}),...override as object});
+    if(wholeMarket)check(view.sheet==='tv'||view.sheet==='radio','Choose TV or Radio for whole-market broadcast research.');
     const before=await this.versions(context.marketId);
     const result=await this.research(order,view);
     const after=await this.versions(context.marketId);

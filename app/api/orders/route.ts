@@ -5,6 +5,7 @@ import type { Directory } from '@/lib/domain/directory';
 import { check, Conflict, object, today, type Data } from '@/lib/domain/types';
 import { failure, json, privateHeaders, sameOrigin } from '@/lib/http';
 import { ORDER_PDF_VERSION, renderOrderPdf } from '@/lib/orders/pdf';
+import { isBroadcastPlacement } from '@/lib/orders/metrics';
 import { attestLine, verifyDraftSources } from '@/lib/orders/provenance';
 import { archiveOrderSeed, loadOrderArchive, marketBroadcastHistory, orderOpportunities, searchOrderArchive, type ResearchQuery } from '@/lib/orders/sources';
 import { cleanOrderDocument, orderStore, orderTotal, validateOrderForIssue, type OrderAction, type OrderLine } from '@/lib/orders/store';
@@ -161,10 +162,10 @@ export async function GET(request: Request) {
         .filter(order => order.market_ids.length === 1).map(order => [order.origin_key, order.lines]));
       const amounts = marketIds.map(id=>{
         const previous=archiveOrderSeed(archive,directory,{archiveId:'',workflow:'broadcast',clientId,year,marketIds:[id]});
-        const priorBroadcast=previous.lines.filter(line => line.media === 'TV' || line.media === 'Radio');
+        const priorBroadcast=previous.lines.filter(isBroadcastPlacement);
         const baseline=orderTotal({...previous.header,lines:priorBroadcast});
         const saved = current.get(origin + id);
-        const lines = saved ? saved.filter(line => line.media === 'TV' || line.media === 'Radio') : priorBroadcast;
+        const lines = saved ? saved.filter(isBroadcastPlacement) : priorBroadcast;
         const actual = saved ? orderTotal({ ...previous.header, lines }) : baseline;
         return [id,{baseline,actual,placements:lines.length}] as const;
       });
@@ -187,7 +188,7 @@ export async function GET(request: Request) {
         draft.document.end=market.end||dates?.end||details!.end||'';
       }
       const marketProposed=draft.workflow==='broadcast'&&!draft.archiveId
-        ? market?.override??orderTotal({...draft.document,lines:draft.document.lines.filter(line=>line.media!=='Digital')}) : undefined;
+        ? market?.override??orderTotal({...draft.document,lines:draft.document.lines.filter(isBroadcastPlacement)}) : undefined;
       const scope = get('includeScope') === '1' ? { clients, clientId, year, markets: marketDirectory(), orders: [], calendars: [], canEdit: true } : undefined;
       return json({...draft,marketProposed,scope,order:existing.data ? stripPrivate(await ctx.orders.readOrder(existing.data.id)) : null});
     }
@@ -233,12 +234,14 @@ async function issuePdf(ctx: OrderContext, input: Data) {
   if (draft.revision !== input.expectedRevision) throw new Conflict('This order changed. Reopen it before finalizing.');
   const previous = draft.issues.find(issue=>issue.revision === input.expectedRevision);
   if (previous) return json(stripPrivate(draft));
-  validateOrderForIssue(draft.document);
+  const document = draft.workflow === 'broadcast'
+    ? {...draft.document, lines: draft.document.lines.filter(isBroadcastPlacement)} : draft.document;
+  validateOrderForIssue(document);
   const storageKey = draft.id + '/' + draft.revision + '-' + ORDER_PDF_VERSION + '.pdf';
   const storage = ctx.admin.storage.from(bucket);
   const info = await storage.info(storageKey);
   if (!info.data) {
-    const bytes = await renderOrderPdf(draft.document, marketNames);
+    const bytes = await renderOrderPdf(document, marketNames);
     await storage.upload(storageKey, bytes, {contentType:'application/pdf',upsert:false});
   }
   const persisted = await pdfBytes(ctx,storageKey);

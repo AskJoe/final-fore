@@ -21,7 +21,3 @@ export function orderVendorGroups<T>(items: T[], lineOf: (item: T) => Pick<Order
 export function orderVendorLabel({ vendor, rep }: { vendor: string; rep: string }) {
   return [vendor, rep].filter(Boolean).join(' · ') || 'Vendor / rep not recorded';
 }
-
-export function isOrderAdjustment(line: Pick<OrderLine, 'source'>) {
-  return line.source?.facts?.some(fact => fact.label === 'Source type' && fact.value === 'Adjustment') === true;
-}
