@@ -1,4 +1,5 @@
 import { readFile, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { StorageError } from '../store';
 import type { CellValue } from '../broadcast/workbook';
@@ -198,7 +199,7 @@ export function validateOrderArchive(raw: unknown): OrderArchive {
   return raw as unknown as OrderArchive;
 }
 
-let cached: { path: string; size: number; mtime: number; archive: OrderArchive } | undefined;
+let cached: { path: string; size: number; mtime: number; archive: OrderArchive;digest:string } | undefined;
 
 export async function loadOrderArchive(): Promise<OrderArchive | null> {
   const path = process.env[archivePathVariable]?.trim();
@@ -211,9 +212,14 @@ export async function loadOrderArchive(): Promise<OrderArchive | null> {
     const bytes = await readFile(path);
     if (bytes.length > maxBytes) throw new Error('Invalid archive file size.');
     const archive = validateOrderArchive(JSON.parse(bytes.toString('utf8')));
-    cached = { path, size: info.size, mtime: info.mtimeMs, archive };
+    cached = { path, size: info.size, mtime: info.mtimeMs, archive,digest:createHash('sha256').update(bytes).digest('hex') };
     return archive;
   } catch {
     throw new StorageError('The configured historical orders archive could not be read.');
   }
+}
+
+export async function loadOrderArchiveDigest(){
+  const archive=await loadOrderArchive();
+  return archive?cached!.digest:'unconfigured';
 }

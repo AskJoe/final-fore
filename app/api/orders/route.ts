@@ -1,17 +1,17 @@
 import { createHash } from 'node:crypto';
-import { createClient } from '@supabase/supabase-js';
 import { AccessError, requireMember } from '@/lib/access';
-import { loadWorkbookPage } from '@/lib/broadcast/store';
 import { MARKETS, TEMPLATE } from '@/lib/domain/catalogs';
 import type { Directory } from '@/lib/domain/directory';
 import { check, Conflict, object, today, type Data } from '@/lib/domain/types';
 import { failure, json, privateHeaders, sameOrigin } from '@/lib/http';
 import { ORDER_PDF_VERSION, renderOrderPdf } from '@/lib/orders/pdf';
 import { attestLine, verifyDraftSources } from '@/lib/orders/provenance';
-import { archiveOrderSeed, broadcastOrderResearch, loadOrderArchive, orderOpportunities, orderResearch, searchOrderArchive } from '@/lib/orders/sources';
-import { cleanOrderDocument, orderStore, validateOrderForIssue, type OrderAction } from '@/lib/orders/store';
-import { orderKey, Service } from '@/lib/service';
-import { StorageError, SupabaseStore } from '@/lib/store';
+import { archiveOrderSeed, loadOrderArchive, marketBroadcastHistory, orderOpportunities, searchOrderArchive, type ResearchQuery } from '@/lib/orders/sources';
+import { cleanOrderDocument, orderStore, orderTotal, validateOrderForIssue, type OrderAction, type OrderLine } from '@/lib/orders/store';
+import { campaignKey, orderKey, Service } from '@/lib/service';
+import { StorageError } from '@/lib/store';
+import { orderRuntime as context, ordersSecret } from '@/lib/orders/runtime';
+import { loadOrderResearch } from '@/lib/orders/research-service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,30 +24,6 @@ const commands = new Set<OrderAction>([
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const marketNames = Object.fromEntries(Object.entries(MARKETS).map(([id, market]) => [id, String(market.name)]));
 const hash = (bytes: ArrayBuffer | Uint8Array) => createHash('sha256').update(new Uint8Array(bytes)).digest('hex');
-
-function ordersSecret() {
-  const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new StorageError('Orders storage is unavailable.');
-  return key;
-}
-
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) throw new StorageError('Orders storage is unavailable.');
-  return createClient(url, ordersSecret(), {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    global: { fetch: (input, init) => fetch(input, {
-      ...init, signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000),
-    }) },
-  });
-}
-
-async function context() {
-  const { supabase, user } = await requireMember();
-  const directoryStore = new SupabaseStore(supabase);
-  const admin = adminClient();
-  return { user, directoryStore, share: new Service(directoryStore), admin, orders: orderStore(admin) };
-}
 
 function findClient(directory: Directory, clientId: unknown) {
   const client = directory.clients.find(client => client.id === clientId);
@@ -102,25 +78,27 @@ async function seed(directory: Directory, input: Data) {
   const workflow = workflowName(input.workflow);
   const step = validStep(input.step);
   if (step && step !== 'copy') check((step === 'digital') === (workflow === 'digital'), 'The order workflow must match the deadline.');
-  const opportunities = await orderOpportunities(archive, directory, {clientId:client.id,year});
+  const opportunities = await orderOpportunities(archive, directory, {clientId:client.id,year,marketWide:!input.archiveId});
   const archiveId = input.archiveId ? String(input.archiveId) : '';
   const key = typeof input.originKey === 'string' ? input.originKey : typeof input.key === 'string' ? input.key : '';
   const requestedMarket = input.marketId || input.marketIds?.[0];
   if (!key && !archiveId) ensureMarket(client,requestedMarket);
   const candidates = opportunities.filter(o => o.workflow === workflow &&
     (!requestedMarket || o.marketIds.includes(requestedMarket)) &&
-    (!step || step === 'copy' || o.media.some((medium: string) => medium.toLowerCase() === step)));
+    (!step || step === 'copy' || workflow === 'broadcast' && !archiveId || o.media.some((medium: string) => medium.toLowerCase() === step)));
   const opportunity = (key ? candidates.find(o => o.key === key) : undefined) ??
     (archiveId ? candidates.find(o => String(o.archiveId) === archiveId) : undefined) ??
-    (!key && !archiveId && workflow === 'digital' ? candidates.find(o => o.marketIds.length === 1) : undefined);
+    (!key && !archiveId ? candidates.find(o => o.marketIds.length === 1) : undefined);
   if (archiveId) check(opportunity && String(opportunity.archiveId) === archiveId, 'The historical order is unavailable for this scope.');
   const marketIds = opportunity?.marketIds ?? [requestedMarket];
   for (const marketId of marketIds) ensureMarket(client, marketId);
   const originKey = opportunity?.key ?? [workflow,client.id,year,marketIds[0],workflow === 'broadcast' ? step ?? 'tv' : 'market'].join(':');
   check(!key || key === originKey, 'This order opportunity is no longer available. Reopen it before saving.');
-  const history = opportunity?.archiveId && opportunity.seedAvailable
-    ? await archiveOrderSeed(archive, directory, {archiveId:String(opportunity.archiveId), workflow, clientId:client.id, year, marketIds})
-    : null;
+  const history = workflow === 'broadcast' && !archiveId
+    ? archiveOrderSeed(archive, directory, {archiveId:'',workflow,clientId:client.id,year,marketIds})
+    : opportunity?.archiveId && opportunity.seedAvailable
+      ? archiveOrderSeed(archive, directory, {archiveId:String(opportunity.archiveId),workflow,clientId:client.id,year,marketIds})
+      : null;
   const document = {
     number:'', date:'', clientName:client.name, vendor:opportunity?.firm ?? '', rep:opportunity?.rep ?? '',
     buyer:String(TEMPLATE.contact ?? 'Final Fore Media'), buyerEmail:String(TEMPLATE.email ?? ''),
@@ -134,6 +112,12 @@ async function seed(directory: Directory, input: Data) {
   return {document,...scope,marketIds,originKey,
     firmId:opportunity?.firmId || null,repId:opportunity?.repId || null,
     archiveId:opportunity?.archiveId ? String(opportunity.archiveId) : null,seed:history?.source ?? null};
+}
+
+async function researchResponse(directory: Directory, params: URLSearchParams, memberClient: OrderContext['supabase'],
+  { clientId, marketId, year }: { clientId: string; marketId: string; year: number },
+  filters: Pick<ResearchQuery, 'selection' | 'shortlist'> = {}) {
+  return json(await loadOrderResearch(directory,params,memberClient,{clientId,marketId,year},filters));
 }
 
 export async function GET(request: Request) {
@@ -159,11 +143,55 @@ export async function GET(request: Request) {
     const client = findClient(directory, clientId);
     const marketId = get('marketId');
     if (marketId) ensureMarket(client, marketId);
+    const marketDirectory = () => clients.flatMap(item => item.marketIds).filter(id => marketNames[id])
+      .map(id => ({id,name:marketNames[id]}));
+    if (view === 'campaign-budget') {
+      const marketIds = (client.marketIds as string[]).filter(id => Object.hasOwn(marketNames, id));
+      const origin = ['broadcast', clientId, year, 'market'].join('|') + '|';
+      const [archive, drafts] = await Promise.all([
+        loadOrderArchive(),
+        marketIds.length ? ctx.admin.from('ff_order_drafts').select('origin_key, market_ids, lines:document->lines')
+          .eq('client_id', clientId).eq('year', year).eq('workflow', 'broadcast').in('origin_key', marketIds.map(id => origin + id))
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (!archive) throw new StorageError('The broadcast order archive is unavailable.');
+      if (drafts.error) throw new StorageError('Unable to load campaign order budgets.');
+      const current = new Map((drafts.data as { origin_key: string; market_ids: string[]; lines: OrderLine[] }[])
+        .filter(order => order.market_ids.length === 1).map(order => [order.origin_key, order.lines]));
+      const amounts = marketIds.map(id=>{
+        const previous=archiveOrderSeed(archive,directory,{archiveId:'',workflow:'broadcast',clientId,year,marketIds:[id]});
+        const baseline=orderTotal({...previous.header,lines:previous.lines});
+        const saved = current.get(origin + id);
+        const lines = saved ? saved.filter(line => line.media === 'TV' || line.media === 'Radio') : previous.lines;
+        const actual = saved ? orderTotal({ ...previous.header, lines }) : baseline;
+        return [id,{baseline,actual,placements:lines.length}] as const;
+      });
+      return json({priorYear:year>archive.year?archive.year:null,markets:Object.fromEntries(amounts)});
+    }
     if (view === 'seed') {
-      const draft = await seed(directory,{clientId,year,marketId,workflow:get('workflow'),step:get('step'),key:get('key')||get('seed'),archiveId:get('archiveId')});
-      const state = await ctx.orders.readWorkspace(clientId,year);
-      const existing = state.orders.find(o => o.originKey === draft.originKey);
-      return json({...draft,order:existing ? stripPrivate(await ctx.orders.readOrder(existing.id)) : null});
+      const campaignId=get('campaignId');
+      const [draft, campaign] = await Promise.all([
+        seed(directory,{clientId,year,marketId,workflow:get('workflow'),step:get('step'),key:get('key')||get('seed'),archiveId:get('archiveId')}),
+        campaignId ? ctx.directoryStore.get(campaignKey(campaignId)) : null]);
+      const existing = await ctx.admin.from('ff_order_drafts').select('id')
+        .eq('client_id', clientId).eq('year', year).eq('workflow', draft.workflow).eq('origin_key', draft.originKey).maybeSingle();
+      if (existing.error) throw new StorageError('Unable to look up the saved order.');
+      const details=campaign?.payload;
+      const market=details?.clientId===clientId&&details.year===year&&details.workflow===draft.workflow
+        ? details.markets.find((item:Data)=>item.marketId===marketId) : undefined;
+      if(market){
+        const dates=details!.regions?.[market.region];
+        draft.document.start=market.start||dates?.start||details!.start||'';
+        draft.document.end=market.end||dates?.end||details!.end||'';
+      }
+      const marketProposed=draft.workflow==='broadcast'&&!draft.archiveId ? market?.override??orderTotal(draft.document) : undefined;
+      const scope = get('includeScope') === '1' ? { clients, clientId, year, markets: marketDirectory(), orders: [], calendars: [], canEdit: true } : undefined;
+      return json({...draft,marketProposed,scope,order:existing.data ? stripPrivate(await ctx.orders.readOrder(existing.data.id)) : null});
+    }
+    if (view === 'market-history') {
+      const media = get('media');
+      check(media === 'TV' || media === 'Radio', 'Choose TV or Radio history.');
+      return json(marketBroadcastHistory(await loadOrderArchive(), directory, { clientId, marketId, media, year: year - 1 }));
     }
     if (view === 'archive') {
       const archive = await loadOrderArchive();
@@ -171,32 +199,16 @@ export async function GET(request: Request) {
         media:get('media'),q:get('q').slice(0,200),page:Number(get('page')||1),
         workflow:get('workflow'),rep:get('rep'),firm:get('firm'),sort:get('sort')}));
     }
-    if (view === 'research') {
-      ensureMarket(client,marketId);
-      const workflow = workflowName(get('workflow'));
-      const sheet = get('sheet') || (workflow === 'digital' ? 'digital' : 'tv');
-      const scope = {clientId,marketId,year,workflow,sheet,page:Number(get('page')||1),q:get('q').slice(0,200),
-        rep:get('rep'),firm:get('firm'),primary:get('primary'),secondary:get('secondary'),sort:get('sort'),
-        quotesOnly:(sheet === 'radio' || sheet === 'tv') && get('avails') === '1'};
-      const research = workflow === 'broadcast' && !['station-history','digital-history','digital'].includes(sheet)
-        ? await broadcastOrderResearch(directory,scope,loadWorkbookPage,
-          sheet === 'radio' ? (await loadOrderArchive())?.radioQuoteDetails : undefined)
-        : orderResearch(await loadOrderArchive(),directory,scope);
-      const key = ordersSecret();
-      return json({...research,rows:research.rows.map(row=>({
-        ...row,line:row.line && attestLine(row.line,scope,key),
-        periods:row.periods?.map(period=>({...period,line:attestLine(period.line,scope,key)})),
-      }))});
-    }
+    if (view === 'research') return await researchResponse(directory, params, ctx.supabase, {clientId,marketId,year});
     check(view === 'workspace','Unknown Orders view.');
+    if (get('scope') === 'directory') return json({ clients, clientId, year, markets: marketDirectory(), orders: [], calendars: [], canEdit: true });
     const [state,archive,legacy] = await Promise.all([
       ctx.orders.readWorkspace(clientId,year),loadOrderArchive().catch(() => null),ctx.directoryStore.list('campaign_order'),
     ]);
     return json({
       ...state,clients,clientId,year,
-      markets:clients.flatMap(item => item.marketIds).filter(id => marketNames[id])
-        .map(id => ({id,name:marketNames[id]})),
-      opportunities:await orderOpportunities(archive,directory,{clientId,year}),
+      markets:marketDirectory(),
+      opportunities:await orderOpportunities(archive,directory,{clientId,year,marketWide:true}),
       legacyOrders:legacy.map(row=>legacySummary(row,clientId,year)).filter(row=>row&&client.marketIds.includes(row.marketId)),
       canEdit:true,
     });
@@ -273,6 +285,28 @@ export async function POST(request: Request) {
       chunks.push(value);
     }
     const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const params = new URL(request.url).searchParams;
+    if (params.get('view') === 'research') {
+      check(object(input) && (input.mode !== undefined || input.shortlist !== undefined), 'Choose a valid research selection.');
+      const filters: Pick<ResearchQuery, 'selection' | 'shortlist'> = {};
+      if (input.mode !== undefined) {
+        check((input.mode === 'selected' || input.mode === 'unselected') && Array.isArray(input.keys)
+          && input.keys.length <= 200 && input.keys.every((key: unknown) => typeof key === 'string' && key.length <= 4000),
+        'Choose a valid research selection.');
+        filters.selection = { mode: input.mode, keys: new Set<string>(input.keys) };
+      }
+      if (input.shortlist !== undefined) {
+        const shortlist = input.shortlist;
+        check(object(shortlist) && (shortlist.mode === 'shortlisted' || shortlist.mode === 'unshortlisted')
+          && Array.isArray(shortlist.ids) && shortlist.ids.every((id: unknown) => typeof id === 'string' && id.length <= 400),
+        'Choose a valid research shortlist.');
+        filters.shortlist = { mode: shortlist.mode, ids: new Set<string>(shortlist.ids) };
+      }
+      const { data: directory } = await ctx.share.directory();
+      return await researchResponse(directory, params, ctx.supabase, {
+        clientId: params.get('clientId') ?? '', marketId: params.get('marketId') ?? '', year: yearNumber(params.get('year')),
+      }, filters);
+    }
     check(object(input) && commands.has(input.action),'Unknown Orders action.');
     requireId(input.operationId);
     const action = input.action;

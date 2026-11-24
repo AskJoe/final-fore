@@ -4,8 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Campaign | Final Fore</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/campaign.css?v=campaign-1">
-  <script src="/campaign.js?v=campaign-1" defer></script>
+  <link rel="stylesheet" href="/campaign.css?v=campaign-workflow-layout">
+  <script src="/campaign.js?v=campaign-workflow" defer></script>
 <style id="workbook-navigation-styles">
 /* One shared left navigation. Page state never changes its dimensions. */
 body{--sidebar-width:164px;padding:0 0 0 var(--sidebar-width);min-width:0}
@@ -67,26 +67,45 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
 }
 </style>
 </head>
-<body>
+<body class="campaign-page">
   <header class="app-header">
-    <div class="identity"><span class="brand-mark" aria-hidden="true">ff</span><strong>Final Fore</strong><span class="divider"></span><h1>Campaign</h1></div>
-    <div class="campaign-actions"><label class="sr-only" for="campaign-picker">Saved campaigns</label><select id="campaign-picker"><option value="">New campaign</option></select><button id="new-campaign">New campaign</button><button id="save-campaign" class="primary" disabled>Save draft</button><span id="save-status" role="status">Loading…</span></div>
+    <div class="identity"><span class="brand-mark" aria-hidden="true">ff</span><strong>Final Fore</strong><span class="divider"></span><h1>Campaign</h1>
+      <label class="sr-only" for="campaign-workflow">Campaign type</label>
+      <select id="campaign-workflow"><option value="" selected disabled>Choose campaign type</option><option value="digital">Digital</option><option value="broadcast">Broadcast (TV / radio)</option></select>
+    </div>
+    <div class="campaign-actions" id="campaign-actions" hidden>
+      <label class="campaign-picker-label">Saved campaigns <select id="campaign-picker"><option value="">Select draft</option></select></label>
+      <button type="button" id="new-campaign" class="text-action">New campaign</button>
+      <button type="button" id="save-campaign" class="text-action" disabled>Save draft</button>
+      <span id="save-status" role="status">Loading…</span>
+    </div>
   </header>
+  <nav class="campaign-view-nav" aria-label="Campaign views">
+    <a href="/campaign.html" aria-current="page">Campaign plan</a>
+    <a href="/campaign/calendar" id="campaign-calendar">Calendar</a>
+  </nav>
+  <details class="campaign-order-links" id="campaign-order-links" hidden>
+    <summary>Orders</summary>
+    <div><a id="order-list" href="/campaign/orders">Order list</a><a id="order-history" href="/campaign/orders?view=historical">Historical orders</a>
+      <a href="/orders.html">Legacy campaign orders</a><a href="/legacy-orders.html">Workbook orders</a></div>
+  </details>
   <main id="campaign-main" hidden>
     <form id="campaign-settings" class="settings" autocomplete="off">
-      <label class="name-field">Campaign name<input id="campaign-name" maxlength="120" required></label>
+      <label class="name-field">Name <input id="campaign-name" aria-label="Campaign name" maxlength="120" required></label>
       <label>Client<select id="client"></select></label>
-      <label>Franchise brand<input id="client-brand" readonly></label>
+      <label>Brand <input id="client-brand" aria-label="Franchise brand" readonly></label>
       <label class="year-field">Year<input id="campaign-year" type="number" min="2020" max="2100"></label>
-      <label class="budget-field">Total budget<input id="campaign-budget" inputmode="decimal" placeholder="Enter total budget"></label>
+      <label class="budget-field"><span id="campaign-budget-label">Total budget</span><input id="campaign-budget" inputmode="decimal" placeholder="Enter total budget"></label>
       <label>Start<input id="campaign-start" type="date"></label>
       <label>End<input id="campaign-end" type="date"></label>
     </form>
     <div id="message" role="alert" hidden></div>
     <div class="summary-line" aria-live="polite">
       <span><strong id="market-count">25</strong> markets</span>
-      <span>Allocated <strong id="allocated">$0.00</strong></span>
+      <span id="campaign-actual-wrap" hidden>Actual <strong id="campaign-actual"></strong></span>
+      <span><span id="allocated-label">Allocated</span> <strong id="allocated">$0.00</strong></span>
       <span id="remaining-wrap">Remaining <strong id="remaining"></strong></span>
+      <span id="campaign-gap-wrap" hidden>Difference <strong id="campaign-gap"></strong></span>
       <span id="incomplete"></span>
       <span class="grow"></span><span class="muted" id="history-label">History 2023–2026</span>
     </div>
@@ -99,24 +118,23 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
       <label class="sr-only" for="market-search">Find a market</label><input id="market-search" type="search" placeholder="Find a market">
       <label class="sr-only" for="region-filter">Filter by region</label><select id="region-filter"><option value="">All regions</option><option>South</option><option>Mid</option><option>North</option><option value="unassigned">Unassigned</option></select>
       <span id="visible-count" class="muted"></span><span class="grow"></span>
-      <span class="input-key"><i aria-hidden="true"></i>Click a value to edit</span><button id="add-market">Add market</button>
+      <button type="button" id="add-market" class="text-action">Add market</button>
     </div>
-    <table id="market-table">
+    <div class="campaign-market-viewport"><table id="market-table">
       <colgroup><col class="col-market"><col class="col-region"><col class="col-date"><col class="col-date"><col class="col-history"><col class="col-money"><col class="col-share"><col class="col-remove"></colgroup>
-      <thead><tr><th scope="col">Market</th><th scope="col">Region</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="number">History avg.</th><th scope="col" class="number">Allocation</th><th scope="col" class="number">Budget %</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead>
+      <thead><tr><th scope="col">Market</th><th scope="col">Region</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="number" id="baseline-heading">History avg.</th><th scope="col" class="number" id="target-heading">Allocation</th><th scope="col" class="number" id="actual-heading">Budget %</th><th scope="col" id="last-heading"><span class="sr-only">Remove</span></th></tr></thead>
       <tbody id="market-rows"></tbody>
-    </table>
+    </table></div>
     <p id="empty-filter" class="empty" hidden>No markets match these filters.</p>
-    <p class="table-note">Click a market name to plan its channels. Changing an allocation keeps that amount fixed and rebalances the others.</p>
+    <p class="table-note" id="allocation-note">Changing an allocation keeps that amount fixed and rebalances the others.</p>
   </main>
-  <p id="loading" class="empty">Loading campaign…</p>
+  <p id="loading" class="empty" role="status" hidden></p>
   <footer>
   <div class="sidebar-brand"><span class="sidebar-mark" aria-hidden="true">ff</span><div><strong>Final Fore</strong><span>Weed Man</span></div></div>
   <nav class="workbook-nav" aria-label="Main navigation">
     <a class="workbook-tab" href="/" data-tab="epic3" aria-label="EPIC3" title="EPIC3"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M3 8h14M8 3v14M3 12.5h14"/></svg><span class="nav-label">EPIC3</span></a>
     <a class="workbook-tab" id="markets-tab" href="/markets.html" data-tab="markets" aria-label="Markets" title="Markets"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 8c0 4-5.5 9-5.5 9S4.5 12 4.5 8a5.5 5.5 0 0 1 11 0Z"/><circle cx="10" cy="8" r="1.8"/></svg><span class="nav-label">Markets</span></a>
     <a class="workbook-tab" href="/campaign.html" data-tab="campaign" aria-label="Campaign" title="Campaign" aria-current="page"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 17V3m0 0h11l-2 4 2 4H4"/></svg><span class="nav-label">Campaign</span></a>
-    <a class="workbook-tab" href="/orders.html" data-tab="orders" aria-label="Orders" title="Orders"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3V17H5zM12 2.5V6h3M7.5 9h5M7.5 12h5M7.5 15h3"/></svg><span class="nav-label">Orders</span></a>
     <a class="workbook-tab" href="/data.html" data-tab="data" data-view-link="data" aria-label="Reporting data" title="Reporting data"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M3 7h14M7 7v10M10 10h4M10 13.5h4"/></svg><span class="nav-label">Reporting data</span></a>
     <a class="workbook-tab" href="/dashboard.html" data-tab="dashboard" data-view-link="dashboard" aria-label="Dashboard" title="Dashboard"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3v14h14M6 13V9M10 13V5M14 13V7"/></svg><span class="nav-label">Dashboard</span></a>
   </nav>

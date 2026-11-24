@@ -29,7 +29,7 @@ export class Service {
       return result;
     }
     if (path === 'campaign-order/options') return OPTIONS;
-    if (path === 'campaigns') return { campaigns: (await this.store.list('campaign')).sort((a,b)=>b.updated_at.localeCompare(a.updated_at)).map(r=>({ id:r.payload.id, name:r.payload.name, clientId:r.payload.clientId==='weed-man'?'epic3':r.payload.clientId,year:r.payload.year, updatedAt:r.updated_at })) };
+    if (path === 'campaigns') return { campaigns: (await this.store.list('campaign')).sort((a,b)=>b.updated_at.localeCompare(a.updated_at)).map(r=>({ id:r.payload.id, name:r.payload.name, clientId:r.payload.clientId==='weed-man'?'epic3':r.payload.clientId,year:r.payload.year,workflow:r.payload.workflow??'digital',updatedAt:r.updated_at })) };
     if (path === 'campaign') return campaigns.calculate(directory.campaignClient((await this.required(campaignKey(query.get('id') ?? ''))).payload,(await this.directory()).data));
     if (path === 'campaign-order') {
       const id = query.get('campaign') ?? '', market = query.get('market') ?? '';
@@ -71,6 +71,7 @@ export class Service {
       const {record:directoryRecord,data}=await this.directory();
       const result = campaigns.calculate(directory.campaignClient(payload,data)), d = result.details;
       const current = d.id ? await this.required(campaignKey(d.id)) : null;
+      if(current)check((current.payload.workflow??'digital')===(d.workflow??'digital'),'Choose a new campaign to change its workflow.');
       if(!current||current.payload.clientId!==d.clientId&&!(current.payload.clientId==='weed-man'&&d.clientId==='epic3'))check(data.clients.some(c=>c.id===d.clientId&&c.active),'Choose an active client.');
       if (d.revision !== (current?.payload.revision ?? 0)) throw new Conflict('This campaign changed in another window. Reopen it before saving.');
       d.id ??= randomUUID(); d.revision++;

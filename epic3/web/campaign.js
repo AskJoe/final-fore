@@ -6,9 +6,11 @@ const percent=n=>n==null?'':new Intl.NumberFormat('en-US',{style:'percent',minim
 const dateText=s=>s?`${Number(s.slice(5,7))}/${Number(s.slice(8,10))}/${s.slice(2,4)}`:'';
 const clone=x=>JSON.parse(JSON.stringify(x));
 let catalog,draft,view,blankDraft,dirty=false,saving=false,valid=true,sequence=0,pending=false;
+let workflow='',savedCampaigns=[],broadcastScope,broadcastBudget;
 let expanded=new Set(),invalidInputs=new Map();
 const inputKey=input=>input.id||input.getAttribute('aria-label');
 const recoveryPrefix='ffm.campaign.recovery.v1.',activeCampaignKey='ffm.campaign.active.v1';
+const workflowKey='ffm.campaign.workflow.v1';
 let autosaveTimer,saveTask=null,editVersion=0,recoveryAvailable=true,lastRecalculation=Promise.resolve();
 
 async function api(path,body){
@@ -18,13 +20,37 @@ async function api(path,body){
 }
 function message(value){$('message').textContent=value;$('message').hidden=!value;}
 function status(value){$('save-status').textContent=value;}
+const isBroadcast=()=>workflow==='broadcast';
+const isWorkflow=value=>value==='digital'||value==='broadcast';
+const activeKey=()=>activeCampaignKey+(isBroadcast()?'.broadcast':'');
+function planUrl(type=workflow,id){
+ const params=new URLSearchParams();if(type)params.set('workflow',type);if(id)params.set('id',id);
+ return '/campaign.html'+(params.size?'?'+params:'');
+}
 function buttons(){
  $('save-campaign').disabled=saving||!valid||!!invalidInputs.size||!dirty;
  $('new-campaign').disabled=saving;$('campaign-picker').disabled=saving;
  $('campaign-main').inert=false;
+ if(draft){
+  $('campaign-calendar').href=calendarUrl();
+  $('order-list').href=ordersUrl();$('order-history').href=ordersUrl(null,'historical');
+  document.querySelectorAll('a.market-order').forEach(link=>{link.href=ordersUrl(link.closest('[data-market]').dataset.market);});
+ }
 }
-function rememberCampaign(id){try{localStorage.setItem(activeCampaignKey,id||'new');}catch{}}
-function recoveryKey(id){return recoveryPrefix+(id||'new');}
+function campaignScope(){
+ const params=new URLSearchParams({clientId:draft.clientId==='weed-man'?'epic3':draft.clientId,year:String(draft.year),workflow});
+ if(draft.id)params.set('campaignId',draft.id);
+ return params;
+}
+function calendarUrl(){return '/campaign/calendar?'+campaignScope();}
+function ordersUrl(marketId,section){
+ const params=campaignScope();
+ if(marketId)params.set('marketId',marketId);
+ if(section)params.set('view',section);
+ return '/campaign/orders?'+params;
+}
+function rememberCampaign(id){try{localStorage.setItem(activeKey(),id||'new');}catch{}}
+function recoveryKey(id){return recoveryPrefix+(id||(isBroadcast()?'new.broadcast':'new'));}
 function pendingEditor(){
  const input=document.activeElement;if(!input||!('value' in input)||!input.dataset.userEdited)return null;
  const settings={'campaign-name':'name','campaign-year':'year','campaign-budget':'budget','campaign-start':'start','campaign-end':'end'};
@@ -76,11 +102,32 @@ function readMoney(value){
 }
 function inputError(input,error){invalidInputs.set(inputKey(input),input.value);input.setAttribute('aria-invalid','true');message(error.message);markDirty();}
 function clearInputError(input){invalidInputs.delete(inputKey(input));input.removeAttribute('aria-invalid');}
+async function withBroadcastBudget(result){
+ if(!isBroadcast())return result;
+ const {clientId,year}=result.details;
+ const scope=new URLSearchParams({view:'campaign-budget',clientId,year:String(year)}).toString();
+ if(scope!==broadcastScope||!broadcastBudget){
+  broadcastScope=scope;
+  const pending=api('/api/orders?'+scope);
+  broadcastBudget=pending;
+  pending.catch(()=>{if(broadcastBudget===pending)broadcastBudget=null;});
+ }
+ const budget=await broadcastBudget;
+ const rows=result.rows.map(row=>{
+  const {baseline,actual,placements}=budget.markets[row.marketId];
+  const allocation=row.override??baseline;
+  return {...row,baseline,actual,placements,allocation,gap:allocation-actual};
+ });
+ const sum=key=>rows.reduce((total,row)=>total+row[key],0);
+ const proposed=result.details.budget??sum('baseline');
+ return {...result,rows,priorYear:budget.priorYear,proposed,actual:sum('actual'),allocated:sum('allocation'),remaining:proposed-sum('allocation')};
+}
 async function calculatePreview(rebuild=false){
  const token=++sequence;pending=true;buttons();
  try{
-  const result=await api('/api/campaign/preview',draft);
+  const result=await withBroadcastBudget(await api('/api/campaign/preview',draft));
   if(token!==sequence)return;
+  if(isBroadcast())draft.markets=result.details.markets;
   view=result;valid=true;if(!invalidInputs.size)message('');
   if(rebuild)renderRows();else updateRows();
   renderSummary();
@@ -96,7 +143,7 @@ function settings(){
  const clientId=draft.clientId==='weed-man'?'epic3':draft.clientId;
  $('client').replaceChildren();for(const c of catalog.clients.filter(c=>c.active||c.id===clientId))$('client').append(new Option(c.name+(c.active?'':' (inactive)'),c.id));$('client').value=clientId;
  $('client-brand').value=catalog.clients.find(c=>c.id===clientId)?.brand||'';
- $('campaign-name').value=draft.name;$('campaign-year').value=draft.year;$('campaign-budget').value=currency(draft.budget);
+ $('campaign-name').value=draft.name;$('campaign-year').value=draft.year;$('campaign-budget').value=currency(isBroadcast()?view.proposed:draft.budget);
  $('campaign-start').value=draft.start;$('campaign-end').value=draft.end;
  $('regions').replaceChildren();
  for(const region of catalog.regions){
@@ -116,15 +163,23 @@ function settings(){
 function renderSummary(){
  $('market-count').textContent=draft.markets.length;$('allocated').textContent=currency(view.allocated);
  $('remaining').textContent=view.remaining==null?'':currency(Math.abs(view.remaining));
- $('remaining-wrap').firstChild.textContent=view.remaining<0?'Over budget ':'Remaining ';
+ $('remaining-wrap').firstChild.textContent=view.remaining<0?'Over budget ':isBroadcast()?'Unassigned ':'Remaining ';
  $('remaining-wrap').classList.toggle('over',view.remaining<0);
+ $('counts').textContent=`${draft.markets.length} markets`;
+ if(isBroadcast()){
+  $('campaign-actual').textContent=currency(view.actual);
+  $('campaign-gap').textContent=currency(view.proposed-view.actual);
+  $('history-label').textContent=view.priorYear?`From ${view.priorYear} broadcast orders`:'No earlier broadcast orders';
+  $('baseline-heading').textContent=view.priorYear?`${view.priorYear} orders`:'Prior orders';
+  if(document.activeElement!==$('campaign-budget')&&!invalidInputs.has('campaign-budget'))$('campaign-budget').value=currency(view.proposed);
+  return;
+ }
  const needs=[];
  if(draft.budget==null)needs.push('Enter total budget to fill allocations');
  else if(view.needsAllocation)needs.push(`${view.needsAllocation} ${view.needsAllocation===1?'market needs':'markets need'} an allocation`);
  if(draft.budget!=null&&view.needsDates)needs.push(`${view.needsDates} ${view.needsDates===1?'market needs':'markets need'} dates`);
  $('incomplete').textContent=needs.join(' · ');
  $('history-label').textContent=view.years.length?`History ${view.years[0]}–${view.years.at(-1)}`:'No earlier budget history';
- $('counts').textContent=`${draft.markets.length} markets`;
 }
 function field(row,key,label,type='text'){
  const input=make('input','','inline-input');input.type=type;input.dataset.key=key;input.setAttribute('aria-label',`${row.name} ${label}`);
@@ -246,37 +301,54 @@ function marketHistoryRow(row){
 function rowMatches(row){const q=$('market-search').value.trim().toLowerCase(),region=$('region-filter').value;return (!q||row.name.toLowerCase().includes(q))&&(!region||(region==='unassigned'?!row.region:row.region===region));}
 function renderRows(){
  const body=$('market-rows');body.replaceChildren();const rows=view.rows.filter(rowMatches);
+ const assigned=new Set(catalog.clients.find(c=>c.id===$('client').value)?.marketIds||[]);
  for(const row of rows){
   const tr=make('tr');tr.dataset.market=row.marketId;
   const cell=(label,cls='')=>{const td=make('td','',cls);td.dataset.label=label;tr.append(td);return td;};
-  const name=make('button',row.name,'market-name');name.type='button';name.setAttribute('aria-expanded',expanded.has(row.marketId));name.setAttribute('aria-label',`${row.name} channels`);
-  name.addEventListener('click',()=>{
+  const name=make(assigned.has(row.marketId)?'a':'span',row.name,'market-order');
+  if(name instanceof HTMLAnchorElement)name.href=ordersUrl(row.marketId);
+  const channels=make('button','Channels','text-action market-channels');channels.type='button';channels.setAttribute('aria-expanded',expanded.has(row.marketId));channels.setAttribute('aria-label',`${row.name} channels`);
+  channels.addEventListener('click',()=>{
    if(expanded.has(row.marketId)){expanded.delete(row.marketId);tr.nextElementSibling?.dataset.detail===row.marketId&&tr.nextElementSibling.remove();}
    else{expanded.add(row.marketId);tr.after(detailRow(view.rows.find(r=>r.marketId===row.marketId)));}
-   name.setAttribute('aria-expanded',expanded.has(row.marketId));
+   channels.setAttribute('aria-expanded',expanded.has(row.marketId));
    cacheCampaignView();
-  });cell('Market').append(name);
+  });
+  const market=cell('Market');market.append(name);
+  if(isBroadcast())market.append(make('small',placementCount(row),'market-placement-count'));else market.append(channels);
   const region=make('select','','inline-input');selectOptions(region,catalog.regions,'');region.value=row.region;region.setAttribute('aria-label',row.name+' region');
   region.addEventListener('change',()=>{draft.markets.find(r=>r.marketId===row.marketId).region=region.value;markDirty();recalculate();});cell('Region').append(region);
   cell('Start').append(field(row,'start','start','date'));cell('End').append(field(row,'end','end','date'));
-  const avg=cell('History avg.','number average');avg.textContent=percent(row.average);avg.classList.toggle('blank-result',row.average==null);
-  const amount=make('div','','amount-cell');amount.classList.toggle('manual',!row.automatic);amount.append(field(row,'override','allocation'));
+  const avg=cell($('baseline-heading').textContent,'number average');avg.textContent=isBroadcast()?currency(row.baseline):percent(row.average);avg.classList.toggle('blank-result',!isBroadcast()&&row.average==null);
+  const amount=make('div','','amount-cell');amount.classList.toggle('manual',!isBroadcast()&&!row.automatic);amount.append(field(row,'override',isBroadcast()?'proposed budget':'allocation'));
   const reset=make('button','Reset','reset-budget');reset.type='button';reset.hidden=row.automatic;reset.setAttribute('aria-label',`Reset ${row.name} allocation`);reset.title='Use the automatic allocation';
-  reset.addEventListener('click',()=>{draft.markets.find(r=>r.marketId===row.marketId).override=null;markDirty();recalculate();});amount.append(reset);cell('Allocation','number').append(amount);
-  const share=cell('Budget %','number share');share.textContent=percent(row.share);share.classList.toggle('blank-result',row.share==null);
+  reset.addEventListener('click',()=>{draft.markets.find(r=>r.marketId===row.marketId).override=null;markDirty();recalculate();});
+  if(!isBroadcast())amount.append(reset);cell(isBroadcast()?'Proposed':'Allocation','number').append(amount);
+  const share=cell(isBroadcast()?'Actual':'Budget %','number share');share.textContent=isBroadcast()?currency(row.actual):percent(row.share);share.classList.toggle('blank-result',!isBroadcast()&&row.share==null);
+  if(isBroadcast()){cell('Proposed − actual','number market-gap').textContent=currency(row.gap);body.append(tr);continue;}
   const remove=make('button','×','remove');remove.type='button';remove.setAttribute('aria-label',`Remove ${row.name}`);
   remove.addEventListener('click',()=>{draft.markets=draft.markets.filter(r=>r.marketId!==row.marketId);expanded.delete(row.marketId);for(const n of tr.querySelectorAll('input'))invalidInputs.delete(inputKey(n));markDirty();recalculate(true);});cell('Remove').append(remove);
   body.append(tr);if(expanded.has(row.marketId))body.append(detailRow(row));
  }
  $('empty-filter').hidden=!!rows.length;$('visible-count').textContent=rows.length===view.rows.length?'':`${rows.length} of ${view.rows.length} markets · totals include all`;
 }
+const placementCount=row=>row.placements?`${row.placements} ${row.placements===1?'placement':'placements'}`:'No broadcast placements';
 function updateRows(){
  for(const row of view.rows){
   const tr=[...$('market-rows').children].find(n=>n.dataset.market===row.marketId);if(!tr)continue;
-  const amount=tr.querySelector('.amount-cell');amount.classList.toggle('manual',!row.automatic);amount.querySelector('button').hidden=row.automatic;
+  if(!isBroadcast()){
+   const amount=tr.querySelector('.amount-cell');amount.classList.toggle('manual',!row.automatic);amount.querySelector('button').hidden=row.automatic;
+  }
   for(const input of tr.querySelectorAll('input')){
    if(input===document.activeElement||invalidInputs.has(inputKey(input)))continue;
    input.value=input.dataset.key==='override'?currency(row.allocation):row[input.dataset.key]||'';input.dataset.displayed=input.value;
+  }
+  if(isBroadcast()){
+   const previous=tr.querySelector('.average');previous.textContent=currency(row.baseline);previous.dataset.label=$('baseline-heading').textContent;
+   tr.querySelector('.share').textContent=currency(row.actual);
+   tr.querySelector('.market-gap').textContent=currency(row.gap);
+   tr.querySelector('.market-placement-count').textContent=placementCount(row);
+   continue;
   }
   tr.querySelector('.average').textContent=percent(row.average);tr.querySelector('.average').classList.toggle('blank-result',row.average==null);
   tr.querySelector('.share').textContent=percent(row.share);tr.querySelector('.share').classList.toggle('blank-result',row.share==null);
@@ -286,23 +358,27 @@ function updateRows(){
 function adopt(result){
  clearTimeout(autosaveTimer);
  sequence++;pending=false;view=result;draft=clone(result.details);dirty=false;valid=true;invalidInputs.clear();expanded.clear();
- settings();renderRows();renderSummary();message('');status(draft.id?'Saved locally':'New campaign');buttons();
+ settings();renderSummary();renderRows();message('');status(draft.id?'Saved locally':'New campaign');buttons();
  $('campaign-picker').value=draft.id||'';
  rememberCampaign(draft.id);
 }
-async function campaignList(){
- const data=await api('/api/campaigns');const select=$('campaign-picker');select.replaceChildren();const fresh=make('option','New campaign');fresh.value='';select.append(fresh);
- for(const c of data.campaigns){const o=make('option',c.name);o.value=c.id;select.append(o);}select.value=draft?.id||'';
+async function campaignList(loaded){
+ savedCampaigns=loaded??(await api('/api/campaigns')).campaigns;
+ const select=$('campaign-picker');select.replaceChildren(new Option('Select draft',''));
+ for(const c of savedCampaigns.filter(c=>(c.workflow??'digital')===workflow))select.append(new Option(c.name,c.id));
+ select.value=draft?.id||'';
 }
 function discard(){return !dirty||window.confirm('Leave this campaign without saving your changes?');}
 async function openCampaign(id,{fresh=false}={}){
  const recovery=fresh?null:readRecovery(id);
- const result=id?await api('/api/campaign?id='+encodeURIComponent(id)):clone(blankDraft);adopt(result);
+ const result=id?await api('/api/campaign?id='+encodeURIComponent(id)):isBroadcast()
+  ? await api('/api/campaign/preview',{...blankDraft.details,workflow,markets:[]}):clone(blankDraft);
+ adopt(await withBroadcastBudget(result));
  if(recovery?.details){
   draft=clone(recovery.details);invalidInputs=new Map(recovery.invalid||[]);
   try{applyPendingEditor(recovery.pending);}catch{}
-  try{view=await api('/api/campaign/preview',draft);valid=true;}
-  catch(error){valid=false;message(error.message);if(recovery.base)try{view=await api('/api/campaign/preview',recovery.base);}catch{}}
+  try{view=await withBroadcastBudget(await api('/api/campaign/preview',draft));valid=true;}
+  catch(error){valid=false;message(error.message);if(recovery.base)try{view=await withBroadcastBudget(await api('/api/campaign/preview',recovery.base));}catch{}}
   dirty=true;editVersion++;settings();renderRows();renderSummary();status('Recovered changes');buttons();
   if(recovery.pending&&invalidInputs.has(recovery.pending.inputKey)){
    const input=[...document.querySelectorAll('input')].find(e=>inputKey(e)===recovery.pending.inputKey);
@@ -311,7 +387,7 @@ async function openCampaign(id,{fresh=false}={}){
   cacheRecovery();if(valid&&!invalidInputs.size)queueAutosave();
  }
  restoreCampaignView(fresh);
- history.replaceState(null,'',id?'/campaign.html?id='+encodeURIComponent(id):'/campaign.html');
+ history.replaceState(null,'',planUrl(workflow,id));
 }
 async function saveCampaign(){
  clearTimeout(autosaveTimer);
@@ -322,12 +398,17 @@ async function saveCampaign(){
  try{applyPendingEditor(pendingEditor());}catch(error){message(error.message);status('Check amount');cacheRecovery();buttons();return false;}
  if(!valid||invalidInputs.size){status('Changes kept on this computer');cacheRecovery();return false;}
  const submitted=clone(draft),version=editVersion,oldId=draft.id;
+ if(isBroadcast()){
+  submitted.budget??=view.proposed;
+  const rows=new Map(view.rows.map(row=>[row.marketId,row]));
+  for(const item of submitted.markets)item.override??=rows.get(item.marketId)?.allocation??null;
+ }
  cacheRecovery();saving=true;status('Saving…');buttons();
  saveTask=(async()=>{
   try{
-   const result=await api('/api/campaign',submitted);
+   const result=await withBroadcastBudget(await api('/api/campaign',submitted));
    draft.id=result.details.id;draft.revision=result.details.revision;draft.channelVersion=result.details.channelVersion;
-   rememberCampaign(draft.id);cacheCampaignView();history.replaceState(null,'','/campaign.html?id='+encodeURIComponent(draft.id));
+   rememberCampaign(draft.id);cacheCampaignView();history.replaceState(null,'',planUrl(workflow,draft.id));
    if(version===editVersion){
     sequence++;pending=false;view=result;draft=clone(result.details);dirty=false;
     for(const input of document.querySelectorAll('input'))delete input.dataset.userEdited;
@@ -350,9 +431,10 @@ $('campaign-settings').addEventListener('submit',event=>event.preventDefault());
 $('client').addEventListener('change',()=>{
  const client=catalog.clients.find(c=>c.id===$('client').value);if(!client)return;
  const oldId=draft.clientId==='weed-man'?'epic3':draft.clientId;
- if(draft.markets.length&&!confirm('Change the campaign client? Existing market allocations remain; review that they belong in this client’s campaign.')){$('client').value=oldId;return;}
+ if(draft.markets.length&&!confirm(isBroadcast()?'Change the campaign client and load its market targets?':'Change the campaign client? Existing market allocations remain; review that they belong in this client’s campaign.')){$('client').value=oldId;return;}
  draft.clientId=client.id;draft.clientName=client.name;draft.brand=client.brand;$('client-brand').value=client.brand;
- if(!draft.markets.length)draft.markets=catalog.markets.filter(m=>client.marketIds.includes(m.id)).map(m=>({marketId:m.id,region:m.region,start:'',end:'',override:null}));
+ if(isBroadcast()){draft.markets=[];draft.budget=null;}
+ else if(!draft.markets.length)draft.markets=catalog.markets.filter(m=>client.marketIds.includes(m.id)).map(m=>({marketId:m.id,region:m.region,start:'',end:'',override:null}));
  markDirty();recalculate(true);
 });
 for(const [id,key] of [['campaign-name','name'],['campaign-year','year'],['campaign-budget','budget'],['campaign-start','start'],['campaign-end','end']]){
@@ -371,11 +453,19 @@ $('market-search').addEventListener('input',()=>{renderRows();cacheCampaignView(
 $('new-campaign').addEventListener('click',async()=>{await flushCampaign();if(discard()){removeRecovery(null);openCampaign('',{fresh:true}).catch(e=>message(e.message));}});
 $('campaign-picker').addEventListener('change',async()=>{const id=$('campaign-picker').value;await flushCampaign();if(dirty&&!cacheRecovery()){$('campaign-picker').value=draft.id||'';return;}try{await openCampaign(id);}catch(error){message(error.message);$('campaign-picker').value=draft.id||'';}});
 $('save-campaign').addEventListener('click',flushCampaign);
-document.querySelector('.workbook-nav').addEventListener('click',async event=>{
+async function followCampaignLink(event){
  const link=event.target.closest('a');if(!link||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+ const marketId=link.classList.contains('market-order')?link.closest('[data-market]').dataset.market:null;
  event.preventDefault();cacheCampaignView();await flushCampaign();
  if(dirty&&!cacheRecovery()){message('Unable to save this draft. Keep this page open and try Save draft again.');return;}
- location.href=link.href;
+ location.href=!draft?link.href:marketId?ordersUrl(marketId):link.id==='campaign-calendar'?calendarUrl():
+  link.id==='order-list'?ordersUrl():link.id==='order-history'?ordersUrl(null,'historical'):link.href;
+}
+document.querySelector('.workbook-nav').addEventListener('click',followCampaignLink);
+$('campaign-calendar').addEventListener('click',followCampaignLink);
+$('campaign-order-links').addEventListener('click',followCampaignLink);
+$('market-rows').addEventListener('click',event=>{
+ if(event.target.closest('a.market-order'))void followCampaignLink(event);
 });
 $('add-market').addEventListener('click',()=>{
  const selected=new Set(draft.markets.map(r=>r.marketId));const choice=$('market-choice');choice.replaceChildren();
@@ -393,14 +483,46 @@ $('add-form').addEventListener('submit',event=>{
  if(id==='custom')row.name=$('custom-name').value.trim();draft.markets.push(row);$('add-dialog').close();$('market-search').value='';$('region-filter').value='';markDirty();recalculate(true);
 });
 window.addEventListener('beforeunload',event=>{cacheCampaignView();if(dirty&&!cacheRecovery()){event.preventDefault();event.returnValue='';}});
-async function initialize(){
+window.addEventListener('pageshow',event=>{if(event.persisted&&draft&&isBroadcast()){broadcastBudget=null;void recalculate();}});
+$('campaign-workflow').addEventListener('change',async event=>{
+ const next=event.target.value;if(!isWorkflow(next)||next===workflow)return;
+ if(workflow&&draft){
+  await flushCampaign();
+  if(dirty&&!cacheRecovery()){event.target.value=workflow;message('Save this draft before changing campaign type.');return;}
+  location.assign(planUrl(next));return;
+ }
+ await initialize(next);
+});
+async function initialize(selected){
+ const params=new URLSearchParams(location.search),requested=params.get('id');
+ let rememberedType='';try{rememberedType=localStorage.getItem(workflowKey)||'';}catch{}
+ const chosen=selected||params.get('workflow')||rememberedType;
+ if(!isWorkflow(chosen)&&!requested){$('campaign-workflow').value='';return;}
+ $('campaign-workflow').disabled=true;
+ $('loading').textContent='Loading campaign…';$('loading').hidden=false;
  try{
-  const [data]=await Promise.all([api('/api/campaign/catalog'),campaignList()]);catalog=data.catalog;blankDraft=data.draft;
-  let remembered='';try{remembered=localStorage.getItem(activeCampaignKey)||'';}catch{}
-  const requested=new URLSearchParams(location.search).get('id');
-  const id=requested||(remembered!=='new'&&[...$('campaign-picker').options].some(o=>o.value===remembered)?remembered:'');
+  let loadedCampaigns;
+  if(requested&&!params.has('workflow')){
+   loadedCampaigns=(await api('/api/campaigns')).campaigns;
+   workflow=loadedCampaigns.find(c=>c.id===requested)?.workflow??'digital';
+  }else workflow=isWorkflow(chosen)?chosen:'digital';
+  $('campaign-workflow').value=workflow;
+  try{localStorage.setItem(workflowKey,workflow);}catch{}
+  const broadcast=isBroadcast(),main=$('campaign-main');main.dataset.workflow=workflow;
+  $('add-market').hidden=broadcast;$('allocation-note').hidden=broadcast;$('campaign-actual-wrap').hidden=!broadcast;$('campaign-gap-wrap').hidden=!broadcast;
+  if(broadcast){
+   $('campaign-budget-label').textContent='Proposed';$('campaign-budget').placeholder='';
+   main.querySelector('.summary-line').prepend(main.querySelector('.budget-field'));
+   $('allocated-label').textContent='Market targets';$('target-heading').textContent='Proposed';
+   $('actual-heading').textContent='Actual';$('last-heading').textContent='Proposed − actual';
+  }
+  const [data]=await Promise.all([api('/api/campaign/catalog'),campaignList(loadedCampaigns)]);catalog=data.catalog;blankDraft=data.draft;
+  let remembered='';try{remembered=localStorage.getItem(activeKey())||'';}catch{}
+  const id=requested&&[...$('campaign-picker').options].some(o=>o.value===requested)?requested:
+   ([...$('campaign-picker').options].some(o=>o.value===remembered)?remembered:'');
   await openCampaign(id||'');
-  $('campaign-main').hidden=false;$('loading').hidden=true;
+  main.hidden=false;$('campaign-actions').hidden=false;$('campaign-order-links').hidden=false;$('loading').hidden=true;
  }catch(error){$('loading').textContent=error.message;status('Unable to load');}
+ finally{$('campaign-workflow').disabled=false;}
 }
 initialize();

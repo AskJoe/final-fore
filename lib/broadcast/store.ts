@@ -12,26 +12,28 @@ type Snapshot = { revision: string; content: Promise<ResearchSheet | null> };
 const runtime = globalThis as typeof globalThis & { ffBroadcastSnapshots?: Map<SheetName, Snapshot> };
 const snapshots = runtime.ffBroadcastSnapshots ??= new Map<SheetName, Snapshot>();
 
-async function readSheet(client: SheetClient, name: SheetName) {
-  const table = () => client.from('ff_broadcast_research_sheets').select('imported_at').eq('batch_key', batchKey).eq('sheet', name);
+async function readSheet(client: SheetClient, name: SheetName, serverKey?:string) {
+  const table = () => client.from('ff_broadcast_research_sheets').select('imported_at,assistant_version').eq('batch_key', batchKey).eq('sheet', name);
   // RLS and membership are checked on every read, including a cache hit.
   const version = await table().maybeSingle();
   if (version.error) throw new StorageError('Unable to load Broadcast Research.');
   if (!version.data) return null;
-  const revision = version.data.imported_at;
+  const importedAt=version.data.imported_at,generation=version.data.assistant_version;
+  const revision=importedAt+'|'+(generation??'');
   const cached = snapshots.get(name);
   if (cached && cached.revision === revision) return cached.content;
   const content = (async () => {
     // Stream the PostgREST document. Buffering its full UTF-8 and UTF-16 copies
     // alongside the parsed rows exceeds the small production instance's memory.
-    const { data: { session } } = await client.auth.getSession();
-    if (!session) throw new StorageError('Unable to load Broadcast Research.');
+    const token=serverKey ?? (await client.auth.getSession()).data.session?.access_token;
+    if (!token) throw new StorageError('Unable to load Broadcast Research.');
     const { url, key } = supabaseConfig();
     const endpoint = new URL('/rest/v1/ff_broadcast_research_sheets', url);
     endpoint.search = new URLSearchParams({ select: 'content', batch_key: 'eq.' + batchKey, sheet: 'eq.' + name,
-      imported_at: 'eq.' + revision }).toString();
+      imported_at: 'eq.' + importedAt, ...(generation?{assistant_version:'eq.'+generation}:{}) }).toString();
     const response = await fetch(endpoint, {
-      headers: { apikey: key, Authorization: 'Bearer ' + session.access_token, Accept: 'application/vnd.pgrst.object+json' },
+      headers: { apikey: serverKey??key, ...(token.startsWith('sb_secret_')?{}:{Authorization:'Bearer '+token}),
+        Accept: 'application/vnd.pgrst.object+json' },
       signal: AbortSignal.timeout(60_000), cache: 'no-store',
     });
     if (!response.ok || !response.body) throw new StorageError('Unable to load Broadcast Research.');
@@ -45,11 +47,6 @@ async function readSheet(client: SheetClient, name: SheetName) {
     if (snapshots.get(name) === next) snapshots.delete(name);
     throw error;
   }
-}
-
-async function loadBroadcastSheet(name: Exclude<SheetName, 'radio' | 'tv'>) {
-  const {supabase} = await requireMember();
-  return {sheet: await readSheet(supabase, name), reviews: [] as SavedMarket[]};
 }
 
 type DatabasePage = Omit<WorkbookView, 'sections' | 'primaryLabel' | 'secondaryLabel'> & {lines: Entry[][]; reviews?: SavedMarket[]};
@@ -81,11 +78,10 @@ async function readPagedSheet(client: SheetClient, name: 'radio' | 'tv', query: 
   return {view: {...page, primaryLabel: primary?.label, secondaryLabel: secondary?.label, sections}, reviews};
 }
 
-export async function loadWorkbookPage(name: SheetName, query: ViewQuery) {
-  if (name === 'radio' || name === 'tv') {
-    const {supabase} = await requireMember();
-    return readPagedSheet(supabase, name, query);
-  }
-  const { sheet, reviews } = await loadBroadcastSheet(name);
+export async function loadWorkbookPage(name: SheetName, query: ViewQuery, memberClient?: SheetClient, serverKey?:string) {
+  const client = memberClient ?? (await requireMember()).supabase;
+  if (name === 'radio' || name === 'tv') return readPagedSheet(client, name, query);
+  const sheet = await readSheet(client, name, serverKey);
+  const reviews: SavedMarket[] = [];
   return { view: sheet ? workbookView(name, sheet, reviews, query) : null, reviews };
 }

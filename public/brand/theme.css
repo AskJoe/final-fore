@@ -95,3 +95,33 @@ body > footer:has(.ff-sidebar-brand) :is(.workbook-tab, .ff-sign-out > button):f
 .ff-workspace .directory-tabs [aria-current="page"] { color: var(--ff-action); border-color: var(--ff-magenta); }
 .ff-workspace .reference-note { background: var(--ff-surface); border-color: var(--ff-gold); color: var(--ff-muted); }
 .ff-workspace :is(button, a, input, textarea, select, summary):focus-visible { outline-color: var(--ff-violet); }
+
+.campaign-view-nav {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  padding-inline: 12px;
+  border-bottom: 1px solid var(--ff-line);
+  overflow-x: auto;
+}
+.campaign-view-nav[aria-label] > :is(a,button) {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ff-muted);
+  font: 12px/1.4 Arial, sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.campaign-view-nav[aria-label] > :is(a,button):hover { text-decoration: underline; }
+.campaign-view-nav[aria-label] > [aria-current="page"] {
+  border-bottom-color: var(--ff-action);
+  color: var(--ff-ink);
+  font-weight: 700;
+}

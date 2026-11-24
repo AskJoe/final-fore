@@ -1,16 +1,24 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { createContext,useContext,useCallback, useEffect, useRef, useState } from 'react';
+import { calculatedOrderCpm, replaceResearchLine, spreadsheetScheduleChanges } from '@/lib/orders/metrics';
 import type { OrderDetail, OrderDocument, OrderEvent, OrderIssue, OrderLine, OrderWorkflow } from '@/lib/orders/store';
+import { OrderAssistantChanges } from './OrderAssistantChanges';
+import { useDraftSync } from './useDraftSync';
+import { useOrderResearchState,assistantRequest } from './useOrderResearchState';
+import { parseEditorValue } from '@/lib/orders/editor-values';
+import type { ResearchView } from '@/lib/order-assistant/types';
 import { displayTime, OrdersDialog, type ClientOption, type MarketOption, type Mutate } from './OrderCalendar';
 import { OrderResearch, PriorBilling, quantity, Source, usd, type BillingReference } from './OrdersCatalog';
 
 export type OpenOrder = {
   document: OrderDocument; clientId: string; year: number; workflow: OrderWorkflow; marketIds: string[];
   originKey?: string; firmId?: string; repId?: string; archiveId?: string | null; seed?: unknown; order?: OrderDetail;
+  marketProposed?: number; editorKey?:string;
 };
 
 type OrderEditorProps = {
   selection: OpenOrder; client: ClientOption; markets: MarketOption[]; canEdit: boolean; busy: boolean;
-  fromCalendar: boolean; sheet: string; mutate: Mutate; onDirty: (dirty: boolean) => void; onBack: () => void;
+  fromCalendar: boolean; planUrl?: string; sheet: string; mutate: Mutate; onDirty: (dirty: boolean) => void; onBack: () => void;
+  onCancel?: () => void;
   onSave: (document: OrderDocument) => Promise<OrderDetail | undefined>;
   onUpdate: (order: OrderDetail) => void; onDownload: (issueId: string) => Promise<void>;
 };
@@ -27,7 +35,12 @@ const lineLabels = {
   spotsPerDay: 'Spots per day', spotsPerWeek: 'Spots per week', weeks: 'Weeks', audience: 'Audience', cpm: 'CPM',
 } as const;
 type LineKey = keyof typeof lineLabels;
-type FieldType = 'text' | 'date' | 'money' | 'number' | 'multiline';
+type FieldType = 'text' | 'date' | 'money' | 'number' | 'decimal' | 'multiline';
+const FieldRecovery=createContext<{fields:Record<string,string>;change:(key:string,value:string|null)=>void}>({fields:{},change:()=>{}});
+
+function PlacementCell({ label, children }: { label?: string; children: React.ReactNode }) {
+  return <td role="cell" data-label={label}>{children}</td>;
+}
 
 function same(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
@@ -36,55 +49,184 @@ function same(left: unknown, right: unknown) {
 function valueLabel(value: unknown, type: FieldType = 'text') {
   if (value === null || value === undefined || value === '') return '—';
   if (type === 'money' && typeof value === 'number') return usd.format(value / 100);
-  if (type === 'number' && typeof value === 'number') return quantity.format(value);
+  if ((type === 'number' || type === 'decimal') && typeof value === 'number') return quantity.format(value);
   return String(value);
 }
 
-function PaperValue({ value, type = 'text', label, changed, readOnly, onChange }: {
+function PaperValue({ value, type = 'text', label, changed, readOnly, onChange, missing, spreadsheet = false, max, fieldKey = label }: {
   value: string | number | null; type?: FieldType; label: string; changed?: boolean;
-  readOnly: boolean; onChange: (value: string | number | null) => void;
+  readOnly: boolean; onChange: (value: string | number | null) => void; missing?: string;
+  spreadsheet?: boolean; max?: number; fieldKey?:string;
 }) {
+  const recovery=useContext(FieldRecovery);
+  const raw=recovery.fields[fieldKey];
   const [editing, setEditing] = useState(false);
   const input = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  const editButton = useRef<HTMLButtonElement>(null);
   const original = useRef(value);
   useEffect(() => { if (editing) input.current?.focus(); }, [editing]);
+  const numeric = type === 'money' || type === 'number' || type === 'decimal';
+  function applyInput() {
+    const current=input.current;
+    if(!current)return false;
+    recovery.change(fieldKey,current.value);
+    const parsed=parseEditorValue(current.value,type,max);
+    current.setCustomValidity(parsed.valid?'':'Complete this field with a valid value.');
+    if(!parsed.valid)return false;
+    if(parsed.value!==value)onChange(parsed.value);
+    return true;
+  }
   const attrs = {
-    ref: input, 'aria-label': label, defaultValue: type === 'money' && typeof value === 'number' ? value / 100 : value ?? '',
-    onChange: () => {
-      const current = input.current;
-      if (!current?.validity.valid) return;
-      const next = type === 'money' || type === 'number'
-        ? (current.value === '' ? null : type === 'money' ? Math.round(Number(current.value) * 100) : Number(current.value))
-        : current.value;
-      if (next !== value) onChange(next);
-    },
+    ref: input, 'aria-label': label, defaultValue: raw ?? (type === 'money' && typeof value === 'number' ? value / 100 : value ?? ''),
+    onChange: () => { applyInput(); },
     onBlur: () => {
-      const current = input.current;
-      if (!current?.validity.valid) onChange(original.current);
+      if(applyInput())recovery.change(fieldKey,null);
       setEditing(false);
     },
     onKeyDown: (event: React.KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
+        recovery.change(fieldKey,null);
         onChange(original.current);
         setEditing(false);
+        if (spreadsheet) window.requestAnimationFrame(() => editButton.current?.focus());
       }
-      if (event.key === 'Enter' && type !== 'multiline') { event.preventDefault(); input.current?.blur(); }
+      if (event.key === 'Enter' && type !== 'multiline') {
+        event.preventDefault();
+        const cell = spreadsheet ? input.current?.closest<HTMLTableCellElement>('td[data-field]') : undefined;
+        const row = cell?.parentElement;
+        const adjacent = event.shiftKey ? row?.previousElementSibling : row?.nextElementSibling;
+        const next = cell && adjacent?.querySelector<HTMLButtonElement>(`td[data-field="${cell.dataset.field}"] button`);
+        input.current?.blur();
+        if (spreadsheet) window.requestAnimationFrame(() => (next?.isConnected ? next : editButton.current)?.focus());
+      }
     },
   };
-  return readOnly ? <span>{valueLabel(value, type)}</span>
+  const display=raw!==undefined ? raw+' (needs review)' : value==null && missing ? missing : valueLabel(value,type);
+  return readOnly ? <span>{display}</span>
     : editing && type === 'multiline' ? <textarea {...attrs} />
-    : editing ? <input {...attrs} type={type === 'date' ? 'date' : type === 'number' || type === 'money' ? 'number' : 'text'}
-      min={type === 'money' || type === 'number' ? 0 : undefined} step={type === 'money' ? '0.01' : type === 'number' ? '1' : undefined} />
-    : <button type="button" title={'Edit ' + label} aria-label={'Edit ' + label} onClick={() => { original.current = value; setEditing(true); }}
-      className="ow-paper-value" data-changed={changed}>
-      {valueLabel(value, type)}<span aria-hidden="true">✎</span>
+    : editing ? <input {...attrs} type="text" inputMode={numeric?'decimal':undefined} placeholder={type==='date'?'YYYY-MM-DD':undefined} aria-invalid={raw!==undefined&&!parseEditorValue(raw,type,max).valid}
+      min={numeric ? 0 : undefined} max={max} step={type === 'money' ? '0.01' : type === 'number' ? '1' : type === 'decimal' ? 'any' : undefined} />
+    : <button ref={editButton} type="button" title={'Edit ' + label} aria-label={'Edit ' + label} onClick={() => { original.current = value; setEditing(true); }}
+      className={spreadsheet ? 'ow-sheet-cell' : 'ow-paper-value'} data-changed={changed}>
+      {display}{!spreadsheet && <span aria-hidden="true">✎</span>}
     </button>;
+}
+
+const sheetHeaders = ['date', 'number', 'vendor', 'rep', 'terms', 'clientName', 'buyer', 'buyerEmail', 'billing', 'start', 'end', 'notes'] as const;
+const sheetPlacements = [
+  { key: 'station', title: 'Station' }, { key: 'program', title: 'Placement / program' },
+  { key: 'rate', title: 'Booked rate', type: 'money' },
+  { key: 'spotsPerWeek', title: 'Ads/wk', type: 'number', max: 100_000 },
+  { key: 'weeks', title: 'Weeks', type: 'decimal', max: 520 },
+  { key: 'amount', title: 'Total $', type: 'money' },
+  { key: 'quantity', title: 'Spots', type: 'number', max: 1_000_000_000 },
+  { key: 'impressions', title: 'Gross imps', type: 'number', max: 1_000_000_000 },
+  { key: 'calculatedCpm', title: 'Calc. CPM', type: 'money' },
+  { key: 'audience', title: 'Audience', type: 'number', max: 1_000_000_000 },
+  { key: 'reportedCpm', title: 'Rpt. CPM', type: 'money' },
+  { key: 'format', title: 'Format' }, { key: 'days', title: 'Run days' },
+  { key: 'start', title: 'Flight start', type: 'date' }, { key: 'end', title: 'Flight end', type: 'date' },
+] satisfies { key: keyof OrderLine; title: string; type?: FieldType; max?: number }[];
+
+function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, detailsOpen, onToggleDetails, onSelect, onHeader, onLine, onRemove, onAdd, readOnly }: {
+  document: OrderDocument; baseline: OrderDocument; markets: MarketOption[]; marketIds: string[];
+  selected: string | null; onSelect: (id: string) => void; onHeader: (key: HeaderKey, value: string) => void;
+  onLine: (id: string, change: Partial<OrderLine>) => void; onRemove: (id: string) => void; onAdd: () => void; readOnly: boolean;
+  detailsOpen: boolean; onToggleDetails: () => void;
+}) {
+  const multiMarket = marketIds.length > 1;
+  const amount = document.lines.reduce((sum, line) => sum + (bookedAmount(line) ?? 0), 0);
+  const impressions = document.lines.reduce((sum, line) => sum + (line.impressions ?? 0), 0);
+  const spots = document.lines.reduce((sum, line) => sum + (line.quantity ?? 0), 0);
+  return <section className="ow-order-sheet" aria-label="Order spreadsheet">
+    <div className="ow-sheet-toolbar">
+      <h3>Market order</h3>
+      <span>{document.lines.length} {document.lines.length === 1 ? 'placement' : 'placements'}</span>
+      <button className="ow-link ow-sheet-order-details" type="button" aria-expanded={detailsOpen}
+        aria-controls="ow-spreadsheet-header-fields" onClick={onToggleDetails}>Order details</button>
+      {!readOnly && <button type="button" className="ow-link" onClick={onAdd}>+ Add row</button>}
+    </div>
+    <div className="ow-sheet-header-fields" id="ow-spreadsheet-header-fields" hidden={!detailsOpen}>{sheetHeaders.map(key => <div key={key}>
+      <strong>{headerLabels[key]}</strong>
+      <PaperValue spreadsheet fieldKey={'header:'+key} label={headerLabels[key]} value={document[key]} readOnly={readOnly}
+        changed={document[key] !== baseline[key]} type={key === 'notes' ? 'multiline' : ['date', 'start', 'end'].includes(key) ? 'date' : 'text'}
+        onChange={value => onHeader(key, String(value ?? ''))} />
+    </div>)}</div>
+    <div className="ow-sheet-scroll" tabIndex={0} role="region" aria-label="Scroll order placements" onFocus={event => {
+      const cell = event.target.closest<HTMLTableCellElement>('td[data-field]');
+      if (cell && cell.dataset.field !== 'station') event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }}>
+      <table className="ow-sheet-table ow-order-grid" aria-label="Order spreadsheet placements">
+        <thead><tr>
+          {sheetPlacements.map(({ key, title }) => <th key={key} scope="col" data-field={key}
+            className={['amount', 'quantity', 'impressions', 'calculatedCpm'].includes(key) ? 'ow-sheet-derived' : undefined}>{title}</th>)}
+          <th scope="col">Channel</th>{multiMarket && <th scope="col">Market</th>}
+          {!readOnly && <th scope="col" className="ow-sheet-line-action">Action</th>}
+        </tr></thead>
+        <tbody>{document.lines.map((line, index) => <tr key={line.id} data-target={line.id === selected}
+          onClick={() => onSelect(line.id)} onFocus={() => onSelect(line.id)}>
+          {sheetPlacements.map(({ key, title, type, max }) => {
+            const scheduled = line.spotsPerWeek != null && line.weeks != null;
+            const formula = key === 'amount' || key === 'calculatedCpm' || key === 'reportedCpm'
+              || key === 'quantity' && scheduled || key === 'impressions' && line.audience != null && line.quantity != null;
+            const value = key === 'amount' ? bookedAmount(line) : key === 'calculatedCpm' ? calculatedOrderCpm(line)
+              : key === 'reportedCpm' ? line.reportedCpm ?? (line.reportedCpm === undefined && !line.source?.facts ? line.cpm : null) ?? null
+              : line[key] ?? null;
+            const numeric = type === 'money' || type === 'number' || type === 'decimal';
+            return <td key={key} data-field={key} data-numeric={numeric} className={formula ? 'ow-sheet-derived' : undefined}
+              title={value == null ? missingSource : undefined}>
+              <PaperValue spreadsheet fieldKey={'line:'+line.id+':'+key} value={value} label={title + ', line ' + (index + 1)} type={type} max={max}
+                readOnly={readOnly || formula} onChange={next => onLine(line.id, { [key]: next })} />
+            </td>;
+          })}
+          <td>{line.source || readOnly ? line.media : <select aria-label={'Channel, line ' + (index + 1)} value={line.media}
+            onChange={event => onLine(line.id, { media: event.target.value as OrderLine['media'] })}>
+            <option>TV</option><option>Radio</option>{line.media === 'Digital' && <option>Digital</option>}
+          </select>}</td>
+          {multiMarket && <td>{line.source || readOnly ? markets.find(market => market.id === line.marketId)?.name ?? line.marketId
+            : <select aria-label={'Market, line ' + (index + 1)} value={line.marketId}
+              onChange={event => onLine(line.id, { marketId: event.target.value })}>
+              {marketIds.map(id => <option key={id} value={id}>{markets.find(market => market.id === id)?.name ?? id}</option>)}
+            </select>}</td>}
+          {!readOnly && <td className="ow-sheet-line-action"><button type="button" className="ow-link ow-remove-line"
+            aria-label={'Remove line ' + (index + 1)} onClick={event => { event.stopPropagation(); onRemove(line.id); }}>Remove</button></td>}
+        </tr>)}</tbody>
+      </table>
+      {!document.lines.length && <p className="ow-empty">Add a row or select a research quote.</p>}
+    </div>
+    <div className="ow-sheet-totals">
+      <span>Gross total <strong>{valueLabel(amount, 'money')}</strong></span>
+      <span>{quantity.format(spots)} spots</span>
+      <span>{quantity.format(impressions)} imps</span>
+      {impressions > 0 && document.lines.every(line => line.impressions != null && bookedAmount(line) != null) &&
+        <span>{valueLabel(Math.round(amount * 1000 / impressions), 'money')} CPM</span>}
+    </div>
+  </section>;
 }
 
 function bookedAmount(line: OrderLine) {
   if (line.noCharge) return 0;
   return line.amount ?? (line.rate !== null && line.quantity !== null ? line.rate * line.quantity : null);
+}
+
+const missingSource='Not provided in source';
+function sourceMetric(value:number|null|undefined,money=false) {
+  return value==null ? <span className="ow-missing-data">{missingSource}</span> : valueLabel(value,money?'money':'number');
+}
+function SourceFacts({line}:{line:OrderLine}) {
+  const facts=line.source?.facts;
+  return facts?.length ? <dl className="ow-source-facts">{facts.map((fact,index)=>{
+    const value=fact.value===null || fact.value==='' ? fact.raw?.trim() || missingSource :
+      typeof fact.value==='number' ? fact.unit==='USD' ? usd.format(fact.value) : quantity.format(fact.value) : fact.value;
+    const exact=typeof fact.value==='number' && Number(String(value).replace(/[$,]/g,''))!==fact.value;
+    return <div key={index}><dt>{fact.label}{fact.derived && <small>Calculated</small>}</dt><dd>
+      <span>{value}</span>{fact.unit && fact.unit!=='USD' && <small>{fact.unit}</small>}
+      {exact && <small>Exact value: {String(fact.value)}</small>}
+      {fact.raw && fact.raw!==String(value) && <small>Source text: {fact.raw}</small>}
+      {fact.locator && <small>{fact.locator}</small>}
+    </dd></div>;
+  })}</dl> : <p className="ow-missing-data">{missingSource}</p>;
 }
 
 function OrderPaper({ document, baseline, markets, marketIds, workflow, selected, onSelect, onHeader, onLine, onRemove, onAdd, readOnly }: {
@@ -97,13 +239,13 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
   const sections = workflow === 'digital' ? [true] : document.lines.some(item => item.media === 'Digital') ? [false, true] : [false];
 
   function header(key: HeaderKey, type?: FieldType) {
-    return <PaperValue value={document[key]} type={type} label={headerLabels[key]} readOnly={readOnly}
+    return <PaperValue fieldKey={'header:'+key} value={document[key]} type={type} label={headerLabels[key]} readOnly={readOnly}
       changed={document[key] !== baseline[key]} onChange={value => onHeader(key, String(value ?? ''))} />;
   }
 
-  function field(line: OrderLine, key: LineKey, index: number, type?: FieldType) {
-    return <PaperValue value={line[key] ?? null} type={type} label={lineLabels[key] + ', line ' + (index + 1)} readOnly={readOnly}
-      changed={line[key] !== baseline.lines.find(item => line.id === item.id)?.[key]} onChange={value => onLine(line.id, { [key]: value })} />;
+  function field(line: OrderLine, key: LineKey, index: number, type?: FieldType, missing?:string) {
+    return <PaperValue fieldKey={'line:'+line.id+':'+key} value={line[key] ?? null} type={type} label={lineLabels[key] + ', line ' + (index + 1)} readOnly={readOnly}
+      missing={missing} changed={line[key] !== baseline.lines.find(item => line.id === item.id)?.[key]} onChange={value => onLine(line.id, { [key]: value })} />;
   }
 
   return <article className="ow-paper" aria-label="Media Order">
@@ -124,57 +266,48 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
       <div><strong>Flight end</strong>{header('end', 'date')}</div>
     </div>
     {sections.map(digital => {
+      const columnCount=(digital?8:11)+(marketIds.length>1?1:0)+3;
       const lines = document.lines.map((line, index) => ({ line, index })).filter(({ line }) => (line.media === 'Digital') === digital);
       const total = lines.reduce((sum, { line }) => sum + (bookedAmount(line) ?? 0), 0);
       return <section className="ow-schedule" key={String(digital)} aria-label={digital ? 'Digital schedule' : 'Broadcast schedule'}>
         <h4>{digital ? 'Digital ads' : 'Broadcast ads'}</h4>
         <div className="ow-table-viewport">
-          <table aria-label={digital ? 'Digital placements' : 'Broadcast placements'} className="ow-paper-lines">
-            <thead><tr><th scope="col">Channel</th>{marketIds.length > 1 && <th scope="col">Market</th>}
+          <table role="table" aria-label={digital ? 'Digital placements' : 'Broadcast placements'} className="ow-paper-lines">
+            <thead role="rowgroup"><tr role="row"><th scope="col">Channel</th>{marketIds.length > 1 && <th scope="col">Market</th>}
               {!digital && <th scope="col">Station</th>}<th scope="col">Placement / program</th>
               <th scope="col">Format</th><th scope="col">Run days</th><th scope="col">Flight</th>
               {!digital && <><th scope="col">Rate</th><th scope="col">Spots</th></>}
-              <th scope="col">Amount</th><th scope="col">Impressions</th><th scope="col"><span className="ow-sr-only">Line actions</span></th></tr></thead>
-            <tbody>{lines.map(({ line, index }) => <Fragment key={line.id}>
-              <tr data-selected={selected === line.id} onFocus={() => onSelect(line.id)}>
-                <td>{!digital && !readOnly && !line.source
+              <th scope="col">Amount</th><th scope="col">Impressions</th><th scope="col">Audience</th>
+              <th scope="col">Reported CPM</th><th scope="col">Calculated CPM</th><th scope="col"><span className="ow-sr-only">Line actions</span></th></tr></thead>
+            <tbody role="rowgroup">{lines.map(({ line, index }) =>
+              <tr key={line.id} role="row" className="ow-placement" data-selected={selected === line.id}
+                onClick={() => onSelect(line.id)} onFocus={() => onSelect(line.id)}>
+                <PlacementCell label="Channel">{!digital && !readOnly && !line.source
                   ? <select aria-label={'Media for line ' + (index + 1)} value={line.media} onChange={event => onLine(line.id, { media: event.target.value as OrderLine['media'] })}>
-                    <option>TV</option><option>Radio</option><option>Digital</option>
-                  </select> : line.media}</td>
-                {marketIds.length > 1 && <td>{readOnly || line.source ? marketName(line.marketId) : <select aria-label={'Market for line ' + (index + 1)}
+                    <option>TV</option><option>Radio</option>
+                  </select> : line.media}</PlacementCell>
+                {marketIds.length > 1 && <PlacementCell label="Market">{readOnly || line.source ? marketName(line.marketId) : <select aria-label={'Market for line ' + (index + 1)}
                   value={line.marketId} onChange={event => onLine(line.id, { marketId: event.target.value })}>
                   {marketIds.map(id => <option key={id} value={id}>{marketName(id)}</option>)}
-                </select>}</td>}
-                {!digital && <td>{field(line, 'station', index)}</td>}
-                <td>{field(line, 'program', index)}
-                  {line.source?.kind === 'digital' && line.source.year && (line.amount !== null || line.impressions !== null) &&
-                    <small className="ow-order-line-basis">{line.source.year} workbook reference</small>}
-                </td><td>{field(line, 'format', index)}</td><td>{field(line, 'days', index)}</td>
-                <td>{field(line, 'start', index, 'date')}{field(line, 'end', index, 'date')}</td>
-                {!digital && <><td>{field(line, 'rate', index, 'money')}</td><td>{field(line, 'quantity', index, 'number')}</td></>}
-                <td>{line.noCharge ? 'No charge' : line.amount == null && line.rate != null && line.quantity != null
-                  ? valueLabel(bookedAmount(line), 'money') : field(line, 'amount', index, 'money')}</td>
-                <td>{field(line, 'impressions', index, 'number')}</td>
-                <td>{!readOnly && <button className="ow-remove-line" type="button" title="Remove line"
-                  aria-label={'Remove line ' + (index + 1)} onClick={() => onRemove(line.id)}>−</button>}</td>
-              </tr>
-              <tr className="ow-line-details"><td colSpan={12}>
-                <details><summary>Line {index + 1} notes{line.source ? ' and source' : ''}</summary>
-                  <dl className="ow-placement-fields">{(['spotsPerDay', 'spotsPerWeek', 'weeks', 'audience', 'cpm'] as const).map(key =>
-                    <div key={key}><dt>{lineLabels[key]}</dt><dd>{field(line, key, index, key === 'cpm' ? 'money' : 'number')}</dd></div>)}
-                    {line.priorFlight && <div><dt>Prior flight</dt><dd>{line.priorFlight}</dd></div>}
-                  </dl>
-                  <div>{field(line, 'notes', index, 'multiline')}</div>
-                  {!readOnly && <label><input type="checkbox" checked={line.noCharge}
-                    onChange={event => onLine(line.id, { noCharge: event.target.checked })} /> No charge</label>}
-                  {line.source && <Source source={line.source}
-                    previewContext={{ market: marketName(line.marketId), sender: 'Published research' }} />}
-                  {!readOnly && <button type="button" className="ow-link" aria-pressed={selected === line.id}
-                    onClick={() => onSelect(line.id)}>Select line {index + 1} to replace</button>}
-                </details>
-              </td></tr>
-            </Fragment>)}
-              {!lines.length && <tr><td colSpan={12} className="ow-blank-line">{readOnly ? 'No placements' : 'Add a line or select a research quote.'}</td></tr>}
+                </select>}</PlacementCell>}
+                {!digital && <PlacementCell label="Station">{field(line, 'station', index)}</PlacementCell>}
+                <PlacementCell label="Placement / program">{field(line, 'program', index)}</PlacementCell>
+                <PlacementCell label="Format">{field(line, 'format', index)}</PlacementCell>
+                <PlacementCell label="Run days">{field(line, 'days', index)}</PlacementCell>
+                <PlacementCell label="Flight">{field(line, 'start', index, 'date')}{field(line, 'end', index, 'date')}</PlacementCell>
+                {!digital && <><PlacementCell label="Rate">{field(line, 'rate', index, 'money')}</PlacementCell>
+                  <PlacementCell label="Spots">{field(line, 'quantity', index, 'number')}</PlacementCell></>}
+                <PlacementCell label="Amount">{line.noCharge || (line.amount == null && line.rate != null && line.quantity != null)
+                  ? valueLabel(bookedAmount(line), 'money') : field(line, 'amount', index, 'money')}</PlacementCell>
+                <PlacementCell label="Impressions">{field(line, 'impressions', index, 'number')}</PlacementCell>
+                <PlacementCell label="Audience">{field(line,'audience',index,'number',missingSource)}</PlacementCell>
+                <PlacementCell label="Reported CPM">{line.reportedCpm===undefined && line.source?.facts===undefined && line.cpm!=null
+                  ? <><small>Saved CPM</small>{sourceMetric(line.cpm,true)}</> : sourceMetric(line.reportedCpm,true)}</PlacementCell>
+                <PlacementCell label="Calculated CPM">{sourceMetric(calculatedOrderCpm(line),true)}</PlacementCell>
+                <PlacementCell>{!readOnly && <button className="ow-link ow-remove-line" type="button"
+                  aria-label={'Remove line ' + (index + 1)} onClick={event => { event.stopPropagation(); onRemove(line.id); }}>Remove</button>}</PlacementCell>
+              </tr>)}
+              {!lines.length && <tr role="row"><td role="cell" colSpan={columnCount} className="ow-blank-line">{readOnly ? 'No placements' : 'Add a line or select a research quote.'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -184,7 +317,6 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
         <p className="ow-schedule-total">{digital ? 'Digital total' : 'Gross total'} <strong>{valueLabel(total, 'money')}</strong></p>
       </section>;
     })}
-    {!readOnly && workflow === 'broadcast' && sections.length === 1 && <button type="button" className="ow-link" onClick={() => onAdd('Digital')}>+ Add a digital line</button>}
     <div className="ow-paper-notes"><strong>Order notes</strong>{header('notes', 'multiline')}</div>
     <footer><p>Please sign and date below.</p>
       <div className="ow-signature"><span>Signature</span><span>Date</span></div></footer>
@@ -288,35 +420,159 @@ function blankLine(media: OrderLine['media'], marketId: string): OrderLine {
   };
 }
 
-export function OrderEditor({ selection, client, markets, canEdit, busy, fromCalendar, sheet, mutate, onDirty, onBack, onSave, onUpdate, onDownload }: OrderEditorProps) {
+export function OrderEditor({ selection, client, markets, canEdit, busy, fromCalendar, planUrl, sheet, mutate, onDirty, onBack, onCancel = onBack, onSave, onUpdate, onDownload }: OrderEditorProps) {
   const [document, setDocument] = useState(selection.document);
   const [selected, setSelected] = useState<string | null>(null);
   const [history, showHistory] = useState(false);
   const [confirmation, confirm] = useState<'finalize' | 'revision' | OrderEvent | null>(null);
   const [send, setSend] = useState<'send' | 'correct' | null>(null);
   const [split, setSplit] = useState(58);
+  const [spreadsheet, setSpreadsheet] = useState(false);
+  const [sheetDetailsOpen, setSheetDetailsOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(true);
-  const [paperVersion, setPaperVersion] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
+  const panels = useRef<HTMLDivElement>(null);
   const order = selection.order;
   const issue = order?.currentIssue;
-  const readOnly = !canEdit || !!issue;
-  const dirty = !same(document, selection.document);
+  const immutable = !canEdit || !!issue;
+  const [applying,setApplying]=useState(false);
+  const [recoveryFields,setRecoveryFields]=useState<Record<string,string>>({});
+  const recovered=useRef<string|null>(null);
+  const [recoveryConflict,setRecoveryConflict]=useState(false);
+  const sync=useDraftSync(document,selection.document,onSave,!immutable);
+  const work=useRef({document,fields:recoveryFields});work.current={document,fields:recoveryFields};
+  const researchState=useOrderResearchState(order?.id,()=>sync.flush(true));
+  const readOnly=immutable || !!order && !researchState.ready || researchState.viewConflict || applying;
+  const dirty=researchState.saving || !!researchState.error || sync.dirty || recoveryConflict || Object.keys(recoveryFields).length>0 || researchState.status.phase==='pending' || researchState.status.phase==='saving' || researchState.status.phase==='error';
+  const [assistantError,setAssistantError]=useState('');
+  const [launching,setLaunching]=useState(false);
+  const researchView=useRef<ResearchView>({sheet:sheet==='radio'?'radio':'tv'});
+  const launchContext=useRef<string|null>(null);
+  const onResearchView=useCallback((value:ResearchView)=>{researchView.current=value;researchState.changeView(value);},[researchState.changeView]);
+  const saveAndLeave=async(next:()=>void)=>{
+    try {
+      const saved=await sync.flush(!order||Object.keys(work.current.fields).length>0);
+      const id=saved?.id??order?.id;
+      if(immutable||recoveryConflict)await researchState.flush(id);
+      else await researchState.flush(id,Object.keys(work.current.fields).length?{
+        baseRevision:saved?.revision??order!.revision,document:work.current.document,fields:work.current.fields}:null);
+      next();
+    }
+    catch(error){setAssistantError(error instanceof Error?error.message:'Could not save before leaving.');}
+  };
+  async function askChatGPT(){
+    setLaunching(true);setAssistantError('');
+    if(Object.keys(recoveryFields).length||recoveryConflict){setAssistantError('Correct or review the recovered entries before opening ChatGPT.');setLaunching(false);return;}
+    // Reserve the window during the user gesture so the later save does not trigger a popup block.
+    const destination=window.open('about:blank','_blank');
+    if(destination)destination.opener=null;
+    try{
+      const saved=await sync.flush(true);
+      await researchState.flush(saved?.id??order?.id,null);
+      if(!saved&&!order)throw new Error('Save this draft before opening ChatGPT.');
+      const result=await assistantRequest<{contextId:string;url:string}>({action:'launch',orderId:saved?.id??order!.id,view:researchView.current});
+      launchContext.current=result.contextId;
+      if(destination)destination.location.replace(result.url);
+      else window.location.assign(result.url);
+    }catch(error){destination?.close();setAssistantError(error instanceof Error?error.message:'Could not open ChatGPT.');}
+    finally{setLaunching(false);}
+  }
+  useEffect(()=>()=>{
+    const contextId=launchContext.current;
+    if(contextId)void fetch('/api/order-assistant',{method:'POST',credentials:'same-origin',keepalive:true,
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'detach',contextId})}).catch(()=>{});
+  },[]);
   const total = document.lines.reduce((sum, line) => sum + (bookedAmount(line) ?? 0), 0);
   const scope = selection.marketIds.map(id => markets.find(market => market.id === id)?.name ?? id);
+  const changeRaw=useCallback((key:string,value:string|null)=>{
+    setRecoveryFields(current=>{
+      if(value===null){if(!(key in current))return current;const next={...current};delete next[key];return next;}
+      return current[key]===value?current:{...current,[key]:value};
+    });
+  },[]);
+  useEffect(()=>{
+    const state=researchState.state;
+    if(!state||!order||!researchState.ready||recovered.current===order.id)return;
+    recovered.current=order.id;
+    if(!state.recovery)return;
+    if(immutable){setRecoveryConflict(true);return;}
+    if(state.recovery.baseRevision===order.revision){setDocument(state.recovery.document);setRecoveryFields(state.recovery.fields);}
+    else setRecoveryConflict(true);
+  },[researchState.state,order,researchState.ready,immutable]);
+  useEffect(()=>{
+    if(immutable||!researchState.ready||researchState.viewConflict||applying)return;
+    if(Object.keys(recoveryFields).length&&!order)void sync.flush(true).catch(()=>{});
+    if(order&&recovered.current===order.id&&!recoveryConflict)researchState.changeRecovery(
+      Object.keys(recoveryFields).length||sync.dirty?{baseRevision:order.revision,document,fields:recoveryFields}:null);
+  },[document,recoveryFields,order?.id,order?.revision,sync.dirty,immutable,researchState.ready,researchState.viewConflict,applying,researchState.changeRecovery,recoveryConflict]);
+  const sourceLine = document.lines.find(line => line.id === selected) ?? document.lines.find(line => line.source?.facts?.length);
   const source = (order?.seed ?? selection.seed) as { id?: string; title?: string; url?: string; orderNumber?: string;
     related?: { id: string; title?: string; url?: string }[]; billing?: BillingReference | null } | null | undefined;
+  const hasLineSource = !!sourceLine?.source?.facts?.length;
 
-  useEffect(() => { heading.current?.focus(); }, []);
+  const leave=useRef(saveAndLeave);leave.current=saveAndLeave;
+  const unsaved=useRef(dirty);unsaved.current=dirty;
+  useEffect(()=>{
+    let resubmitting=false;
+    const click=(event:MouseEvent)=>{
+      const anchor=event.target instanceof Element?event.target.closest<HTMLAnchorElement>('a[href]'):null;
+      if(!anchor||!unsaved.current||event.button!==0||event.metaKey||event.ctrlKey||anchor.target==='_blank'||anchor.download)return;
+      const url=new URL(anchor.href,window.location.href);
+      if(url.origin!==window.location.origin||url.href===window.location.href||anchor.getAttribute('href')?.startsWith('#'))return;
+      event.preventDefault();event.stopPropagation();void leave.current(()=>window.location.assign(url.href));
+    };
+    const submit=(event:SubmitEvent)=>{
+      const form=event.target;
+      if(resubmitting||!unsaved.current||!(form instanceof HTMLFormElement)||new URL(form.action,window.location.href).pathname!=='/logout')return;
+      event.preventDefault();void leave.current(()=>{resubmitting=true;form.requestSubmit();});
+    };
+    const hidden=()=>{if(window.document.visibilityState==='hidden'&&unsaved.current)void leave.current(()=>{});};
+    window.document.addEventListener('click',click,true);window.document.addEventListener('submit',submit,true);
+    window.document.addEventListener('visibilitychange',hidden);
+    return ()=>{window.document.removeEventListener('click',click,true);window.document.removeEventListener('submit',submit,true);window.document.removeEventListener('visibilitychange',hidden);};
+  },[]);
+  const latestEditor=useRef({dirty,busy,order,onUpdate,researchState});
+  latestEditor.current={dirty,busy,order,onUpdate,researchState};
+  useEffect(()=>{
+    if(!order?.id)return;
+    let active=true;
+    const read=async()=>{
+      const state=latestEditor.current;
+      if(state.busy||!state.researchState.ready)return;
+      try{
+        const response=await fetch('/api/orders?view=order&id='+order.id,{cache:'no-store'});
+        if(!response.ok)return;
+        const saved=await response.json() as OrderDetail;
+        if(!active||latestEditor.current.busy)return;
+        const latest=latestEditor.current,previous=latest.order;
+        if(!previous||saved.revision<previous.revision)return;
+        if(saved.revision===previous.revision&&saved.currentIssue&&!previous.currentIssue){
+          await latest.researchState.flush(previous.id,{baseRevision:previous.revision,document:work.current.document,fields:work.current.fields});
+          setRecoveryFields({});latest.onUpdate(saved);return;
+        }
+        if(latest.dirty||latest.researchState.saving||latest.researchState.status.phase!=='saved')return;
+        if(saved.revision>previous.revision)latest.onUpdate(saved);
+        await latest.researchState.reload();
+      }catch{/* Keep the existing acknowledged draft and save error state. */}
+    };
+    const focus=()=>void read();
+    const timer=setInterval(()=>{if(window.document.visibilityState==='visible')void read();},5000);
+    window.addEventListener('focus',focus);
+    return ()=>{active=false;clearInterval(timer);window.removeEventListener('focus',focus);};
+  },[order?.id]);
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   useEffect(() => { setDocument(selection.document); }, [selection.document]);
   useEffect(() => { onDirty(dirty); }, [dirty, onDirty]);
   useEffect(() => () => onDirty(false), [onDirty]);
 
-  function updateLine(id: string, changes: Partial<OrderLine>) {
-    setDocument(current => ({ ...current, lines: current.lines.map(line => line.id === id ? {
-      ...line, ...changes,
-      ...(changes.amount === undefined && ('rate' in changes || 'quantity' in changes) && line.media !== 'Digital' ? { amount: null } : {}),
-    } : line) }));
+  function updateLine(id: string, patch: Partial<OrderLine>) {
+    setDocument(current=>({...current,lines:current.lines.map(line=>{
+      if(line.id!==id)return line;
+      const changes = spreadsheet ? spreadsheetScheduleChanges(line, patch) : patch;
+      const next={...line,...changes,
+        ...(changes.amount===undefined && ('rate' in changes || 'quantity' in changes) && line.media!=='Digital' ? {amount:null}: {})};
+      return {...next,calculatedCpm:calculatedOrderCpm(next)};
+    })}));
   }
 
   function add(media: OrderLine['media']) {
@@ -325,13 +581,18 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
     setSelected(line.id);
   }
 
+  function removeLine(id: string) {
+    setRecoveryFields(current=>Object.fromEntries(Object.entries(current).filter(([key])=>!key.startsWith('line:'+id+':'))));
+    setDocument(current => ({ ...current, lines: current.lines.filter(line => line.id !== id) }));
+    setSelected(current => current === id ? null : current);
+  }
+
   function apply(quote: OrderLine, replace: boolean) {
-    if (readOnly || !selection.marketIds.includes(quote.marketId)) return;
+    if (readOnly || !selection.marketIds.includes(quote.marketId) || (selection.workflow==='broadcast' && quote.media==='Digital')) return;
     const target = document.lines.find(line => line.id === selected);
     if (replace && (!target || quote.marketId !== target.marketId)) return;
     if (replace && target) {
-      updateLine(target.id, { ...quote, id: target.id, marketId: target.marketId,
-        start: quote.start || target.start, end: quote.end || target.end, quantity: quote.quantity ?? target.quantity });
+      setDocument(current=>({...current,lines:current.lines.map(line=>line.id===target.id?replaceResearchLine(line,quote):line)}));
       return;
     }
     const line = { ...quote, id: crypto.randomUUID() };
@@ -347,56 +608,117 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
     if (result) { onUpdate(result); confirm(null); }
   }
 
-  return <section className="ow-editor" aria-label="Order editor">
+  const headerChange = (key: HeaderKey, value: string) => setDocument(current => ({ ...current, [key]: value }));
+  const orderPane = spreadsheet
+    ? <OrderSpreadsheet key="order" document={document} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
+      selected={selected} onSelect={setSelected} onHeader={headerChange} onLine={updateLine} onRemove={removeLine} readOnly={readOnly}
+      detailsOpen={sheetDetailsOpen} onToggleDetails={() => setSheetDetailsOpen(open => !open)}
+      onAdd={() => add(document.lines.find(line => line.id === selected)?.media ?? document.lines[0]?.media ?? 'TV')} />
+    : <div className="ow-paper-pane" key="order">
+      <OrderPaper document={document} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
+        workflow={selection.workflow} selected={selected} onSelect={setSelected} onHeader={headerChange}
+        onLine={updateLine} onRemove={removeLine} onAdd={add} readOnly={readOnly} />
+    </div>;
+  const divider = researchOpen && <div key="divider" className="ow-panel-divider" role="separator" tabIndex={0}
+    aria-label="Resize order and research panels" aria-orientation="vertical" aria-valuemin={35} aria-valuemax={72} aria-valuenow={split}
+    onPointerDown={event => { if (event.button === 0) event.currentTarget.setPointerCapture(event.pointerId); }}
+    onPointerMove={event => {
+      if (!event.currentTarget.hasPointerCapture(event.pointerId) || !panels.current) return;
+      const bounds = panels.current.getBoundingClientRect();
+      const left = Math.round(100 * (event.clientX - bounds.left) / bounds.width);
+      setSplit(Math.min(72, Math.max(35, spreadsheet ? 100 - left : left)));
+    }} onKeyDown={event => {
+      const step = spreadsheet ? -2 : 2;
+      const next = { ArrowLeft: split - step, ArrowRight: split + step, Home: 35, End: 72 }[event.key];
+      if (next === undefined) return;
+      event.preventDefault(); setSplit(Math.min(72, Math.max(35, next)));
+    }} />;
+  const researchPane = <OrderResearch key="research" client={client} markets={markets} marketIds={selection.marketIds} workflow={selection.workflow}
+    year={selection.year} initialSheet={sheet} document={document} target={selected} onApply={apply} onRemove={removeLine}
+    canEdit={!readOnly} spreadsheet={spreadsheet} hidden={!researchOpen}
+    persistedState={researchState.state} shortlistBusy={researchState.saving}
+    onStar={researchState.star} onView={onResearchView}
+    orderLineSource={hasLineSource || source?.id || source?.billing ? <details className="ow-order-line-source">
+      <summary>{hasLineSource ? 'Order line source' : 'Order sources'}</summary>
+      {sourceLine && hasLineSource && <>
+        <p>{sourceLine.station || sourceLine.media} · {sourceLine.program}</p>
+        <SourceFacts line={sourceLine} />
+      </>}
+      {source?.id && <div className="ow-bar ow-order-original"><strong>Signed source</strong>
+        <Source source={{ id: source.id, title: source.title, url: source.url, locator: source.orderNumber }} />
+        {source.related?.map(item => <Source key={item.id} source={item} />)}
+      </div>}
+      {source?.billing && <PriorBilling reference={source.billing} />}
+    </details> : undefined} />;
+
+  return <FieldRecovery.Provider value={{fields:immutable?{}:recoveryFields,change:changeRaw}}><section className="ow-editor" aria-label="Order editor">
     <div className="ow-bar ow-compact ow-editor-head">
-      <button type="button" onClick={onBack}>‹ {fromCalendar ? 'Back to calendar' : 'Back to orders'}</button>
+      {planUrl ? <a href={planUrl} className="ow-link" onClick={event => {
+        if (dirty || busy) { event.preventDefault(); void saveAndLeave(onBack); }
+      }}>‹ Back to campaign plan</a> : <button type="button" className="ow-link" onClick={()=>void saveAndLeave(onBack)}>
+        ‹ {fromCalendar ? 'Back to calendar' : 'Back to orders'}
+      </button>}
       <h2 ref={heading} tabIndex={-1}>{document.number || (selection.workflow === 'digital' ? 'Digital order' : 'Broadcast order')}</h2>
       <span className="ow-pill">{issue ? 'Finalized' : 'Draft'}</span>
       {order?.downloaded && <span className="ow-pill">PDF downloaded</span>}
       {order?.sent && <span className="ow-pill">Sent</span>}
-      <strong>{valueLabel(total, 'money')}</strong>
+      <strong>{selection.marketProposed!==undefined ? 'Actual ' : ''}{valueLabel(total, 'money')}</strong>
+      {selection.marketProposed!==undefined && <>
+        <span>Proposed <b>{valueLabel(selection.marketProposed,'money')}</b></span>
+        <span>Difference <b>{valueLabel(selection.marketProposed-total,'money')}</b></span>
+      </>}
       {order && <button className="ow-link" type="button" onClick={() => showHistory(true)}>Edit history &amp; activity</button>}
     </div>
-    {source?.id && <div className="ow-bar ow-order-original"><strong>Signed source</strong>
-      <Source source={{ id: source.id, title: source.title, url: source.url, locator: source.orderNumber }} />
-      {source.related?.map(item => <Source key={item.id} source={item} />)}
-    </div>}
-    {source?.billing && <PriorBilling reference={source.billing} />}
     <div className="ow-bar ow-compact ow-editor-tools">
       <span>{selection.year} · {client.name} · {scope.join(', ')}</span>
-      <button type="button" aria-pressed={researchOpen} onClick={() => setResearchOpen(!researchOpen)}>{researchOpen ? 'Hide research' : 'Show research'}</button>
+      {selection.workflow === 'broadcast' && <div className="ow-order-views" role="group" aria-label="Order view">
+        <button type="button" aria-pressed={!spreadsheet} onClick={() => setSpreadsheet(false)}>Order view</button>
+        <button type="button" aria-pressed={spreadsheet} onClick={() => setSpreadsheet(true)}>Spreadsheet view</button>
+      </div>}
+      {selection.workflow==='broadcast' && <button type="button" className="ow-link" disabled={launching||applying||!researchState.ready||researchState.viewConflict||selection.marketIds.length!==1}
+        onClick={()=>void askChatGPT()}>{launching?'Opening ChatGPT…':'Ask ChatGPT ↗'}</button>}
+      <button type="button" className="ow-link" aria-pressed={researchOpen} onClick={() => setResearchOpen(!researchOpen)}>{researchOpen ? 'Hide research' : 'Show research'}</button>
       {issue && <>
         <button type="button" className="ow-primary" disabled={busy} onClick={() => void onDownload(issue.id)}>Download order PDF</button>
         {canEdit && <button type="button" disabled={busy} onClick={() => setSend('send')}>Record send</button>}
         {canEdit && order.sent && <button type="button" disabled={busy} onClick={() => setSend('correct')}>Correct send record</button>}
         {canEdit && <button type="button" disabled={busy} onClick={() => confirm('revision')}>Create revision</button>}
       </>}
-      {order && canEdit && !issue && <button type="button" className="ow-primary" disabled={busy || dirty}
+      {order && canEdit && !issue && <button type="button" className="ow-primary" disabled={busy || dirty || readOnly}
         onClick={() => confirm('finalize')}>Finalize order</button>}
     </div>
-    {researchOpen && <label className="ow-split-control">Order / Research width
-      <input type="range" aria-label="Resize order and research panels" min="35" max="72" value={split}
-        onChange={event => setSplit(event.target.valueAsNumber)} /></label>}
-    <div className={'ow-split' + (researchOpen ? '' : ' ow-split-alone')} style={{ '--ow-split': split + '%' } as React.CSSProperties}>
-      <div className="ow-paper-pane">
-        <OrderPaper key={paperVersion} document={document} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
-          workflow={selection.workflow} selected={selected} onSelect={setSelected}
-          onHeader={(key, value) => setDocument(current => ({ ...current, [key]: value }))}
-          onLine={updateLine} onRemove={id => {
-            setDocument(current => ({ ...current, lines: current.lines.filter(line => line.id !== id) }));
-            if (selected === id) setSelected(null);
-          }} onAdd={add} readOnly={readOnly} />
-      </div>
-      {researchOpen && <OrderResearch client={client} markets={markets} marketIds={selection.marketIds} workflow={selection.workflow}
-        year={selection.year} initialSheet={sheet} document={document} target={selected} onApply={apply} canEdit={!readOnly} />}
+    {researchState.viewConflict&&<div className="ow-feedback" role="alert">Saved work changed in another window. This window has been kept for review.
+      <button type="button" onClick={async()=>{const saved=await researchState.useSavedWork();
+        if(saved){recovered.current=null;setRecoveryFields({});setDocument(order!.document);setRecoveryConflict(false);}}}>Use saved work from the other window</button>
+    </div>}
+    {recoveryConflict && <div className="ow-feedback" role="alert">This order changed after incomplete entries were saved.
+      <details><summary>Review recovered entries</summary>{Object.entries(researchState.state?.recovery?.fields??{}).map(([key,value])=>{
+        const [kind,id,field]=key.split(':');
+        const label=kind==='header'?headerLabels[id as HeaderKey]??'Order field':
+          (document.lines.find(line=>line.id===id)?.program??'Placement')+' · '+(lineLabels[field as LineKey]??'Field');
+        return <p key={key}>{label}: {value}</p>;
+      })}</details>
+      {!immutable&&<button type="button" onClick={async()=>{try{
+        await researchState.flush(order?.id,null);setRecoveryFields({});setRecoveryConflict(false);
+      }catch(error){setAssistantError(error instanceof Error?error.message:'Could not resolve recovery.');}}}>Keep the current saved order and clear recovered entries</button>}
+    </div>}
+    {(assistantError||researchState.error||researchState.status.error) && <p className="ow-feedback" role="alert">
+      {assistantError||researchState.error||researchState.status.error}
+      {researchState.error&&<button type="button" onClick={()=>void researchState.retryStar().catch(()=>{})}>Retry shortlist</button>} <button type="button" onClick={()=>void researchState.reload()}>Reload research</button></p>}
+    <div ref={panels} className={'ow-split' + (researchOpen ? '' : ' ow-split-alone') + (spreadsheet ? ' ow-split-spreadsheet' : '')}
+      style={{ '--ow-split': split + '%' } as React.CSSProperties}>
+      {spreadsheet ? [researchPane, divider, orderPane] : [orderPane, divider, researchPane]}
     </div>
-    {!readOnly && <div className="ow-bar ow-draft-footer">
-      {dirty && <strong role="status">Unsaved changes</strong>}
-      <button type="button" className="ow-primary" disabled={busy || !dirty && !!order}
-        onClick={async () => { const saved = await onSave(document); if (saved) setDocument(saved.document); }}>Save</button>
-      <button type="button" disabled={busy || !dirty} onClick={() => {
-        setDocument(selection.document); setSelected(null); setPaperVersion(version => version + 1);
-      }}>Cancel</button>
+    {!immutable&&researchState.ready&&<OrderAssistantChanges onBusy={setApplying} orderId={order?.id} beforeApply={async()=>{
+      if(Object.keys(recoveryFields).length||recoveryConflict)throw new Error('Correct incomplete entries before applying changes.');
+      const saved=await sync.flush();await researchState.flush(saved?.id??order?.id,null);
+    }} onUpdate={onUpdate}/>}
+    {!immutable && <div className="ow-bar ow-draft-footer">
+      <strong role="status">{!order ? 'New draft — save to keep this order' : !researchState.ready ? 'Opening saved work…' : recoveryConflict ? 'Review recovered entries' : sync.status.phase==='error' ? sync.status.error :
+        sync.status.phase==='saving'||sync.status.phase==='pending' ? 'Saving draft…' : Object.keys(recoveryFields).length ? (researchState.status.phase==='saved'?'Incomplete entries saved for recovery':'Saving incomplete entries…') : dirty ? 'Saving research…' : 'Draft saved'}</strong>
+      <button type="button" className="ow-primary" disabled={busy || applying || !!order&&!researchState.ready || !dirty && !!order}
+        onClick={()=>void saveAndLeave(()=>{})}>{sync.status.phase==='error'?'Retry save':'Save now'}</button>
+      <button type="button" disabled={busy||applying} onClick={()=>void saveAndLeave(onCancel)}>Close</button>
     </div>}
     {history && order && <OrderHistory order={order} canRestore={canEdit && !issue && !dirty} busy={busy}
       onRestore={event => { showHistory(false); confirm(event); }} onDownload={onDownload} onClose={() => showHistory(false)} />}
@@ -413,5 +735,5 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
         </button>
       </div>
     </OrdersDialog>}
-  </section>;
+  </section></FieldRecovery.Provider>;
 }

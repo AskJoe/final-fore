@@ -1,9 +1,11 @@
 'use client';
+import { canonicalJson } from '@/lib/domain/json';
+import { cleanOrderDocument } from '@/lib/orders/store';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Deadline, OrderDetail, OrderSummary, OrderWorkflow, OrderWorkspace } from '@/lib/orders/store';
 import { businessDate, OrderCalendar, displayTime, OrderFeedbackContext, type ClientOption, type MarketOption, type Mutate, type OrderAction } from './OrderCalendar';
-import { HistoricalOrders, ordersJson, ordersUrl, useOrdersGet, type OrderOpportunity } from './OrdersCatalog';
+import { HistoricalOrders, ordersJson, ordersUrl, useOrdersQuery, type OrderOpportunity } from './OrdersCatalog';
 import { OrderEditor, type OpenOrder } from './OrderEditor';
 import { OrderMenu } from './OrderToolbar';
 
@@ -14,8 +16,6 @@ type Workspace = OrderWorkspace & {
   clients: ClientOption[]; markets: MarketOption[]; opportunities: OrderOpportunity[];
   legacyOrders?: LegacyOrder[]; canEdit?: boolean; clientId?: string; year?: number;
 };
-type Area = 'calendar' | 'planning' | 'digital' | 'historical';
-const areas: Record<Area, string> = { calendar: 'Deadline Calendar', planning: 'Order planning', digital: 'Digital orders', historical: 'Historical orders' };
 type OrderFilter = { market: string; query: string; status: string };
 const emptyFilter: OrderFilter = { market: '', query: '', status: '' };
 
@@ -91,32 +91,41 @@ function OrderList({ workflow, orders, opportunities, legacy, markets, filter, c
   </section>;
 }
 
-function selectedOrder(result: OrderDetail): OpenOrder {
-  return { document: result.document, clientId: result.clientId, year: result.year, workflow: result.workflow,
-    marketIds: result.marketIds, order: result };
+function selectedOrder(result: OrderDetail, marketProposed?: number): OpenOrder {
+  return { editorKey:result.id, document: result.document, clientId: result.clientId, year: result.year, workflow: result.workflow,
+    marketIds: result.marketIds, order: result, marketProposed };
 }
 
-export default function OrdersWorkspace({ initialOrderId, initialClientId, canEdit = true }: {
-  initialOrderId?: string; initialClientId?: string; canEdit?: boolean;
+export default function OrdersWorkspace({ initialOrderId, initialClientId, initialYear, initialMarketId, initialWorkflow = 'broadcast',
+  view = 'calendar', planUrl = '/campaign.html', campaignId, canEdit = true }: {
+  initialOrderId?: string; initialClientId?: string; initialYear?: number; initialMarketId?: string; planUrl?: string; canEdit?: boolean;
+  initialWorkflow?: OrderWorkflow; view?: 'calendar' | 'orders' | 'historical'; campaignId?: string;
 } = {}) {
   const [clientChoice, setClientChoice] = useState(initialClientId ?? '');
-  const [yearChoice, setYearChoice] = useState(0);
-  const [area, setArea] = useState<Area>('calendar');
+  const [yearChoice, setYearChoice] = useState(initialYear ?? 0);
+  const [workflow, setWorkflow] = useState(initialWorkflow);
   const [filter, setFilter] = useState<OrderFilter>(emptyFilter);
   const [editor, setEditor] = useState<OpenOrder | null>(null);
+  const editorRef = useRef<OpenOrder | null>(null);
+  editorRef.current = editor;
+  const [fromPlan, setFromPlan] = useState(false);
   const [from, setFrom] = useState<Deadline | undefined>();
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [working, setWorking] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
-  const [archiveYear, setArchiveYear] = useState<number | undefined>();
+  const [marketScope, setMarketScope] = useState<Workspace>();
   const openSequence = useRef(0);
   const openedInitial = useRef(false);
   const returnTo = useRef<HTMLElement | null>(null);
   const requestIds = useRef(new Map<string, string>());
-  const workspace = useOrdersGet<Workspace>(ordersUrl({ view: 'workspace', clientId: clientChoice, year: yearChoice || undefined }));
-  const data = workspace.value;
+  const directMarket = view === 'orders' && canEdit && Boolean(initialMarketId && initialClientId && initialYear && !initialOrderId);
+  const waitingForOrderScope = initialOrderId && (!clientChoice || !yearChoice) && !error;
+  const workspace = useOrdersQuery<Workspace>(directMarket || waitingForOrderScope ? '' : ordersUrl({
+    view: 'workspace', clientId: clientChoice, year: yearChoice || undefined, scope: view === 'historical' ? 'directory' : undefined,
+  }));
+  const data = directMarket ? marketScope : workspace.value;
   const client = data?.clients.find(item => item.id === (clientChoice || data.clientId)) ?? data?.clients[0];
   const year = yearChoice || data?.year || Number(businessDate().slice(0, 4)) + 1;
   const allMarkets = [...new Map((data?.markets ?? []).map(item => [item.id, item])).values()];
@@ -124,7 +133,7 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
   const orders = data?.orders.filter(item => item.clientId === client?.id && item.year === year) ?? [];
   const editable = canEdit && (data?.canEdit ?? true);
   const operation = working || loadingOrder;
-  const refresh = async () => { workspace.retry(); };
+  const refresh = async () => { if (!directMarket) workspace.retry(); };
 
   async function post(action: OrderAction) {
     const key = JSON.stringify(action);
@@ -138,12 +147,12 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
     return { response, done: () => requestIds.current.delete(key) };
   }
 
+  const warnBeforeUnload = useCallback((event: BeforeUnloadEvent) => event.preventDefault(), []);
   useEffect(() => {
     if (!dirty) return;
-    function warn(event: BeforeUnloadEvent) { event.preventDefault(); }
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [dirty, warnBeforeUnload]);
 
   const mutate: Mutate = async <Result,>(action: OrderAction): Promise<Result | undefined> => {
     setWorking(true); setError(''); setNotice('');
@@ -176,6 +185,7 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
       if (deepLink) {
         setClientChoice(result.clientId);
         setYearChoice(result.year);
+        setWorkflow(result.workflow);
       }
       setEditor(selectedOrder(result));
     } catch (problem) {
@@ -191,15 +201,23 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
     void openOrder(initialOrderId, undefined, true);
   }, [initialOrderId, openOrder]);
 
-  async function startOrder(marketId: string, workflow: OrderWorkflow, key?: string, archiveId?: string, deadline?: Deadline) {
-    if (!client || !editable) return;
+  async function startOrder(marketId: string, workflow: OrderWorkflow, key?: string, archiveId?: string, deadline?: Deadline, fromCampaignPlan = false) {
+    const bootstrap = directMarket && !marketScope && fromCampaignPlan;
+    const clientId = bootstrap ? initialClientId : client?.id;
+    if (!clientId || !editable) return;
     const request = ++openSequence.current;
     setLoadingOrder(true); setError(''); setNotice(''); setFrom(deadline);
     returnTo.current = window.document.activeElement instanceof HTMLElement ? window.document.activeElement : null;
     try {
-      const result = await fetch(ordersUrl({ view: 'seed', key, archiveId, clientId: client.id, year, marketId, workflow, step: deadline?.step }),
-        { cache: 'no-store' }).then(ordersJson<OpenOrder>);
+      const result = await fetch(ordersUrl({
+        view: 'seed', key, archiveId, clientId, year: bootstrap ? initialYear : year, marketId, workflow, step: deadline?.step, campaignId,
+        includeScope: bootstrap ? 1 : undefined,
+      }), { cache: 'no-store' }).then(ordersJson<OpenOrder & { scope?: Workspace }>);
       if (request !== openSequence.current) return;
+      if (bootstrap) {
+        if (!result.scope) throw new Error('Could not load the market for this order.');
+        setMarketScope(result.scope);
+      }
       if (result.order && deadline && !deadline.orderIds.includes(result.order.id)) {
         const linked = await mutate<Deadline>({
           action: 'saveDeadline', id: deadline.id, calendarId: deadline.calendarId, expectedRevision: deadline.revision,
@@ -209,7 +227,8 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
         setFrom(linked);
         await refresh();
       }
-      setEditor(result.order ? selectedOrder(result.order) : result);
+      setFromPlan(fromCampaignPlan);
+      setEditor(result.order ? selectedOrder(result.order,result.marketProposed) : {...result,editorKey:result.originKey??result.marketIds.join(':')});
     } catch (problem) {
       if (request === openSequence.current) setError(problem instanceof Error ? problem.message : 'Could not start the order.');
     } finally {
@@ -217,26 +236,44 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
     }
   }
 
+  useEffect(() => {
+    if (initialOrderId || !initialMarketId || openedInitial.current || (!directMarket && (!client || !data))) return;
+    openedInitial.current = true;
+    void startOrder(initialMarketId, initialWorkflow, undefined, undefined, undefined, true);
+  }, [initialOrderId, initialMarketId, initialWorkflow, client, data, directMarket]);
+
   function update(result: OrderDetail) {
-    setEditor(selectedOrder(result));
+    setEditor(previous=>selectedOrder(result,previous?.marketProposed));
     setDirty(false);
     void refresh();
   }
 
   async function save(next: OpenOrder['document']) {
-    if (!editor) return;
-    const existing = editor.order?.id;
-    const result = await mutate<OrderDetail>({
+    const selected=editorRef.current;
+    if (!selected) return;
+    const existing = selected.order?.id;
+    setWorking(true); setError('');
+    try {
+    const {response,done} = await post({
       action: 'saveOrder', ...(existing ? { id: existing } : {
-        clientId: editor.clientId, year: editor.year, marketIds: editor.marketIds, workflow: editor.workflow,
-        originKey: editor.originKey, archiveId: editor.archiveId, step: from?.step,
+        clientId: selected.clientId, year: selected.year, marketIds: selected.marketIds, workflow: selected.workflow,
+        originKey: selected.originKey, archiveId: selected.archiveId, step: from?.step,
       }),
-      expectedRevision: editor.order?.revision ?? 0,
+      expectedRevision: selected.order?.revision ?? 0,
       document: next,
       ...(from && !from.orderIds.includes(existing ?? '') ? { deadlineId: from.id, deadlineRevision: from.revision } : {}),
     });
-    if (result) { update(result); setFrom(item => item ? { ...item, orderIds: [...new Set([...item.orderIds, result.id])] } : undefined); setNotice('Draft saved.'); }
+    const result=await ordersJson<OrderDetail>(response);
+    const expected=cleanOrderDocument(next,{marketIds:selected.marketIds,workflow:selected.workflow});
+    if(canonicalJson(expected)!==canonicalJson(result.document))throw new Error('Another window changed this order after the save. Review the latest saved order before retrying.');
+    done();
+    if (result) {
+      const updated={...selected,order:result};
+      editorRef.current=updated;
+      setEditor(previous=>previous ? {...previous,order:result} : previous); setFrom(item => item ? { ...item, orderIds: [...new Set([...item.orderIds, result.id])] } : undefined); setNotice('Draft saved.'); }
     return result;
+    }catch(problem){setError(problem instanceof Error?problem.message:'Could not save this draft.');return undefined;}
+    finally{setWorking(false);}
   }
 
   async function download(issueId: string) {
@@ -270,16 +307,37 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
     }
   }
 
+  function dismissEditor() {
+    setEditor(null);
+    setFromPlan(false);
+    setFrom(undefined);
+    window.requestAnimationFrame(() => returnTo.current?.focus({ preventScroll: true }));
+  }
+
   function closeEditor() {
-    move(() => {
-      setEditor(null);
-      setFrom(undefined);
-      window.requestAnimationFrame(() => returnTo.current?.focus({ preventScroll: true }));
-    });
+    setDirty(false);
+    if (fromPlan) window.location.assign(planUrl);
+    else dismissEditor();
+  }
+
+  function cancelEditor() {
+    if (operation) return;
+    window.removeEventListener('beforeunload', warnBeforeUnload);
+    setDirty(false);
+    setError('');
+    setNotice('');
+    if (fromPlan) window.location.assign(planUrl);
+    else dismissEditor();
   }
 
   const editorClient = data?.clients.find(item => item.id === editor?.clientId);
-  const currentArea = editor ? (editor.workflow === 'digital' ? 'digital' : 'planning') : area;
+  const calendar = view === 'calendar';
+  const calendarParams = new URLSearchParams({year:String(year),workflow});
+  if(client)calendarParams.set('clientId',client.id);
+  if(campaignId)calendarParams.set('campaignId',campaignId);
+  const guardLeave = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (dirty || operation) { event.preventDefault(); move(() => {}); }
+  };
   const scope = !editor && data && <>
     <OrderMenu aria-label="Client" text={client?.name || 'Client'} value={client?.id ?? ''} disabled={operation} onChange={event => {
       setError(''); setNotice(''); setClientChoice(event.target.value); setFilter(emptyFilter);
@@ -291,7 +349,7 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
       event.preventDefault();
       const next = Number(new FormData(event.currentTarget).get('year'));
       if (next !== year && Number.isInteger(next) && next >= 2000 && next <= 2100) {
-        setYearChoice(next); setFilter(emptyFilter); setArchiveYear(next - 1);
+        setYearChoice(next); setFilter(emptyFilter);
       }
     }}>
       <input key={year} type="number" name="year" aria-label="Planning year" title="Planning year"
@@ -303,39 +361,33 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, canEd
     </form>
   </>;
   return <OrderFeedbackContext.Provider value={error}><div className="orders-workspace" role="region" aria-label="Orders">
-    <header className="ow-heading"><h1>Orders</h1>
-      <details className="ow-menu ow-legacy-menu">
-        <summary>Legacy orders</summary>
-        <div className="ow-menu-items"><a href="/orders.html">Campaign Orders</a><a href="/legacy-orders.html">Workbook Orders</a></div>
-      </details>
-    </header>
-    <nav className="ow-tabs" aria-label="Orders sections">
-      {(Object.entries(areas) as [Area, string][]).map(([key, title]) => <button type="button" key={key}
-        aria-current={currentArea === key ? 'page' : undefined} onClick={() => move(() => {
-          setEditor(null); setFrom(undefined); setArea(key);
-          if (key === 'historical') setArchiveYear(year - 1);
-        })}>{title}</button>)}
+    <header className="ow-heading campaign-calendar-heading"><h1>Campaign</h1></header>
+    <nav className="campaign-view-nav" aria-label="Campaign views">
+      <a href={planUrl} aria-current={!calendar ? 'page' : undefined} onClick={guardLeave}>Campaign plan</a>
+      {calendar ? <button type="button" aria-label="Deadline Calendar" aria-current="page" onClick={closeEditor}>Calendar</button> :
+        <a href={'/campaign/calendar?' + calendarParams} onClick={guardLeave}>Calendar</a>}
     </nav>
     {error && <div className="ow-feedback" role="alert">{error}</div>}
     {notice && <div className="ow-feedback ow-success" role="status">{notice}</div>}
     {workspace.error && <div className="ow-feedback" role="alert">{workspace.error} <button type="button" onClick={workspace.retry}>Retry</button></div>}
-    {(workspace.busy || loadingOrder) && <p className="ow-empty" role="status">{loadingOrder ? 'Opening order…' : 'Loading Orders…'}</p>}
-    {scope && area !== 'calendar' && <div className="ow-bar ow-compact ow-scope">{scope}</div>}
-    <OrderCalendar key={client?.id + ':' + year} hidden={!!editor || area !== 'calendar' || !data}
+    {(workspace.busy || loadingOrder) && <p className="ow-empty" role="status">{loadingOrder ? 'Opening order…' : calendar ? 'Loading calendar…' : 'Loading orders…'}</p>}
+    {scope && !calendar && !editor && <div className="ow-bar ow-compact ow-scope">{scope}</div>}
+    {calendar && <OrderCalendar key={client?.id + ':' + year} hidden={!!editor || loadingOrder || !data}
       client={client} year={year} scope={scope} calendars={data?.calendars ?? []} orders={orders} markets={markets} busy={operation}
       legacy={data?.legacyOrders ?? []} opportunities={data?.opportunities ?? []}
       canEdit={editable} mutate={mutate} refresh={refresh} onOpen={openOrder}
       onCreate={(item, opportunity) => void startOrder(item.marketId, item.step === 'digital' ? 'digital' : 'broadcast',
-        opportunity?.key, opportunity?.archiveId ?? undefined, item)} />
-    {!editor && data && (area === 'planning' || area === 'digital') &&
-      <OrderList workflow={area === 'digital' ? 'digital' : 'broadcast'} orders={orders} opportunities={data.opportunities ?? []}
+        opportunity?.key, opportunity?.archiveId ?? undefined, item)} />}
+    {!editor && !loadingOrder && data && view === 'orders' &&
+      <OrderList workflow={workflow} orders={orders} opportunities={data.opportunities ?? []}
         legacy={data.legacyOrders ?? []} markets={markets} filter={filter} canEdit={editable}
         onFilter={patch => setFilter(old => ({ ...old, ...patch }))} onOpen={id => void openOrder(id)} onStart={startOrder} />}
-    {data && <HistoricalOrders key={client?.id + ':' + (archiveYear ?? year - 1)} hidden={!!editor || area !== 'historical'}
-      client={client} markets={markets} currentYear={year} canEdit={editable}
+    {data && view === 'historical' && <HistoricalOrders key={client?.id + ':' + year} hidden={!!editor}
+      client={client} markets={markets} currentYear={year} canEdit={editable} workflow={workflow}
       onSeed={(record, marketId) => void startOrder(marketId, record.workflow, undefined, record.id)} />}
-    {editor && editorClient && <OrderEditor selection={editor} client={editorClient} markets={allMarkets} canEdit={editable}
-      busy={operation} fromCalendar={!!from} sheet={from?.step ?? ''} mutate={mutate} onDirty={setDirty} onBack={closeEditor}
+    {editor && editorClient && <OrderEditor key={editor.editorKey} selection={editor} client={editorClient} markets={allMarkets} canEdit={editable}
+      busy={operation} fromCalendar={calendar} planUrl={fromPlan ? planUrl : undefined}
+      sheet={from?.step ?? ''} mutate={mutate} onDirty={setDirty} onBack={closeEditor} onCancel={cancelEditor}
       onSave={save} onUpdate={update} onDownload={download} />}
   </div></OrderFeedbackContext.Provider>;
 }

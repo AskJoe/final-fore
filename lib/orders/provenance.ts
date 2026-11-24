@@ -4,13 +4,17 @@ import type { OrderDocument, OrderLine, OrderSource, OrderWorkflow } from './sto
 
 type SourceScope = { clientId: string; year: number; workflow: OrderWorkflow };
 type AttestedLine = OrderLine & { source?: OrderSource & { attestation?: string } };
-type LineEvidence = Pick<OrderLine, 'marketId' | 'media'> & { source: OrderSource };
+type LineEvidence = Pick<OrderLine, 'marketId' | 'media' | 'reportedCpm'> & { source: OrderSource };
 
 function payload(scope: SourceScope, line: LineEvidence) {
   const { source } = line;
-  return JSON.stringify(['ff-order-source-v1', scope.clientId, scope.year, scope.workflow,
-    line.marketId, line.media, source.kind, source.id, source.label,
-    source.locator ?? '', source.url ?? '', source.year ?? null]);
+  const evidence:unknown[]=['ff-order-source-v1',scope.clientId,scope.year,scope.workflow,
+    line.marketId,line.media,source.kind,source.id,source.label,source.locator??'',source.url??'',source.year??null];
+  if(source.facts!==undefined || source.revision!==undefined || line.reportedCpm!==undefined)
+    evidence.push(['source-facts-v1',source.revision??'',line.reportedCpm===undefined?'omitted':line.reportedCpm,
+      source.facts?.map(fact=>[fact.label,fact.value,fact.unit??'',fact.raw??'',fact.locator??'',fact.derived??false])??null]);
+  if (source.researchRowId) evidence.push(['research-row', source.researchRowId]);
+  return JSON.stringify(evidence);
 }
 
 function signature(value: string, key: string) {
@@ -32,7 +36,15 @@ function readEvidence(raw: unknown): LineEvidence | undefined {
       !(source.locator === undefined || typeof source.locator === 'string') ||
       !(source.url === undefined || typeof source.url === 'string') ||
       !(source.year === undefined || Number.isSafeInteger(source.year))) return undefined;
-  return { marketId: raw.marketId, media: raw.media, source: source as OrderSource };
+  if (source.revision!==undefined && typeof source.revision!=='string' ||
+      source.researchRowId!==undefined && (typeof source.researchRowId!=='string' || !source.researchRowId || source.researchRowId.length>250) ||
+      source.facts!==undefined && (!Array.isArray(source.facts) || source.facts.some(fact=>!object(fact) ||
+        typeof fact.label!=='string' || !(fact.value===null || typeof fact.value==='string' || typeof fact.value==='number' && Number.isFinite(fact.value)) ||
+        ['unit','raw','locator'].some(key=>fact[key]!==undefined && typeof fact[key]!=='string') ||
+        fact.derived!==undefined && typeof fact.derived!=='boolean')) ||
+      raw.reportedCpm!==undefined && raw.reportedCpm!==null && (!Number.isSafeInteger(raw.reportedCpm) || Number(raw.reportedCpm)<0)) return undefined;
+  return { marketId: raw.marketId, media: raw.media, source: source as OrderSource,
+    ...(raw.reportedCpm!==undefined && {reportedCpm:raw.reportedCpm as number|null}) };
 }
 
 function verifySignature(value: string, candidate: unknown, key: string) {

@@ -1,9 +1,13 @@
+import { validOrderDate } from './dates';
+export { validOrderDate } from './dates';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { AccessError } from '../access';
+import { AccessError } from '../access-error';
 import { Conflict, InputError, check, object } from '../domain/types';
 import { StorageError } from '../store';
+import { calculatedOrderCpm } from './metrics';
 
 export type OrderWorkflow = 'broadcast' | 'digital';
+export type OrderSourceFact = { label: string; value: string | number | null; unit?: string; raw?: string; locator?: string; derived?: boolean };
 export type OrderSource = {
   kind: 'historical' | 'broadcast' | 'digital';
   id: string;
@@ -11,6 +15,9 @@ export type OrderSource = {
   locator?: string;
   url?: string;
   year?: number;
+  revision?: string;
+  researchRowId?: string;
+  facts?: OrderSourceFact[];
 };
 export type OrderLine = {
   id: string;
@@ -34,6 +41,8 @@ export type OrderLine = {
   spotsPerWeek?: number | null;
   audience?: number | null;
   cpm?: number | null;
+  reportedCpm?: number | null;
+  calculatedCpm?: number | null;
   source?: OrderSource;
 };
 export type OrderDocument = {
@@ -141,11 +150,7 @@ function cleanText(value: unknown, name: string, limit: number) {
   check(typeof value === 'string' && value.length <= limit, `Enter valid ${name} text up to ${limit} characters.`);
   return value.trim();
 }
-export function validOrderDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(value + 'T00:00:00Z');
-  return Number.isFinite(date.valueOf()) && date.toISOString().slice(0, 10) === value;
-}
+
 function optionalDate(date: string, name: string) {
   check(!date || validOrderDate(date), `Enter a valid ${name} date.`);
 }
@@ -161,6 +166,10 @@ function weekCount(value: unknown) {
     'Enter a nonnegative week count up to 520.');
   return value;
 }
+function exactSourceText(value:unknown,name:string,limit:number) {
+  check(typeof value==='string' && value.length<=limit,`Enter valid ${name} text up to ${limit} characters.`);
+  return value;
+}
 function cleanSource(value: unknown): OrderSource | undefined {
   if (value === undefined || value === null) return undefined;
   check(object(value), 'Choose a valid source.');
@@ -173,7 +182,26 @@ function cleanSource(value: unknown): OrderSource | undefined {
   check(!!id && !!label && (!url || /^https:\/\/[^\s]+$/i.test(url)), 'Choose a valid source reference.');
   const year = integer(value.year, 'source year', 2100);
   check(year === null || year >= 1900, 'Choose a valid source year.');
-  return { kind, id, label, ...(locator && {locator}), ...(url && {url}), ...(year && {year}) };
+  const revision=value.revision === undefined ? undefined : cleanText(value.revision,'source revision',200);
+  const researchRowId = value.researchRowId === undefined ? undefined : cleanText(value.researchRowId, 'research row ID', 250);
+  let facts: OrderSourceFact[] | undefined;
+  if (value.facts !== undefined) {
+    check(Array.isArray(value.facts) && value.facts.length<=256,'Use up to 256 source fields per placement.');
+    facts=value.facts.map((fact:unknown):OrderSourceFact=>{
+      check(object(fact),'Enter a valid source field.');
+      const label=cleanText(fact.label,'source field label',250);
+      check(!!label && (fact.value===null || typeof fact.value==='string' || typeof fact.value==='number' && Number.isFinite(fact.value)),'Enter a valid source field value.');
+      if(typeof fact.value==='string')check(fact.value.length<=20000,'Source field text is too long.');
+      check(fact.derived===undefined || typeof fact.derived==='boolean','Invalid source calculation flag.');
+      return {label,value:fact.value as string|number|null,
+        ...(fact.unit!==undefined && {unit:exactSourceText(fact.unit,'source unit',200)}),
+        ...(fact.raw!==undefined && {raw:exactSourceText(fact.raw,'source text',20000)}),
+        ...(fact.locator!==undefined && {locator:exactSourceText(fact.locator,'source cell',1000)}),
+        ...(fact.derived!==undefined && {derived:fact.derived})};
+    });
+  }
+  return { kind, id, label, ...(locator && {locator}), ...(url && {url}), ...(year && {year}),
+    ...(revision!==undefined && {revision}),...(researchRowId && { researchRowId }),...(facts!==undefined && {facts}) };
 }
 
 export function cleanOrderDocument(raw: unknown, scope: { marketIds: string[]; workflow: OrderWorkflow }): OrderDocument {
@@ -215,8 +243,11 @@ export function cleanOrderDocument(raw: unknown, scope: { marketIds: string[]; w
       ...(line.spotsPerWeek !== undefined && {spotsPerWeek: integer(line.spotsPerWeek, 'spots per week', 100000)}),
       ...(line.audience !== undefined && {audience: integer(line.audience, 'audience', 1_000_000_000)}),
       ...(line.cpm !== undefined && {cpm: integer(line.cpm, 'CPM in cents', 100_000_000_000)}),
+      ...(line.reportedCpm !== undefined && {reportedCpm: integer(line.reportedCpm, 'reported CPM in cents', 100_000_000_000)}),
+      ...(line.calculatedCpm !== undefined && {calculatedCpm: integer(line.calculatedCpm, 'calculated CPM in cents', 100_000_000_000)}),
       ...(source && {source})
     };
+    if (line.calculatedCpm !== undefined) placement.calculatedCpm=calculatedOrderCpm(placement);
     check((orderLineAmount(placement) ?? 0) <= 100_000_000_000, 'Placement amount exceeds the supported maximum.');
     return placement;
   });

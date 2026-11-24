@@ -29,13 +29,13 @@ export function rememberFilters(filters: Filters) {
   try { sessionStorage.setItem(storageKey, JSON.stringify(filters)); } catch { /* Keep in-page controls usable. */ }
 }
 
-export default function FilterRibbon({ filters, options, onChange, children }: {
-  filters: Filters; options: Record<FilterField, string[]>; onChange: (value: Filters) => void; children?: ReactNode;
+export default function FilterRibbon({ filters, options, onChange, children, fields = filterFields }: {
+  filters: Filters; options: Record<FilterField, string[]>; onChange: (value: Filters) => void; children?: ReactNode; fields?: FilterField[];
 }) {
   const [open, setOpen] = useState<FilterField | null>(null);
   const ribbon = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
-  const active = filterFields.some(field => filters[field]);
+  const active = fields.some(field => filters[field]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,7 +60,7 @@ export default function FilterRibbon({ filters, options, onChange, children }: {
       setOpen(null);
       trigger.current?.focus();
     }}>
-    {filterFields.map(field => {
+    {fields.map(field => {
       const label = labels[field];
       const selected = filters[field];
       const expanded = open === field;

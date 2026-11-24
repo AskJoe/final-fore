@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { cache } from 'react';
-export class AccessError extends Error { constructor(message: string, public status: number) { super(message); } }
+import { AccessError } from './access-error';
+export { AccessError } from './access-error';
 // React cache is scoped to one server render, never shared between users/requests.
 export const requireMember = cache(async function requireMember() {
   const supabase = await createClient();

@@ -59,6 +59,8 @@ export function clean(raw:any):Data {
   check(id===null||typeof id==='string'&&id.length<=80,'Invalid campaign.');
   check(raw.channelVersion==null||[VERSION,CHANNEL_CATALOG.version].includes(raw.channelVersion),'This campaign uses a different history version. Reload its source before editing.');
   const result:Data={channelVersion:VERSION,id,revision,clientId:raw.clientId,name:name.trim(),year,budget:money(raw.budget,'Campaign budget'),start:day(raw.start,'Campaign start'),end:day(raw.end,'Campaign end'),regions:{},markets:[]};
+  check(raw.workflow==null||raw.workflow==='digital'||raw.workflow==='broadcast','Choose Digital or Broadcast.');
+  if(raw.workflow==='broadcast')result.workflow='broadcast';
   for(const key of ['clientName','brand'])if(raw[key]!==undefined){check(typeof raw[key]==='string'&&raw[key].length<=200,'Invalid client details.');result[key]=raw[key];}
   datePair(result.start,result.end,'Campaign');
   for(const key of ['start','end'])check(!result[key]||Number(result[key].slice(0,4))===year,'Campaign dates must fall within the campaign year.');
@@ -81,6 +83,11 @@ export function clean(raw:any):Data {
 }
 export function calculate(raw:any):Data {
   const d=clean(raw),years=CATALOG.years.filter((y:number)=>y<d.year),totals:Data={};
+  if(d.workflow==='broadcast'){
+    const rows=d.markets.map((r:Data)=>({...r,name:MARKETS[r.marketId]?.name??r.name??'',start:r.start||d.regions[r.region]?.start||d.start,
+      end:r.end||d.regions[r.region]?.end||d.end,allocation:r.override}));
+    return {details:d,rows};
+  }
   for(const y of years)totals[y]=d.markets.reduce((s:number,r:Data)=>s+(MARKETS[r.marketId]?.history?.[y]??0),0);
   const rows:Data[]=d.markets.map((r:Data)=>{
     const market=MARKETS[r.marketId]??{},history:Data[]=[],shares:Decimal[]=[];

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "NEXT_TELEMETRY_DISABLED=1 next dev --hostname 127.0.0.1 --port 3107",
-    "prebuild": "node scripts/install-render-libreoffice.mjs && node scripts/install-orders-chromium.mjs",
+    "prebuild": "node scripts/build-order-assistant.mjs && node scripts/install-render-libreoffice.mjs && node scripts/install-orders-chromium.mjs",
     "build": "NEXT_TELEMETRY_DISABLED=1 next build",
     "start": "NEXT_TELEMETRY_DISABLED=1 next start --hostname 127.0.0.1 --port 3107",
     "typecheck": "tsc --noEmit",
@@ -16,10 +16,13 @@
     "preview:local": "npm run local",
     "local": "node scripts/start-local.mjs",
     "backend:start": "node scripts/start-local.mjs --backend-only",
-    "backend:stop": "DOCKER_CONTEXT=desktop-linux SUPABASE_TELEMETRY_DISABLED=1 supabase stop --project-id final-fore-local"
+    "backend:stop": "DOCKER_CONTEXT=desktop-linux SUPABASE_TELEMETRY_DISABLED=1 supabase stop --project-id final-fore-local",
+    "build:assistant": "node scripts/build-order-assistant.mjs"
   },
   "dependencies": {
     "@discoveryjs/json-ext": "1.1.0",
+    "@modelcontextprotocol/ext-apps": "2.0.4",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@noble/hashes": "2.4.0",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.119.0",
@@ -33,7 +36,8 @@
     "react-dom": "19.3.1",
     "resend": "6.38.0",
     "sanitize-html": "2.18.1",
-    "tus-js-client": "4.3.1"
+    "tus-js-client": "4.3.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",
@@ -42,6 +46,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/sanitize-html": "2.16.2",
+    "esbuild": "0.28.2",
     "tsx": "4.23.15",
     "typescript": "7.0.2"
   }

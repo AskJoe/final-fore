@@ -14,11 +14,12 @@ export const steps: Record<DeadlineStep, string> = { tv: 'TV', radio: 'Radio', d
 const statuses: DeadlineStatus[] = ['Not started', 'In progress', 'Complete', 'Not doing', 'Needs decision'];
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const shortStatus: Record<DeadlineStatus, string> = { 'Not started': 'To do', 'In progress': 'Active', Complete: 'Done', 'Not doing': 'Skip', 'Needs decision': 'Decide' };
-const datePart = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
+const datePart = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
 const orderType = (order: OrderSummary) => order.workflow === 'digital' ? 'Digital' : 'Broadcast';
 
 export function businessDate() {
-  return datePart.format(new Date());
+  const parts = datePart.formatToParts(new Date());
+  return ['year', 'month', 'day'].map(type => parts.find(part => part.type === type)?.value).join('-');
 }
 
 export function displayDay(date: string, fields: Intl.DateTimeFormatOptions) {
@@ -181,7 +182,7 @@ function DeadlineOrders({ deadline, choices, legacy, opportunities, market, busy
             else next.delete(legacyKey(order));
             return next;
           })} />}
-        <a href={order.href} target="_blank" rel="noreferrer">{order.title}</a>
+        <a href={order.href}>{order.title}</a>
         <span>Campaign order</span>
       </li>)}
     </ul>}
@@ -208,7 +209,7 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
   const [calendarId, setCalendarId] = useState('');
   const scoped = calendars.filter(item => item.clientId === client?.id && item.year === year);
   const calendar = scoped.find(item => item.id === calendarId) ?? scoped[0];
-  const [date, setDate] = useState(() => businessDate());
+  const [date, setDate] = useState('');
   const [mode, setMode] = useState<'month' | 'day'>('month');
   const [query, setQuery] = useState('');
   const [market, setMarket] = useState('');
@@ -229,6 +230,9 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
   const unscheduledMarkets = markets.filter(item => !scheduledMarketIds.has(item.id))
     .sort((left, right) => left.name.localeCompare(right.name));
   const today = businessDate();
+  const scheduledDates = calendar?.deadlines.map(item => item.dueDate).sort() ?? [];
+  const currentDate = date || (scheduledDates.some(day => day.slice(0, 7) === today.slice(0, 7)) ? today :
+    scheduledDates.find(day => day >= today) ?? scheduledDates.at(-1) ?? today);
   const search = query.trim().toLowerCase();
   const matchesPeriod = (dueDate: string, selected: string) => (mode === 'day' ? dueDate === selected : dueDate.slice(0, 7) === selected.slice(0, 7));
   const deadlines = (calendar?.deadlines ?? []).filter(item => {
@@ -239,8 +243,8 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
     return !search || [marketName(item.marketId), steps[item.step], item.dueDate, item.status, ...numbers, ...older].join(' ').toLowerCase().includes(search);
   }).sort((left, right) => left.dueDate.localeCompare(right.dueDate) || marketName(left.marketId).localeCompare(marketName(right.marketId))
     || Object.keys(steps).indexOf(left.step) - Object.keys(steps).indexOf(right.step));
-  const visibleDate = search && (pickedQueryDate || (!deadlines.some(item => matchesPeriod(item.dueDate, date)) && deadlines[0]?.dueDate))
-    || date;
+  const visibleDate = search && (pickedQueryDate || (!deadlines.some(item => matchesPeriod(item.dueDate, currentDate)) && deadlines[0]?.dueDate))
+    || currentDate;
   const relevantDates = [...new Set(deadlines.map(item => mode === 'day' ? item.dueDate : item.dueDate.slice(0, 7) + '-01'))];
   const byDate = new Map<string, Deadline[]>();
   for (const item of deadlines) byDate.set(item.dueDate, [...(byDate.get(item.dueDate) ?? []), item]);
@@ -298,16 +302,19 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
   function follow(item: Deadline, trigger: HTMLElement) {
     returnTo.current = trigger;
     if (item.step === 'copy') { setCopySelection(item.id); return; }
+    if (canEdit && (item.step === 'tv' || item.step === 'radio')) {
+      onCreate(item);
+      return;
+    }
     const available = eligibleOrders(item);
     const linked = available.filter(order => item.orderIds.includes(order.id));
     const older = eligibleLegacy(item);
     const matching = eligibleOpportunities(item);
     if (linked.length === 1 && !item.legacyRefs?.length) { onOpen(linked[0].id, item); return; }
-    const singleMarket = item.step === 'digital' ? available.filter(order => order.marketIds.length === 1) : available;
-    if (item.legacyRefs?.length || linked.length > 1 || singleMarket.length > 1 || older.length ||
-      (item.step !== 'digital' && matching.length + singleMarket.length > 1)) { setOrderSelection(item.id); return; }
+    const singleMarket = available.filter(order => order.marketIds.length === 1);
+    if (item.legacyRefs?.length || linked.length > 1 || singleMarket.length > 1 || older.length) { setOrderSelection(item.id); return; }
     if (singleMarket.length) { void openLinked(singleMarket[0].id, item); return; }
-    if (canEdit) onCreate(item, item.step === 'digital' ? matching.find(option => option.marketIds.length === 1) : matching[0]);
+    if (canEdit) onCreate(item, matching.find(option => option.marketIds.length === 1));
     else setOrderSelection(item.id);
   }
 
@@ -366,7 +373,8 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
         </>}
         </div>
       </details>;
-  return <section hidden={hidden} aria-label="Deadline calendar" className="ow-calendar">
+  return <>
+    <section hidden={hidden} aria-label="Deadline calendar" className="ow-calendar">
     <div className="ow-calendar-toolbar">
     {calendar && <div className="ow-bar ow-compact ow-period">
       <div className="ow-period-range">
@@ -483,13 +491,6 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
       : <CalendarNameForm calendar={panel === 'rename' ? calendar : undefined} client={client} year={year} busy={busy}
         mutate={mutate} onSave={saved => { setPanel(null); chooseCalendar(saved); void refresh(); }} />}
     </OrdersDialog>}
-    {selectedDeadline && <OrdersDialog title={marketName(selectedDeadline.marketId) + ' · ' + steps[selectedDeadline.step] + ' orders'} onClose={() => setOrderSelection(null)}>
-      <DeadlineOrders deadline={selectedDeadline} choices={eligibleOrders(selectedDeadline)} legacy={eligibleLegacy(selectedDeadline)}
-        opportunities={eligibleOpportunities(selectedDeadline)} market={marketName(selectedDeadline.marketId)} busy={busy} canEdit={canEdit}
-        onSave={async (ids, legacyRefs) => { if (await changeDeadline(selectedDeadline, { orderIds: ids, legacyRefs })) setOrderSelection(null); }}
-        onOpen={(id, deadline) => { setOrderSelection(null); void openLinked(id, deadline); }}
-        onCreate={(deadline, item) => { setOrderSelection(null); onCreate(deadline, item); }} />
-    </OrdersDialog>}
     {copyDeadline && <OrdersDialog title={marketName(copyDeadline.marketId) + ' · Ad Copy Sent to Reps'} onClose={() => setCopySelection(null)}>
       {copyDeadline.copySentAt && <p>Sent {displayTime(copyDeadline.copySentAt)}</p>}
       {canEdit && <form className="ow-form" onSubmit={async event => {
@@ -505,5 +506,13 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
         <button className="ow-primary" disabled={busy}>Record ad copy sent</button>
       </form>}
     </OrdersDialog>}
-  </section>;
+    </section>
+    {selectedDeadline && <OrdersDialog title={marketName(selectedDeadline.marketId) + ' · ' + steps[selectedDeadline.step] + ' orders'} onClose={() => setOrderSelection(null)}>
+      <DeadlineOrders deadline={selectedDeadline} choices={eligibleOrders(selectedDeadline)} legacy={eligibleLegacy(selectedDeadline)}
+        opportunities={eligibleOpportunities(selectedDeadline)} market={marketName(selectedDeadline.marketId)} busy={busy} canEdit={canEdit}
+        onSave={async (ids, legacyRefs) => { if (await changeDeadline(selectedDeadline, { orderIds: ids, legacyRefs })) setOrderSelection(null); }}
+        onOpen={(id, deadline) => { setOrderSelection(null); void openLinked(id, deadline); }}
+        onCreate={(deadline, item) => { setOrderSelection(null); onCreate(deadline, item); }} />
+    </OrdersDialog>}
+  </>;
 }
