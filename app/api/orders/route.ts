@@ -126,6 +126,7 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const get = (key: string) => params.get(key) ?? '';
     const view = get('view') || (get('id') ? 'order' : 'workspace');
+    if (view === 'issued-pdf') return await serveIssuedPdf(ctx, {id: get('id'), issueId: get('issueId')});
     if (view === 'order') {
       requireId(get('id'));
       const order = await ctx.orders.readOrder(get('id'));
@@ -246,7 +247,7 @@ async function issuePdf(ctx: OrderContext, input: Data) {
   })));
 }
 
-async function downloadPdf(ctx: OrderContext, input: Data) {
+async function serveIssuedPdf(ctx: OrderContext, input: Data, download = false) {
   requireId(input.id);
   requireId(input.issueId);
   const order = await ctx.orders.readOrder(input.id);
@@ -255,10 +256,10 @@ async function downloadPdf(ctx: OrderContext, input: Data) {
   if (!issue.storageKey) throw new StorageError('The issued PDF is unavailable. Try again.');
   const bytes = await pdfBytes(ctx,issue.storageKey);
   if (bytes.byteLength !== issue.bytes || hash(bytes) !== issue.sha256) throw new StorageError('The issued PDF failed its integrity check.');
-  await ctx.orders.command(ctx.user.id,'recordDownload',{id:order.id,issueId:issue.id,operationId:input.operationId});
+  if (download) await ctx.orders.command(ctx.user.id,'recordDownload',{id:order.id,issueId:issue.id,operationId:input.operationId});
   const name = (issue.number || 'Media-Order').replace(/[^a-z0-9._-]+/gi,'-').slice(0,100);
   return new Response(bytes.buffer as ArrayBuffer,{headers:{...privateHeaders,'Content-Type':'application/pdf',
-    'Content-Disposition':'attachment; filename="' + name + '-v' + issue.revision + '.pdf"'}});
+    'Content-Disposition':(download ? 'attachment' : 'inline') + '; filename="' + name + '-v' + issue.revision + '.pdf"'}});
 }
 
 export async function POST(request: Request) {
@@ -311,7 +312,7 @@ export async function POST(request: Request) {
     requireId(input.operationId);
     const action = input.action;
     if (action === 'finalizeOrder') return await issuePdf(ctx,input);
-    if (action === 'recordDownload') return await downloadPdf(ctx,input);
+    if (action === 'recordDownload') return await serveIssuedPdf(ctx,input,true);
     if (action === 'saveOrder') {
       let scope;
       if (input.id) {

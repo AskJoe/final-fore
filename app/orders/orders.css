@@ -577,6 +577,8 @@
 .ow-dialog h2 { margin: 0; font-size: 17px }
 .ow-dialog h3 { margin: 9px 0 3px; font-size: 14px }
 .ow-dialog.ow-drawer { margin: 0 0 0 auto; inset: 0 0 0 auto; height: 100dvh; max-height: 100dvh; border-radius: 0 }
+.ow-dialog:has(.ow-print-preview) { width: min(100% - 18px, 900px) }
+.ow-print-preview { display: block; width: 100%; height: min(68dvh, 740px); border: 1px solid var(--ow-line); margin-bottom: 8px }
 .ow-form { display: grid; gap: 7px; align-content: start }
 .ow-form p { margin: 2px 0; }
 .ow-form label { display: grid; gap: 3px }

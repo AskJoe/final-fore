@@ -5,9 +5,10 @@ import { OrderAssistantChanges } from './OrderAssistantChanges';
 import { useDraftSync } from './useDraftSync';
 import { useOrderResearchState,assistantRequest } from './useOrderResearchState';
 import { parseEditorValue } from '@/lib/orders/editor-values';
+import { orderPdfMarkup } from '@/lib/orders/print-markup';
 import type { ResearchView } from '@/lib/order-assistant/types';
 import { displayTime, OrdersDialog, type ClientOption, type MarketOption, type Mutate } from './OrderCalendar';
-import { OrderResearch, PriorBilling, quantity, Source, usd, type BillingReference } from './OrdersCatalog';
+import { OrderResearch, ordersUrl, PriorBilling, quantity, Source, usd, type BillingReference } from './OrdersCatalog';
 
 export type OpenOrder = {
   document: OrderDocument; clientId: string; year: number; workflow: OrderWorkflow; marketIds: string[];
@@ -382,13 +383,30 @@ function OrderHistory({ order, canRestore, busy, onRestore, onDownload, onClose 
   </OrdersDialog>;
 }
 
-function SendDialog({ order, issue, mode, busy, mutate, onUpdate, onClose }: {
+function PrintOrderDialog({ document, markets, onClose }: {
+  document: OrderDocument; markets: MarketOption[]; onClose: () => void;
+}) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [ready, setReady] = useState(false);
+  const [markup] = useState(() => orderPdfMarkup(document, '/brand/media-order-logo.png',
+    Object.fromEntries(markets.map(market => [market.id, market.name])), true));
+  return <OrdersDialog title="Print preview" onClose={onClose}>
+    <iframe ref={frame} className="ow-print-preview" title="Draft media order" srcDoc={markup}
+      sandbox="allow-same-origin allow-modals" onLoad={() => setReady(true)} />
+    <button type="button" className="ow-primary" disabled={!ready} onClick={() => frame.current?.contentWindow?.print()}>
+      Print order
+    </button>
+  </OrdersDialog>;
+}
+
+function SendDialog({ order, issue, mode, busy, mutate, onUpdate, onClose, onDownload }: {
   order: OrderDetail; issue: OrderIssue; mode: 'send' | 'correct'; busy: boolean;
   mutate: Mutate; onUpdate: (order: OrderDetail) => void; onClose: () => void;
+  onDownload?: (issueId: string) => Promise<void>;
 }) {
   const corrected = new Set(order.history.filter(event => event.type === 'sendCorrected').map(event => event.detail.sendEventId));
   const sent = order.history.filter(event => event.type === 'sent' && event.issueId === issue.id && !corrected.has(event.id));
-  return <OrdersDialog title={mode === 'send' ? 'Record send' : 'Correct send record'} onClose={onClose}>
+  return <OrdersDialog title={mode === 'correct' ? 'Correct send record' : onDownload ? 'Send order' : 'Record send'} onClose={onClose}>
     <form className="ow-form" onSubmit={async event => {
       event.preventDefault();
       const values = new FormData(event.currentTarget);
@@ -400,7 +418,10 @@ function SendDialog({ order, issue, mode, busy, mutate, onUpdate, onClose }: {
       if (result) { onUpdate(result); onClose(); }
     }}>
       {mode === 'send' ? <>
-        <p>Record how this finalized revision was sent.</p>
+        {onDownload ? <>
+          <p>Download the finalized PDF to send by email. Record the recipient and time after sending.</p>
+          <button type="button" disabled={busy} onClick={() => void onDownload(issue.id)}>Download order PDF</button>
+        </> : <p>Record how this finalized revision was sent.</p>}
         <label>Recipient<input required name="recipient" maxLength={254} /></label>
         <label>Sent at<input required name="sentAt" type="datetime-local" /></label>
       </> : <label>Send record<select required name="sendEventId">
@@ -424,7 +445,8 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   const [document, setDocument] = useState(selection.document);
   const [selected, setSelected] = useState<string | null>(null);
   const [history, showHistory] = useState(false);
-  const [confirmation, confirm] = useState<'finalize' | 'revision' | OrderEvent | null>(null);
+  const [printing, setPrinting] = useState(false);
+  const [confirmation, confirm] = useState<'finalize' | 'send' | 'revision' | OrderEvent | null>(null);
   const [send, setSend] = useState<'send' | 'correct' | null>(null);
   const [split, setSplit] = useState(58);
   const [spreadsheet, setSpreadsheet] = useState(false);
@@ -434,6 +456,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   const panels = useRef<HTMLDivElement>(null);
   const order = selection.order;
   const issue = order?.currentIssue;
+  const broadcast = selection.workflow === 'broadcast';
   const immutable = !canEdit || !!issue;
   const [applying,setApplying]=useState(false);
   const [recoveryFields,setRecoveryFields]=useState<Record<string,string>>({});
@@ -603,9 +626,13 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   async function action() {
     if (!order || !confirmation) return;
     const input = typeof confirmation === 'object' ? { action: 'restoreRevision', eventId: confirmation.id }
-      : { action: confirmation === 'finalize' ? 'finalizeOrder' : 'createRevision' };
+      : { action: confirmation === 'revision' ? 'createRevision' : 'finalizeOrder' };
     const result = await mutate<OrderDetail>({ ...input, id: order.id, expectedRevision: order.revision });
-    if (result) { onUpdate(result); confirm(null); }
+    if (result) {
+      onUpdate(result);
+      confirm(null);
+      if (confirmation === 'send') setSend('send');
+    }
   }
 
   const headerChange = (key: HeaderKey, value: string) => setDocument(current => ({ ...current, [key]: value }));
@@ -678,14 +705,22 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       {selection.workflow==='broadcast' && <button type="button" className="ow-link" disabled={launching||applying||!researchState.ready||researchState.viewConflict||selection.marketIds.length!==1}
         onClick={()=>void askChatGPT()}>{launching?'Opening ChatGPT…':'Ask ChatGPT ↗'}</button>}
       <button type="button" className="ow-link" aria-pressed={researchOpen} onClick={() => setResearchOpen(!researchOpen)}>{researchOpen ? 'Hide research' : 'Show research'}</button>
+      {broadcast && (issue && order
+        ? <a className="ow-link" href={ordersUrl({view: 'issued-pdf', id: order.id, issueId: issue.id})}
+            target="_blank" rel="noopener">Print order ↗</a>
+        : <button type="button" className="ow-link" onClick={() => setPrinting(true)}>Print order</button>)}
       {issue && <>
         <button type="button" className="ow-primary" disabled={busy} onClick={() => void onDownload(issue.id)}>Download order PDF</button>
-        {canEdit && <button type="button" disabled={busy} onClick={() => setSend('send')}>Record send</button>}
+        {canEdit && <button type="button" disabled={busy} onClick={() => setSend('send')}>{broadcast ? 'Send order' : 'Record send'}</button>}
         {canEdit && order.sent && <button type="button" disabled={busy} onClick={() => setSend('correct')}>Correct send record</button>}
         {canEdit && <button type="button" disabled={busy} onClick={() => confirm('revision')}>Create revision</button>}
       </>}
-      {order && canEdit && !issue && <button type="button" className="ow-primary" disabled={busy || dirty || readOnly}
-        onClick={() => confirm('finalize')}>Finalize order</button>}
+      {order && canEdit && !issue && <>
+        {broadcast && <button type="button" className="ow-link" disabled={busy || dirty || readOnly}
+          onClick={() => confirm('send')}>Send order</button>}
+        <button type="button" className="ow-primary" disabled={busy || dirty || readOnly}
+          onClick={() => confirm('finalize')}>Finalize order</button>
+      </>}
     </div>
     {researchState.viewConflict&&<div className="ow-feedback" role="alert">Saved work changed in another window. This window has been kept for review.
       <button type="button" onClick={async()=>{const saved=await researchState.useSavedWork();
@@ -722,16 +757,20 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
     </div>}
     {history && order && <OrderHistory order={order} canRestore={canEdit && !issue && !dirty} busy={busy}
       onRestore={event => { showHistory(false); confirm(event); }} onDownload={onDownload} onClose={() => showHistory(false)} />}
+    {printing && !issue && <PrintOrderDialog document={document} markets={markets} onClose={() => setPrinting(false)} />}
     {send && order && issue && <SendDialog mode={send} issue={issue} order={order} busy={busy}
-      mutate={mutate} onUpdate={onUpdate} onClose={() => setSend(null)} />}
-    {confirmation && <OrdersDialog title={confirmation === 'finalize' ? 'Finalize order'
+      mutate={mutate} onUpdate={onUpdate} onClose={() => setSend(null)}
+      onDownload={broadcast && send === 'send' ? onDownload : undefined} />}
+    {confirmation && <OrdersDialog title={confirmation === 'send' ? 'Send order' : confirmation === 'finalize' ? 'Finalize order'
       : confirmation === 'revision' ? 'Create revision' : 'Restore revision'} onClose={() => confirm(null)}>
       <div className="ow-form">
-        <p>{confirmation === 'finalize' ? 'Create the downloadable PDF from this saved revision.'
+        <p>{confirmation === 'send' ? 'Finalize this draft to create the PDF for sending.'
+          : confirmation === 'finalize' ? 'Create the downloadable PDF from this saved revision.'
           : confirmation === 'revision' ? 'Open a new draft. This finalized PDF remains in the order’s history.'
           : 'Copy the selected saved revision into a new draft revision.'}</p>
         <button type="button" className="ow-primary" disabled={busy} onClick={() => void action()}>
-          {confirmation === 'finalize' ? 'Finalize order' : confirmation === 'revision' ? 'Create revision' : 'Restore revision'}
+          {confirmation === 'send' ? 'Finalize and continue' : confirmation === 'finalize' ? 'Finalize order'
+            : confirmation === 'revision' ? 'Create revision' : 'Restore revision'}
         </button>
       </div>
     </OrdersDialog>}
