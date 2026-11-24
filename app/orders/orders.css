@@ -510,6 +510,7 @@
 .ow-order-grid td[data-field] { padding: 0 2px }
 .ow-sheet-table td[data-numeric="true"] { text-align: end }
 .ow-sheet-table td.ow-sheet-derived { background: #f0f5ef; color: var(--ow-green) }
+.ow-sheet-table .ow-vendor-divider td, .ow-paper-lines .ow-vendor-divider td { background: #eef2ee; font-weight: 700; padding: 5px 6px }
 .ow-sheet-table th.ow-sheet-derived { background: #e1ebe1 }
 .ow-order-grid tr[data-target="true"] > td { background: #edf4ef }
 .ow-order-sheet .ow-sheet-scroll { scroll-padding-inline: 88px 62px }

@@ -26,6 +26,7 @@ export type ResearchQuery = Scope & {
   rep?: string; firm?: string; primary?: string; secondary?: string; sort?: string;
   allocation?: number | null;
   quotesOnly?: boolean;
+  includeMarketCoverage?: boolean;
   quoteFilters?: { station: string; exact?: number; low?: number; high?: number };
   selection?: ResearchSelection;
   shortlist?: { mode: 'shortlisted' | 'unshortlisted'; ids: ReadonlySet<string> };
@@ -198,9 +199,10 @@ function archivePlacement(ref: SourceRef, archive: OrderArchive, order: ArchiveR
 }
 type ArchivePlacement = ReturnType<typeof archivePlacement>;
 
-function draftPlacement(item: ArchivePlacement): OrderLine | null {
-  const media = medium(item.media);
-  if (!media || item.kind !== 'Placement') return null;
+function draftPlacement(item: ArchivePlacement, includeAdjustment = false): OrderLine | null {
+  const adjustment = includeAdjustment && item.kind === 'Adjustment';
+  const media = medium(item.media) ?? (adjustment && item.media === 'Broadcast' ? 'TV' : null);
+  if (!media || item.kind !== 'Placement' && !adjustment) return null;
   // Keep the prior flight on the source. A new issue needs an explicitly selected flight.
   const amount = item.rate !== null && item.quantity !== null && item.rate * item.quantity === item.amount
     ? null : item.amount;
@@ -451,18 +453,12 @@ export function archiveOrderSeed(archive: OrderArchive | null, directory: Direct
   if (!scope.archiveId && scope.workflow === 'broadcast') {
     if (scope.marketIds.length !== 1) throw new InputError('Choose one market for the combined order template.');
     const marketId = scope.marketIds[0];
-    const history = archive && scope.year > archive.year ? (['TV','Radio'] as const).map(media =>
-      marketBroadcastHistory(archive, directory, {...scope,marketId,media,year:archive.year})) : [];
-    const lines = history.flatMap(item => item.vendors.flatMap(vendor => vendor.lines)).flatMap(item => {
-      const line = draftPlacement(item);
-      return line ? [{...line,...(item.trade ? {noCharge:true} : {})}] : [];
-    });
+    const sample = archive && scope.year > archive.year ? combinedMarketSample(archive, client, marketId) : {lines: [], documents: []};
     const header: Omit<OrderDocument, 'lines'> = {
       number:'',date:'',clientName:client.name,vendor:'',rep:'',buyer:TEMPLATE.contact || '',buyerEmail:TEMPLATE.email || '',
       billing:'',terms:TEMPLATE.terms || '',start:'',end:'',notes:'',
     };
-    return {header,lines,source:{year:archive?.year ?? null,marketId,billing:null,
-      documents:distinctSources(history.flatMap(item => [...item.purchaseOrders,...item.vendors.flatMap(vendor => vendor.sources)]))}};
+    return {header,lines:sample.lines,source:{year:archive?.year ?? null,marketId,billing:null,documents:sample.documents}};
   }
   const record = archive?.orders.find(order => order.id === String(scope.archiveId));
   if (!archive || !record || scope.year <= archive.year || workflowFor(record) !== scope.workflow) {
@@ -485,6 +481,76 @@ export function archiveOrderSeed(archive: OrderArchive | null, directory: Direct
     terms: TEMPLATE.terms || '', start: '', end: '', notes: '',
   };
   return { header, lines, source };
+}
+
+function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof selectedClient>, marketId: string) {
+  const rows = archive.orders.flatMap(record => {
+    const scope = archiveScope(archive, record, client.id, client.marketIds);
+    const file = archive.files[record.source];
+    const source = sourceRef(file, !scope.sharedAcrossClients);
+    const buyerOrder = record.type === 'Market purchase order' || record.type === 'Shared purchase order';
+    return scope.lines.flatMap(item => {
+      if (item.marketId !== marketId || !['Placement', 'Adjustment'].includes(item.line.kind)) return [];
+      const line = item.line;
+      const identity = JSON.stringify([line.medium, stationKey(line.station), normalize(line.placement),
+        normalize(line.fmt), normalize(line.days)]);
+      const key = record.ref.trim() ? JSON.stringify([normalize(record.ref), identity, normalize(line.flight),
+        cents(line.amount), cents(line.rate), count(line.spots), count(line.impressions)]) : null;
+      const vendor = { firm: file.firm.trim(), rep: file.rep.trim() };
+      return [{ record, item, source, buyerOrder, identity, key, vendor }];
+    });
+  });
+  const purchaseRows = rows.filter(row => row.buyerOrder);
+  const vendorRows = rows.filter(row => !row.buyerOrder);
+  const copies = new Map<typeof rows[number], typeof rows>();
+  const paired = new Set<typeof rows[number]>();
+  for (const vendor of vendorRows) {
+    const exact = vendor.key ? purchaseRows.filter(buyer => buyer.key === vendor.key) : [];
+    const net = exact.length ? [] : purchaseRows.filter(buyer => {
+      if (buyer.identity !== vendor.identity || !buyer.item.line.fee) return false;
+      const buyerNet = cents(buyer.item.line.net);
+      const buyerGross = cents(buyer.item.line.amount);
+      return buyerNet != null && buyerGross != null && buyerGross > buyerNet && buyerNet === cents(vendor.item.line.amount)
+        && overlappingArchiveFlights(buyer.item.line.flight, vendor.item.line.flight);
+    });
+    const matches = exact.length ? exact : net;
+    if (matches.length !== 1) continue;
+    const buyer = matches[0];
+    paired.add(vendor);
+    copies.set(buyer, [...(copies.get(buyer) ?? []), vendor]);
+  }
+  const lines = rows.flatMap(row => {
+    // The purchase order carries gross cost. A matched vendor copy adds attribution and delivery evidence.
+    if (paired.has(row)) return [];
+    const {record, item, source, buyerOrder, vendor} = row;
+    const evidence = copies.get(row) ?? [];
+    const attributions = new Map(evidence.map(copy => copy.vendor).filter(entry => entry.firm || entry.rep)
+      .map(entry => [JSON.stringify([normalizedFirm(entry.firm), normalize(entry.rep)]), entry]));
+    const assigned = !buyerOrder ? vendor : attributions.size === 1 ? [...attributions.values()][0] : {firm: '', rep: ''};
+    const placement = archivePlacement(source, archive, record, item);
+    const copyImpressions = new Set(evidence.map(copy => count(copy.item.line.impressions)).filter(value => value != null));
+    if (placement.impressions === null && copyImpressions.size === 1) {
+      placement.impressions = [...copyImpressions][0];
+      placement.impressionsText = String(placement.impressions);
+    }
+    const draft = draftPlacement(placement, true);
+    if (!draft?.source) return [];
+    return [{ ...draft, noCharge: draft.noCharge || normalize(item.line.context) === 'trade',
+      source: {...draft.source, facts: [...(draft.source.facts ?? []),
+        {label: 'Firm', value: assigned.firm}, {label: 'Representative', value: assigned.rep},
+        ...evidence.flatMap(copy => [{label: 'Vendor order', value: copy.source.title},
+          {label: 'Vendor flight', value: copy.item.line.flight},
+          {label: 'Vendor impressions', value: count(copy.item.line.impressions)}])] } }];
+  });
+  return {lines, documents: distinctSources(rows.map(row => row.source))};
+}
+
+function overlappingArchiveFlights(left: string, right: string) {
+  if (normalize(left) === normalize(right)) return !!left.trim();
+  const dates = (flight: string) => [...flight.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g)].map(([, month, day, year]) =>
+    Number((year.length === 2 ? '20' + year : year) + month.padStart(2, '0') + day.padStart(2, '0')));
+  const [a, b] = dates(left), [c, d] = dates(right);
+  return a <= d && c <= b;
 }
 
 const columns = (labels: string[]) => labels.map(label => ({label}));
@@ -721,6 +787,7 @@ export async function broadcastOrderResearch(directory: Directory, query: Resear
   const cpmColumns = view.sheet.columns.flatMap((column, index) =>
     ['CPM', 'Reported CPM', 'Calculated CPM'].includes(column.label) ? [index] : []);
   const stationOf = (row: ResearchRow) => cellText(row.cells[stationColumn] ?? '').trim();
+  const marketCoverage = query.includeMarketCoverage ? summarizeMarketResearch(rows, stationOf) : undefined;
   const pricesOf = (row: ResearchRow) => [
     ...cpmColumns.map(index => {
       const cell = row.cells[index];
@@ -744,7 +811,23 @@ export async function broadcastOrderResearch(directory: Directory, query: Resear
   if (combinePages) orderResearchRows(filtered,view.sheet.columns,query);
   return { columns:view.sheet.columns,groups:view.sheet.groups,...(combinePages ? paginate(filtered,query.page) :
     {rows,total:singleView.matches,page:singleView.page,pageCount:singleView.pages}),groupOptions:view.groupFields,
-    filterOptions:options,quoteFacets:facets,availability:'available' as const };
+    filterOptions:options,quoteFacets:facets,marketCoverage,availability:'available' as const };
+}
+
+function summarizeMarketResearch(rows: ResearchRow[], stationOf: (row: ResearchRow) => string) {
+  const groups = new Map<string, {station: string; vendor: string; rep: string; rows: number; pricedRows: number}>();
+  for (const row of rows) {
+    const station = stationOf(row);
+    if (!station) continue;
+    const key = JSON.stringify([normalize(station), normalizedFirm(row.firm), normalize(row.rep)]);
+    const group = groups.get(key) ?? {station, vendor: row.firm, rep: row.rep, rows: 0, pricedRows: 0};
+    group.rows++;
+    if ([row.line, ...(row.periods ?? []).map(period => period.line)]
+      .some(line => line?.rate != null && line.start && line.end)) group.pricedRows++;
+    groups.set(key, group);
+  }
+  return {totalRows: rows.length, stations: [...groups.values()].sort((a, b) =>
+    a.vendor.localeCompare(b.vendor) || a.station.localeCompare(b.station) || a.rep.localeCompare(b.rep))};
 }
 
 function quotedFlight(value: string, year: number) {

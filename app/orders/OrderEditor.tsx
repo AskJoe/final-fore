@@ -1,4 +1,4 @@
-import { createContext,useContext,useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, createContext,useContext,useCallback, useEffect, useRef, useState } from 'react';
 import { calculatedOrderCpm, replaceResearchLine, spreadsheetScheduleChanges } from '@/lib/orders/metrics';
 import type { OrderDetail, OrderDocument, OrderEvent, OrderIssue, OrderLine, OrderWorkflow } from '@/lib/orders/store';
 import { OrderAssistantChanges } from './OrderAssistantChanges';
@@ -6,6 +6,7 @@ import { useDraftSync } from './useDraftSync';
 import { useOrderResearchState,assistantRequest } from './useOrderResearchState';
 import { parseEditorValue } from '@/lib/orders/editor-values';
 import { orderPdfMarkup } from '@/lib/orders/print-markup';
+import { isOrderAdjustment, orderVendorGroups, orderVendorLabel } from '@/lib/orders/vendor-groups';
 import type { ResearchView } from '@/lib/order-assistant/types';
 import { displayTime, OrdersDialog, type ClientOption, type MarketOption, type Mutate } from './OrderCalendar';
 import { OrderResearch, ordersUrl, PriorBilling, quantity, Source, usd, type BillingReference } from './OrdersCatalog';
@@ -140,6 +141,7 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, de
   const amount = document.lines.reduce((sum, line) => sum + (bookedAmount(line) ?? 0), 0);
   const impressions = document.lines.reduce((sum, line) => sum + (line.impressions ?? 0), 0);
   const spots = document.lines.reduce((sum, line) => sum + (line.quantity ?? 0), 0);
+  const groups = orderVendorGroups(document.lines.map((line, index) => ({line, index})), item => item.line);
   return <section className="ow-order-sheet" aria-label="Order spreadsheet">
     <div className="ow-sheet-toolbar">
       <h3>Market order</h3>
@@ -165,7 +167,11 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, de
           <th scope="col">Channel</th>{multiMarket && <th scope="col">Market</th>}
           {!readOnly && <th scope="col" className="ow-sheet-line-action">Action</th>}
         </tr></thead>
-        <tbody>{document.lines.map((line, index) => <tr key={line.id} data-target={line.id === selected}
+        <tbody>{groups.map(group => <Fragment key={orderVendorLabel(group)}>
+          {(group.vendor || group.rep || groups.length > 1) && <tr className="ow-vendor-divider">
+            <td colSpan={sheetPlacements.length + 1 + Number(multiMarket) + Number(!readOnly)}>{orderVendorLabel(group)}</td>
+          </tr>}
+          {group.items.map(({line, index}) => <tr key={line.id} data-target={line.id === selected}
           onClick={() => onSelect(line.id)} onFocus={() => onSelect(line.id)}>
           {sheetPlacements.map(({ key, title, type, max }) => {
             const scheduled = line.spotsPerWeek != null && line.weeks != null;
@@ -181,7 +187,7 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, de
                 readOnly={readOnly || formula} onChange={next => onLine(line.id, { [key]: next })} />
             </td>;
           })}
-          <td>{line.source || readOnly ? line.media : <select aria-label={'Channel, line ' + (index + 1)} value={line.media}
+          <td>{line.source || readOnly ? isOrderAdjustment(line) ? 'Adjustment' : line.media : <select aria-label={'Channel, line ' + (index + 1)} value={line.media}
             onChange={event => onLine(line.id, { media: event.target.value as OrderLine['media'] })}>
             <option>TV</option><option>Radio</option>{line.media === 'Digital' && <option>Digital</option>}
           </select>}</td>
@@ -192,7 +198,7 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, de
             </select>}</td>}
           {!readOnly && <td className="ow-sheet-line-action"><button type="button" className="ow-link ow-remove-line"
             aria-label={'Remove line ' + (index + 1)} onClick={event => { event.stopPropagation(); onRemove(line.id); }}>Remove</button></td>}
-        </tr>)}</tbody>
+        </tr>)}</Fragment>)}</tbody>
       </table>
       {!document.lines.length && <p className="ow-empty">Add a row or select a research quote.</p>}
     </div>
@@ -270,6 +276,7 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
       const columnCount=(digital?8:11)+(marketIds.length>1?1:0)+3;
       const lines = document.lines.map((line, index) => ({ line, index })).filter(({ line }) => (line.media === 'Digital') === digital);
       const total = lines.reduce((sum, { line }) => sum + (bookedAmount(line) ?? 0), 0);
+      const groups = orderVendorGroups(lines, item => item.line);
       return <section className="ow-schedule" key={String(digital)} aria-label={digital ? 'Digital schedule' : 'Broadcast schedule'}>
         <h4>{digital ? 'Digital ads' : 'Broadcast ads'}</h4>
         <div className="ow-table-viewport">
@@ -280,13 +287,17 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
               {!digital && <><th scope="col">Rate</th><th scope="col">Spots</th></>}
               <th scope="col">Amount</th><th scope="col">Impressions</th><th scope="col">Audience</th>
               <th scope="col">Reported CPM</th><th scope="col">Calculated CPM</th><th scope="col"><span className="ow-sr-only">Line actions</span></th></tr></thead>
-            <tbody role="rowgroup">{lines.map(({ line, index }) =>
+            <tbody role="rowgroup">{groups.map(group => <Fragment key={orderVendorLabel(group)}>
+              {(group.vendor || group.rep || groups.length > 1) && <tr className="ow-vendor-divider">
+                <td colSpan={columnCount}>{orderVendorLabel(group)}</td>
+              </tr>}
+              {group.items.map(({ line, index }) =>
               <tr key={line.id} role="row" className="ow-placement" data-selected={selected === line.id}
                 onClick={() => onSelect(line.id)} onFocus={() => onSelect(line.id)}>
                 <PlacementCell label="Channel">{!digital && !readOnly && !line.source
                   ? <select aria-label={'Media for line ' + (index + 1)} value={line.media} onChange={event => onLine(line.id, { media: event.target.value as OrderLine['media'] })}>
                     <option>TV</option><option>Radio</option>
-                  </select> : line.media}</PlacementCell>
+                  </select> : isOrderAdjustment(line) ? 'Adjustment' : line.media}</PlacementCell>
                 {marketIds.length > 1 && <PlacementCell label="Market">{readOnly || line.source ? marketName(line.marketId) : <select aria-label={'Market for line ' + (index + 1)}
                   value={line.marketId} onChange={event => onLine(line.id, { marketId: event.target.value })}>
                   {marketIds.map(id => <option key={id} value={id}>{marketName(id)}</option>)}
@@ -307,7 +318,7 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
                 <PlacementCell label="Calculated CPM">{sourceMetric(calculatedOrderCpm(line),true)}</PlacementCell>
                 <PlacementCell>{!readOnly && <button className="ow-link ow-remove-line" type="button"
                   aria-label={'Remove line ' + (index + 1)} onClick={event => { event.stopPropagation(); onRemove(line.id); }}>Remove</button>}</PlacementCell>
-              </tr>)}
+              </tr>)}</Fragment>)}
               {!lines.length && <tr role="row"><td role="cell" colSpan={columnCount} className="ow-blank-line">{readOnly ? 'No placements' : 'Add a line or select a research quote.'}</td></tr>}
             </tbody>
           </table>
@@ -506,6 +517,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'detach',contextId})}).catch(()=>{});
   },[]);
   const total = document.lines.reduce((sum, line) => sum + (bookedAmount(line) ?? 0), 0);
+  const broadcastTotal = document.lines.reduce((sum, line) => sum + (line.media === 'Digital' ? 0 : bookedAmount(line) ?? 0), 0);
   const scope = selection.marketIds.map(id => markets.find(market => market.id === id)?.name ?? id);
   const changeRaw=useCallback((key:string,value:string|null)=>{
     setRecoveryFields(current=>{
@@ -689,10 +701,10 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       <span className="ow-pill">{issue ? 'Finalized' : 'Draft'}</span>
       {order?.downloaded && <span className="ow-pill">PDF downloaded</span>}
       {order?.sent && <span className="ow-pill">Sent</span>}
-      <strong>{selection.marketProposed!==undefined ? 'Actual ' : ''}{valueLabel(total, 'money')}</strong>
+      <strong>{selection.marketProposed!==undefined ? 'Actual ' : ''}{valueLabel(selection.marketProposed!==undefined ? broadcastTotal : total, 'money')}</strong>
       {selection.marketProposed!==undefined && <>
         <span>Proposed <b>{valueLabel(selection.marketProposed,'money')}</b></span>
-        <span>Difference <b>{valueLabel(selection.marketProposed-total,'money')}</b></span>
+        <span>Difference <b>{valueLabel(selection.marketProposed-broadcastTotal,'money')}</b></span>
       </>}
       {order && <button className="ow-link" type="button" onClick={() => showHistory(true)}>Edit history &amp; activity</button>}
     </div>

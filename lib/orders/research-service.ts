@@ -7,7 +7,7 @@ import { ordersSecret,type OrderRuntime } from './runtime';
 
 /** Shared by the native research pane and MCP; the caller supplies a verified member client. */
 export async function loadOrderResearch(directory:Directory,params:URLSearchParams,memberClient:OrderRuntime['supabase'],
-  scope:{clientId:string;marketId:string;year:number},filters:Pick<ResearchQuery,'selection'|'shortlist'>={},researchApiKey?:string) {
+  scope:{clientId:string;marketId:string;year:number},filters:Pick<ResearchQuery,'selection'|'shortlist'|'includeMarketCoverage'>={},researchApiKey?:string) {
   check(directory.clients.some(client=>client.id===scope.clientId && client.marketIds.includes(scope.marketId)),
     'Choose a market assigned to this client.');
   const get=(key:string)=>params.get(key)??'';

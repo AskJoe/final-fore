@@ -1,7 +1,7 @@
 import { createHmac,randomUUID } from 'node:crypto';
 import { canonicalDigest as digest } from './digest';
 import { projectDocument,projectLine,projectResearchPage } from './projection';
-import { loadOrderArchiveDigest } from '../orders/archive-source';
+import { loadOrderArchive, loadOrderArchiveDigest } from '../orders/archive-source';
 import assignments from '../../data/research-assignment-seed.json';
 import { AccessError } from '../access';
 import { check,Conflict } from '../domain/types';
@@ -10,7 +10,9 @@ import { StorageError } from '../store';
 import type { OrderRuntime } from '../orders/runtime';
 import { loadOrderResearch } from '../orders/research-service';
 import { stateCommand } from '../orders/research-state';
-import { orderTotal,type OrderDetail } from '../orders/store';
+import { orderLineAmount, orderTotal,type OrderDetail, type OrderLine } from '../orders/store';
+import { archiveOrderSeed } from '../orders/sources';
+import { isOrderAdjustment, orderVendorGroups } from '../orders/vendor-groups';
 import { selectedResearchKeys } from '../orders/research-selection';
 import mapping from '../../data/research-market-links.json';
 import { buildOrderChanges,cleanOrderChanges } from './changes';
@@ -107,10 +109,36 @@ export class MarketOrderAssistant {
     check(result.rows.every(row=>row.marketId===order.marketIds[0]),'Research returned an unexpected market.');
     return result;
   }
-  async search(contextId:string,override:unknown={}){
+  async compareMarket(contextId:string) {
+    const {context,order}=await this.scoped(contextId);
+    const scope={clientId:order.clientId,marketId:context.marketId,year:order.year};
+    const before=await this.versions(context.marketId);
+    const [{data:directory},archive]=await Promise.all([this.runtime.share.directory(),loadOrderArchive()]);
+    const sample=archive ? archiveOrderSeed(archive,directory,{...scope,year:Math.max(scope.year,archive.year+1),
+      marketIds:[scope.marketId],workflow:'broadcast',archiveId:''}) : null;
+    const research=await Promise.all((['tv','radio'] as const).map(async sheet=>{
+      const data=await loadOrderResearch(directory,new URLSearchParams({workflow:'broadcast',sheet,quoteFilters:'1'}),
+        this.runtime.supabase,scope,{includeMarketCoverage:true},this.runtime.researchApiKey);
+      return {sheet,coverage:'marketCoverage' in data ? data.marketCoverage ?? null : null};
+    }));
+    const [after,latestOrder]=await Promise.all([this.versions(context.marketId),this.runtime.orders.readOrder(order.id)]);
+    if(digest(before)!==digest(after))throw new Conflict('Research changed while comparing the market. Try again.');
+    if(latestOrder?.revision!==order.revision)throw new Conflict('The order changed while comparing the market. Try again.');
+    const group=(lines:OrderLine[])=>orderVendorGroups(lines,line=>line).map(({vendor,rep,items})=>({
+      vendor,rep,placements:items.map(line=>({id:line.id,station:line.station,channel:isOrderAdjustment(line) ? 'Adjustment' : line.media,
+        program:line.program,format:line.format,flight:[line.start,line.end].filter(Boolean).join(' – '),
+        priorFlight:line.priorFlight,rate:line.rate,spots:line.quantity,
+        amount:orderLineAmount(line),impressions:line.impressions,source:line.source?.label,locator:line.source?.locator})),
+    }));
+    return {marketId:context.marketId,marketName:String(MARKETS[context.marketId]?.name??context.marketId),orderYear:order.year,
+      scope:'whole_market',sample:archive && sample ? {year:archive.year,groups:group(sample.lines),placementCount:sample.lines.length} : null,
+      currentOrder:{revision:order.revision,groups:group(order.document.lines),placementCount:order.document.lines.length},
+      research,sources:after,checkedAt:new Date().toISOString()};
+  }
+  async search(contextId:string,override:unknown={},wholeMarket=false){
     const {context,order}=await this.scoped(contextId);
     const state=await stateCommand(this.runtime,order.id,'get');
-    const view=cleanResearchView({...state.view??{sheet:'tv'},...override as object});
+    const view=cleanResearchView({...(!wholeMarket && state.view || {sheet:'tv'}),...override as object});
     const before=await this.versions(context.marketId);
     const result=await this.research(order,view);
     const after=await this.versions(context.marketId);

@@ -161,9 +161,10 @@ export async function GET(request: Request) {
         .filter(order => order.market_ids.length === 1).map(order => [order.origin_key, order.lines]));
       const amounts = marketIds.map(id=>{
         const previous=archiveOrderSeed(archive,directory,{archiveId:'',workflow:'broadcast',clientId,year,marketIds:[id]});
-        const baseline=orderTotal({...previous.header,lines:previous.lines});
+        const priorBroadcast=previous.lines.filter(line => line.media === 'TV' || line.media === 'Radio');
+        const baseline=orderTotal({...previous.header,lines:priorBroadcast});
         const saved = current.get(origin + id);
-        const lines = saved ? saved.filter(line => line.media === 'TV' || line.media === 'Radio') : previous.lines;
+        const lines = saved ? saved.filter(line => line.media === 'TV' || line.media === 'Radio') : priorBroadcast;
         const actual = saved ? orderTotal({ ...previous.header, lines }) : baseline;
         return [id,{baseline,actual,placements:lines.length}] as const;
       });
@@ -185,7 +186,8 @@ export async function GET(request: Request) {
         draft.document.start=market.start||dates?.start||details!.start||'';
         draft.document.end=market.end||dates?.end||details!.end||'';
       }
-      const marketProposed=draft.workflow==='broadcast'&&!draft.archiveId ? market?.override??orderTotal(draft.document) : undefined;
+      const marketProposed=draft.workflow==='broadcast'&&!draft.archiveId
+        ? market?.override??orderTotal({...draft.document,lines:draft.document.lines.filter(line=>line.media!=='Digital')}) : undefined;
       const scope = get('includeScope') === '1' ? { clients, clientId, year, markets: marketDirectory(), orders: [], calendars: [], canEdit: true } : undefined;
       return json({...draft,marketProposed,scope,order:existing.data ? stripPrivate(await ctx.orders.readOrder(existing.data.id)) : null});
     }
