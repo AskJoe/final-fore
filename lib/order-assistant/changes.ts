@@ -6,11 +6,12 @@ import type { OrderChanges } from './types';
 
 export function cleanOrderChanges(raw:unknown):OrderChanges {
   check(object(raw)&&Object.keys(raw).every(key=>['sheet','add','remove'].includes(key))&&
-    (raw.sheet==='tv'||raw.sheet==='radio')&&Array.isArray(raw.add)&&Array.isArray(raw.remove)&&
+    (raw.sheet==='tv'||raw.sheet==='radio'||raw.sheet==='digital')&&Array.isArray(raw.add)&&Array.isArray(raw.remove)&&
     raw.add.length+raw.remove.length>0&&raw.add.length+raw.remove.length<=100,'Choose up to 100 exact placement changes.');
   for(const item of raw.add){
     check(object(item)&&Object.keys(item).every(key=>['rowId','period','quantity','spotsPerWeek','weeks'].includes(key))&&
       typeof item.rowId==='string'&&item.rowId.length>0&&item.rowId.length<=400,'Choose an exact quote row.');
+    if(raw.sheet==='digital')check(Object.keys(item).length===1,'Choose a Digital reference row without a broadcast schedule.');
     if(item.period!==undefined)check(Number.isSafeInteger(item.period)&&item.period>=0&&item.period<100,'Choose the exact quote period.');
     for(const key of ['quantity','spotsPerWeek','weeks'])if(item[key]!==undefined&&item[key]!==null)
       check(Number.isSafeInteger(item[key])&&item[key]>=0&&item[key]<=1_000_000,'Use a whole nonnegative schedule quantity.');
@@ -26,9 +27,10 @@ function identity(line:OrderLine){
 }
 export function buildOrderChanges(order:OrderDetail,raw:unknown,rows:ResearchRow[],makeId:()=>string) {
   const changes=cleanOrderChanges(raw);
-  check(order.marketIds.length===1&&!order.currentIssue&&order.workflow==='broadcast','Choose one editable broadcast market.');
+  check(order.marketIds.length===1&&!order.currentIssue&&order.workflow==='broadcast','Choose one editable market order.');
   const marketId=order.marketIds[0],document=structuredClone(order.document);
-  for(const id of changes.remove)check(document.lines.some(line=>line.id===id&&line.marketId===marketId),'This order line is no longer in this market.');
+  const media = {tv:'TV', radio:'Radio', digital:'Digital'}[changes.sheet];
+  for(const id of changes.remove)check(document.lines.some(line=>line.id===id&&line.marketId===marketId&&line.media===media),'Choose a line in this market and media section.');
   document.lines=document.lines.filter(line=>!changes.remove.includes(line.id));
   for(const addition of changes.add){
     const row=rows.find(row=>row.id===addition.rowId);
@@ -38,8 +40,16 @@ export function buildOrderChanges(order:OrderDetail,raw:unknown,rows:ResearchRow
       const index=addition.period??(row.periods.length===1?0:-1);
       quote=row.periods[index]?.line;
     }else quote=row.line;
-    check(quote&&quote.marketId===marketId&&quote.media===(changes.sheet==='tv'?'TV':'Radio')&&
-      quote.source?.kind==='broadcast','Choose a verified current quote and exact period.');
+    check(quote&&quote.marketId===marketId&&quote.media===media,'Choose a research row in this market and media section.');
+    if(changes.sheet==='digital'){
+      check(quote.source?.kind==='digital'||quote.source?.kind==='historical','Choose a sourced Digital placement.');
+      const line:OrderLine={...structuredClone(quote),id:makeId(),start:'',end:'',rate:null,quantity:null,
+        amount:null,feeBasisPoints:null,impressions:null,noCharge:false,calculatedCpm:null};
+      check(!document.lines.some(existing=>identity(existing)===identity(line)),'This Digital placement is already on the order.');
+      document.lines.push(line);
+      continue;
+    }
+    check(quote.source?.kind==='broadcast','Choose a verified current quote and exact period.');
     const quotedSchedule = quote.media === 'Radio' && quote.start && quote.end &&
       quote.quantity != null && quote.spotsPerWeek != null && quote.weeks != null;
     const weeklyEdit = addition.spotsPerWeek !== undefined || addition.weeks !== undefined;

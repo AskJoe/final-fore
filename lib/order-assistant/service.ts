@@ -5,7 +5,7 @@ import { loadOrderArchive, loadOrderArchiveDigest } from '../orders/archive-sour
 import assignments from '../../data/research-assignment-seed.json';
 import { AccessError } from '../access';
 import { check,Conflict } from '../domain/types';
-import { MARKETS } from '../domain/catalogs';
+import { CHANNEL_CATALOG, MARKETS } from '../domain/catalogs';
 import { StorageError } from '../store';
 import type { OrderRuntime } from '../orders/runtime';
 import { loadOrderResearch } from '../orders/research-service';
@@ -13,7 +13,6 @@ import { stateCommand } from '../orders/research-state';
 import { orderLineAmount, orderTotal,type OrderDetail, type OrderLine } from '../orders/store';
 import { archiveOrderSeed } from '../orders/sources';
 import { orderVendorGroups } from '../orders/vendor-groups';
-import { isBroadcastPlacement } from '../orders/metrics';
 import { selectedResearchKeys } from '../orders/research-selection';
 import mapping from '../../data/research-market-links.json';
 import { buildOrderChanges,cleanOrderChanges } from './changes';
@@ -50,7 +49,7 @@ export class MarketOrderAssistant {
   }
   async launch(orderId:string,view:unknown){
     const order=await this.order(orderId);
-    check(order.marketIds.length===1&&order.workflow==='broadcast','Open one broadcast market to use ChatGPT.');
+    check(order.marketIds.length===1&&order.workflow==='broadcast','Open one market order to use ChatGPT.');
     cleanResearchView(view);
     const state=await stateCommand(this.runtime,orderId,'get');
     check(!state.recovery,'Correct the incomplete fields before opening ChatGPT.');
@@ -76,8 +75,8 @@ export class MarketOrderAssistant {
   async versions(marketId:string):Promise<SourceVersions>{
     const {data,error}=await this.runtime.admin.rpc('ff_order_assistant_versions',{p_market:marketId});
     storage(error,'Could not verify current research. Try again.');
-    return {database:data,build:digest({mapping,assignments,markets:MARKETS,archive:await loadOrderArchiveDigest(),
-      version:'market-order-1'})};
+    return {database:data,build:digest({mapping,assignments,markets:MARKETS,digital:CHANNEL_CATALOG,archive:await loadOrderArchiveDigest(),
+      version:'market-order-2'})};
   }
   async read(contextId:string){
     const {context,order}=await this.scoped(contextId);
@@ -116,7 +115,7 @@ export class MarketOrderAssistant {
     const before=await this.versions(context.marketId);
     const [{data:directory},archive]=await Promise.all([this.runtime.share.directory(),loadOrderArchive()]);
     const sample=archive ? archiveOrderSeed(archive,directory,{...scope,year:Math.max(scope.year,archive.year+1),
-      marketIds:[scope.marketId],workflow:'broadcast',archiveId:''}) : null;
+      marketIds:[scope.marketId],workflow:'broadcast',archiveId:'',includeDigital:true}) : null;
     const research=await Promise.all((['tv','radio'] as const).map(async sheet=>{
       const data=await loadOrderResearch(directory,new URLSearchParams({workflow:'broadcast',sheet,quoteFilters:'1'}),
         this.runtime.supabase,scope,{includeMarketCoverage:true},this.runtime.researchApiKey);
@@ -131,17 +130,17 @@ export class MarketOrderAssistant {
         priorFlight:line.priorFlight,rate:line.rate,spots:line.quantity,
         amount:orderLineAmount(line),impressions:line.impressions,source:line.source?.label,locator:line.source?.locator})),
     }));
-    const broadcastLines=order.document.lines.filter(isBroadcastPlacement);
+    const placementLines=order.document.lines;
     return {marketId:context.marketId,marketName:String(MARKETS[context.marketId]?.name??context.marketId),orderYear:order.year,
       scope:'whole_market',sample:archive && sample ? {year:archive.year,groups:group(sample.lines),placementCount:sample.lines.length} : null,
-      currentOrder:{revision:order.revision,groups:group(broadcastLines),placementCount:broadcastLines.length},
+      currentOrder:{revision:order.revision,groups:group(placementLines),placementCount:placementLines.length},
       research,sources:after,checkedAt:new Date().toISOString()};
   }
   async search(contextId:string,override:unknown={},wholeMarket=false){
     const {context,order}=await this.scoped(contextId);
     const state=await stateCommand(this.runtime,order.id,'get');
-    const view=cleanResearchView({...(!wholeMarket && state.view || {sheet:'tv'}),...override as object});
-    if(wholeMarket)check(view.sheet==='tv'||view.sheet==='radio','Choose TV or Radio for whole-market broadcast research.');
+    const view=cleanResearchView({...(!wholeMarket && state.view || {sheet:state.view?.sheet==='digital'?'digital':'tv'}),...override as object});
+    if(wholeMarket)check(['tv','radio','digital','digital-history'].includes(view.sheet),'Choose TV, Radio, or Digital market research.');
     const before=await this.versions(context.marketId);
     const result=await this.research(order,view);
     const after=await this.versions(context.marketId);
@@ -153,7 +152,7 @@ export class MarketOrderAssistant {
     check(ids.length>0&&ids.length<=100&&ids.every(id=>typeof id==='string'&&id.length<=400),'Choose up to 100 exact quote rows.');
     const {order}=await this.scoped(contextId);
     const view=cleanResearchView({sheet});
-    check(sheet==='tv'||sheet==='radio','Choose TV or Radio quotes.');
+    check(sheet==='tv'||sheet==='radio'||sheet==='digital','Choose TV, Radio, or Digital research.');
     const before=await this.versions(order.marketIds[0]);
     const result=await this.research(order,view,ids),rows=[...result.rows];
     for(let page=2;page<=result.pageCount;page++){

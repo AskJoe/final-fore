@@ -121,9 +121,8 @@ function Paging({ page, pageCount, total, onPage }: { page: number; pageCount: n
   </div>;
 }
 
-export function HistoricalOrders({ hidden, client, markets, currentYear, canEdit, onSeed, workflow }: {
+export function HistoricalOrders({ hidden, client, markets, currentYear }: {
   hidden: boolean; client: ClientOption | undefined; markets: MarketOption[]; currentYear: number;
-  canEdit: boolean; workflow: OrderWorkflow; onSeed: (record: ArchiveRecord, marketId: string) => void;
 }) {
   const [year, setYear] = useState(currentYear - 1);
   const [market, setMarket] = useState('');
@@ -132,10 +131,9 @@ export function HistoricalOrders({ hidden, client, markets, currentYear, canEdit
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const [seedMarket, setSeedMarket] = useState<Record<string, string>>({});
   const search = useSettledSearch(query);
   const { value, error, busy, retry } = useOrdersQuery<ArchivePage>(hidden || !client ? '' :
-    ordersUrl({ view: 'archive', clientId: client.id, year, marketId: market, media, q: search, sort, page, workflow }));
+    ordersUrl({ view: 'archive', clientId: client.id, year, marketId: market, media, q: search, sort, page }));
   function toggle(id: string) {
     setOpen(previous => {
       const next = new Set(previous);
@@ -152,10 +150,10 @@ export function HistoricalOrders({ hidden, client, markets, currentYear, canEdit
         onChange={event => { setMarket(event.target.value); setPage(1); }}>
         <option value="">Markets</option>{markets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </OrderMenu>
-      {workflow === 'broadcast' && <OrderMenu aria-label="Historical order media" text={media || 'Media'} value={media}
+      <OrderMenu aria-label="Historical order media" text={media || 'Media'} value={media}
         onChange={event => { setMedia(event.target.value); setPage(1); }}>
-        <option value="">Media</option><option>TV</option><option>Radio</option>
-      </OrderMenu>}
+        <option value="">Media</option><option>TV</option><option>Radio</option><option>Digital</option>
+      </OrderMenu>
       <input type="search" aria-label="Search historical orders" placeholder="Search"
         value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} />
       <OrderMenu aria-label="Sort historical orders" text={sort === 'title' ? 'Title' : sort === 'amount' ? 'Amount' : 'Source order'} value={sort}
@@ -171,7 +169,6 @@ export function HistoricalOrders({ hidden, client, markets, currentYear, canEdit
         <thead><tr>{['Order / Placement', 'Market', 'Media', 'Flight', 'Rate', 'Spots', 'Amount', 'Imps', 'Original documents'].map(label =>
           <th scope="col" key={label}>{label}</th>)}</tr></thead>
         <tbody>{value.orders.map(item => {
-          const pick = seedMarket[item.id] || market || (item.marketIds.length === 1 ? item.marketIds[0] : '');
           return <Fragment key={item.id}>
             <tr className="ow-archive-order">
               <th scope="row"><button type="button" className="ow-link" aria-expanded={open.has(item.id)} onClick={() => toggle(item.id)}>{item.title}</button>
@@ -189,14 +186,6 @@ export function HistoricalOrders({ hidden, client, markets, currentYear, canEdit
               {item.note && <p>{item.note}</p>}
               {!!item.related?.length && <ul>{item.related.map(source => <li key={source.id}><Source source={source} /></li>)}</ul>}
               {item.billing && <PriorBilling reference={item.billing} />}
-              {canEdit && item.seedAvailable && <div className="ow-bar">
-                {item.marketIds.length > 1 && <select aria-label={'Draft market for ' + item.title} value={pick}
-                  onChange={event => setSeedMarket(previous => ({ ...previous, [item.id]: event.target.value }))}>
-                  <option value="">Choose draft market</option>{item.marketIds.map(id =>
-                    <option key={id} value={id}>{markets.find(row => row.id === id)?.name || id}</option>)}</select>}
-                <button type="button" className="ow-link" disabled={!pick}
-                  onClick={() => onSeed(item, pick)}>Start {currentYear} draft from signed order</button>
-              </div>}
             </td></tr>}
             {item.lines.map(line => <tr className="ow-archive-placement" key={line.id}>
               <th scope="row">{[line.station, line.program].filter(Boolean).join(' · ') || '—'}
@@ -285,7 +274,7 @@ export function BroadcastOrderHistory({ client, market, media, planningYear, onB
   </section>;
 }
 
-const broadcastSheets = { tv: 'TV', radio: 'Radio', 'digital-history': 'Station digital history', demographics: 'Demographics', notes: 'Notes', reference: 'Reference' };
+const broadcastSheets = { tv: 'TV', radio: 'Radio', 'station-history': 'Station digital history', demographics: 'Demographics', notes: 'Notes', reference: 'Reference' };
 const summaryLabels: Record<string, string> = {
   Station: 'Station', 'Spot rate': 'Rate', CPM: 'CPM', 'Calculated CPM': 'Calc. CPM', 'Reported CPM': 'Rpt. CPM',
   'AQH (people)': 'AQH', 'Audience count': 'Viewers', 'Spot (sec)': 'Sec', 'Spots per week': 'Spots/wk',
@@ -357,9 +346,9 @@ function ResearchGroupFields({ groups, grouping }: { groups: { id: string; label
 }
 
 export function OrderResearch({ client, markets, marketIds, workflow, year, initialSheet, document, target, onApply, onRemove, canEdit,
-  orderLineSource, spreadsheet = false, hidden = false, persistedState, onView, onStar, shortlistBusy = false }: {
+  orderLineSource, spreadsheet = false, hidden = false, persistedState, onView, onStar, shortlistBusy = false, section }: {
   client: ClientOption; markets: MarketOption[]; marketIds: string[]; workflow: OrderWorkflow; year: number;
-  initialSheet: string; document: OrderDocument; target: string | null; onApply: (line: OrderLine, replace: boolean) => void; canEdit: boolean;
+  section?: 'broadcast' | 'digital'; initialSheet: string; document: OrderDocument; target: string | null; onApply: (line: OrderLine, replace: boolean) => void; canEdit: boolean;
   onRemove: (lineId: string) => void; orderLineSource?: ReactNode;
   spreadsheet?: boolean; hidden?: boolean;
   persistedState?: ResearchState|null; onView?: (view:ResearchView)=>void;
@@ -367,8 +356,10 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
 }) {
   const startingMarket = marketIds[0] ?? '';
   const marketLocked = marketIds.length === 1;
-  const [sheet, setSheet] = useState(workflow === 'digital' ? 'digital' : initialSheet === 'radio' ? 'radio' : 'tv');
+  const [sheet, setSheet] = useState(workflow === 'digital' || section === 'digital' ? 'digital' : initialSheet === 'radio' ? 'radio' : 'tv');
   const hasQuotes = workflow === 'broadcast' && (sheet === 'radio' || sheet === 'tv');
+  const digitalResearch = sheet === 'digital';
+  const canShortlist = workflow === 'broadcast' && (hasQuotes || digitalResearch);
   const [filters, setFilters] = useState<Filters>({
     ...emptyFilters, market: markets.find(item => item.id === startingMarket)?.name ?? '',
     client: client.name, rep: workflow === 'broadcast' ? document.rep : '', firm: workflow === 'broadcast' ? document.vendor : '',
@@ -392,10 +383,10 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
   const filterTrigger = useRef<HTMLButtonElement>(null);
   const search = useSettledSearch(query);
   const marketId = marketLocked ? startingMarket : markets.find(item => item.name === filters.market)?.id || startingMarket;
-  const canFilterSelection = workflow === 'digital' || hasQuotes;
+  const canFilterSelection = digitalResearch || hasQuotes;
   const selectedKeys = useMemo(() => new Set(selectedResearchKeys(document.lines)), [document.lines]);
   const filterSelection = canFilterSelection && selection !== 'all';
-  const filterShortlist = hasQuotes && shortlistFilter !== 'all';
+  const filterShortlist = canShortlist && shortlistFilter !== 'all';
   const filterBody = filterSelection || filterShortlist ? JSON.stringify({
     ...(filterSelection && { mode: selection, keys: [...selectedKeys] }),
     ...(filterShortlist && { shortlist: { mode: shortlistFilter, ids: [...shortlist] } }),
@@ -412,13 +403,14 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
     if(restoredView.current===persistedState.orderId)return;
     restoredView.current=persistedState.orderId;
     const saved=persistedState.view;
-    if(!saved)return;
+    if(!saved || (section === 'digital' && saved.sheet !== 'digital' && saved.sheet !== 'digital-history') ||
+      (section === 'broadcast' && saved.sheet === 'digital'))return;
     setSheet(saved.sheet);setQuery(saved.q??'');setSort(saved.sort??'');setPage(saved.page??1);setStation(saved.station??'');
     setFilters(current=>({...current,rep:saved.rep??'',firm:saved.firm??''}));
     setGrouping({primary:saved.primary??'',secondary:saved.secondary??''});
     setCpm({exact:saved.exactCpm,low:saved.lowCpm,high:saved.highCpm});
     setSelection(saved.selection??'all');setShortlistFilter(saved.shortlist??'all');
-  },[persistedState,sheet]);
+  },[persistedState,sheet,section]);
   useEffect(()=>{
     onView?.({sheet:sheet as ResearchView['sheet'],q:query,rep:filters.rep,firm:filters.firm,
       station,sort,page,primary:grouping.primary,secondary:grouping.secondary,
@@ -520,7 +512,7 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
     const periodIndex = periodIndexes[row.id] ?? (row.periods?.length === 1 ? 0 : -1);
     return row.periods?.length ? row.periods[periodIndex]?.line : row.line && { ...row.line, ...row.digitalDraftValues };
   }
-  const shortlistQuotes = spreadsheet && hasQuotes && canEdit ? (value?.rows ?? []).flatMap(row => {
+  const shortlistQuotes = spreadsheet && canShortlist && canEdit ? (value?.rows ?? []).flatMap(row => {
     if (!shortlist.has(row.id) || isResearchSelected(row, selectedKeys)) return [];
     const quote = quoteFor(row);
     return quote && marketIds.includes(quote.marketId) ? [quote] : [];
@@ -539,8 +531,8 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
       const chosenPeriod = row.periods?.[periodIndex];
       const line = quoteFor(row);
       const canAdd = Boolean(line && marketIds.includes(line.marketId));
-      const canReplace = Boolean(canAdd && replacing && line?.marketId === replacing.marketId);
-      const canSelect = canEdit && (workflow === 'digital' || hasQuotes) && Boolean(row.line || row.periods?.length);
+      const canReplace = Boolean(canAdd && replacing && line?.marketId === replacing.marketId && line?.media === replacing.media);
+      const canSelect = canEdit && (digitalResearch || hasQuotes) && Boolean(row.line || row.periods?.length);
       const onOrder = isResearchSelected(row, selectedKeys);
       const selectLabel = onOrder ? 'Selected' : 'Select';
       const expandedRow = expanded.has(row.id);
@@ -566,7 +558,7 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
       const details = fields.filter(field => !field.summary);
       const detailGroups = new Map<string, typeof details>();
       for (const field of details) {
-        const year = workflow === 'digital' ? field.label.match(/^\d{4}\b/)?.[0] ?? '' : '';
+        const year = digitalResearch ? field.label.match(/^\d{4}\b/)?.[0] ?? '' : '';
         const group = detailGroups.get(year);
         if (group) group.push(field);
         else detailGroups.set(year, [field]);
@@ -574,7 +566,7 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
       const detailContent = <div className="ow-research-details">
             {[...detailGroups].map(([year, items]) => <dl key={year}>{items.map(item =>
               <div key={item.idx}><dt>{item.label}</dt><dd title={item.locator || undefined}>{item.value}</dd></div>)}</dl>)}
-            {workflow === 'digital' && details.every(field => !/^\d{4}\b/.test(field.label)) &&
+            {digitalResearch && details.every(field => !/^\d{4}\b/.test(field.label)) &&
               <p className="ow-research-no-history">No spend or impressions recorded for this placement in {row.market}.</p>}
             {(chosenPeriod?.source || row.source) && <Source source={chosenPeriod?.source ?? row.source!}
               previewContext={{ market: row.market, sender: [row.rep, row.firm].filter(Boolean).join(' · ') || 'Published research' }} />}
@@ -615,7 +607,7 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
           {newSecond && <tr className="ow-sheet-group"><td colSpan={columns}>{second}</td></tr>}
           <tr className="ow-sheet-quote" data-selected={onOrder} data-shortlisted={marked}>
             <td className="ow-sheet-picks">
-              {hasQuotes && <button className="ow-link ow-sheet-star" type="button" disabled={shortlistBusy||!canEdit} aria-pressed={marked}
+              {canShortlist && <button className="ow-link ow-sheet-star" type="button" disabled={shortlistBusy||!canEdit} aria-pressed={marked}
                 title={marked ? 'Remove from shortlist' : 'Shortlist'}
                 aria-label={(marked ? 'Unshortlist ' : 'Shortlist ') + label}
                 onClick={() => toggleShortlist(row.id)}>{marked ? '★' : '☆'}</button>}
@@ -658,7 +650,7 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
       </Fragment>;
     });
   return <aside className={'ow-research' + (spreadsheet ? ' ow-research-sheet' : '')} aria-label="Order research" hidden={hidden}>
-    <div className="ow-research-title"><h3>{workflow === 'digital' ? 'Digital campaign research' : 'Broadcast research'}</h3>
+    <div className="ow-research-title"><h3>{workflow === 'digital' || section === 'digital' ? 'Digital research' : 'Broadcast research'}</h3>
       <div className="ow-research-heading-tools">
         <input type="search" aria-label="Search order research" placeholder="Search" value={query}
         onChange={event => { setQuery(event.target.value); changeQuery(); }} />
@@ -693,7 +685,7 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
               {canFilterSelection && <label>Selection<select name="selection" aria-label="Research selection" defaultValue={selection}>
                 {Object.entries(selectionLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
               </select></label>}
-              {hasQuotes && (spreadsheet || shortlist.size > 0 || filterShortlist) &&
+              {canShortlist && (spreadsheet || shortlist.size > 0 || filterShortlist) &&
                 <label>Shortlist<select name="shortlist" aria-label="Research shortlist" defaultValue={shortlistFilter}>
                   {Object.entries(shortlistLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
                 </select></label>}
@@ -712,7 +704,7 @@ export function OrderResearch({ client, markets, marketIds, workflow, year, init
     </div>
     {orderLineSource}
     {workflow === 'broadcast' && <div className="ow-sheet-tabs" role="group" aria-label="Research sheets">
-      {Object.entries(broadcastSheets).map(([key, title]) => <button type="button" key={key} aria-pressed={sheet === key}
+      {Object.entries(section === 'digital' ? {digital:'Digital channels', 'digital-history':'Previous Digital orders'} : broadcastSheets).map(([key, title]) => <button type="button" key={key} aria-pressed={sheet === key}
         onClick={() => { setSheet(key); setStation(''); setCpm({}); changeQuery(); }}>{title}</button>)}
     </div>}
     {workflow === 'digital' && <div className="ow-research-filters">

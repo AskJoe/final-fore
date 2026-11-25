@@ -17,16 +17,16 @@ export default async function CampaignOrdersPage({ searchParams, calendar }: {
   const value = (key: string) => typeof params[key] === 'string' ? params[key] : undefined;
   const year = Number(value('year'));
   const campaignId = value('campaignId');
-  const initialWorkflow = value('workflow') === 'digital' ? 'digital' : 'broadcast';
+  const initialSection = value('section') === 'digital' || value('workflow') === 'digital' ? 'digital' : 'broadcast';
   const plan = new URLSearchParams();
-  if (value('workflow')) plan.set('workflow', initialWorkflow);
+  if (value('workflow')) plan.set('workflow', value('workflow')!);
   if (campaignId) plan.set('id', campaignId);
   return <><AppSidebar current="campaign"/><div className="research-app">
     <main className="research-main campaign-calendar-main">
       <OrdersWorkspace planUrl={'/campaign.html' + (plan.size ? '?' + plan : '')} campaignId={campaignId}
         initialOrderId={value('id')} initialClientId={value('clientId')}
         initialYear={Number.isInteger(year) && year >= 2000 && year <= 2100 ? year : undefined}
-        initialMarketId={value('marketId')} initialWorkflow={initialWorkflow}
+        initialMarketId={value('marketId')} initialSection={initialSection}
         view={calendar ? 'calendar' : value('view') === 'historical' ? 'historical' : 'orders'} />
     </main>
   </div></>;

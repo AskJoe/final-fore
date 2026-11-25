@@ -25,7 +25,7 @@ export async function POST(request:Request){
     if(input.action==='stars'){
       const order=await assistant.order(input.orderId),items=cleanStarUpdates(input.items);
       const sources=await assistant.versions(order.marketIds[0]);
-      check(input.sheet==='tv'||input.sheet==='radio','Choose TV or Radio quotes.');
+      check(input.sheet==='tv'||input.sheet==='radio'||input.sheet==='digital','Choose TV, Radio, or Digital research.');
       const ids=items.filter(item=>item.starred).map(item=>item.rowId);
       if(ids.length){
         const result=await assistant.research(order,{sheet:input.sheet},ids);

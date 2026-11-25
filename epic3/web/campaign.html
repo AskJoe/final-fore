@@ -4,8 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Campaign | Final Fore</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/campaign.css?v=campaign-workflow-layout">
-  <script src="/campaign.js?v=campaign-workflow" defer></script>
+  <link rel="stylesheet" href="/campaign.css?v=unified-market-orders">
+  <script src="/campaign.js?v=unified-market-orders" defer></script>
 <style id="workbook-navigation-styles">
 /* One shared left navigation. Page state never changes its dimensions. */
 body{--sidebar-width:164px;padding:0 0 0 var(--sidebar-width);min-width:0}
@@ -71,7 +71,7 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
   <header class="app-header">
     <div class="identity"><span class="brand-mark" aria-hidden="true">ff</span><strong>Final Fore</strong><span class="divider"></span><h1>Campaign</h1>
       <label class="sr-only" for="campaign-workflow">Campaign type</label>
-      <select id="campaign-workflow"><option value="" selected disabled>Choose campaign type</option><option value="digital">Digital</option><option value="broadcast">Broadcast (TV / radio)</option></select>
+      <select id="campaign-workflow"><option value="broadcast" selected>Media campaigns</option><option value="digital">Legacy Digital campaigns</option></select>
     </div>
     <div class="campaign-actions" id="campaign-actions" hidden>
       <label class="campaign-picker-label">Saved campaigns <select id="campaign-picker"><option value="">Select draft</option></select></label>

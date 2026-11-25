@@ -1,10 +1,11 @@
 import { Fragment, createContext,useContext,useCallback, useEffect, useRef, useState } from 'react';
-import { calculatedOrderCpm, isBroadcastPlacement, replaceResearchLine, spreadsheetScheduleChanges } from '@/lib/orders/metrics';
+import { calculatedOrderCpm, orderLineCharges, replaceResearchLine, spreadsheetScheduleChanges } from '@/lib/orders/metrics';
 import type { OrderDetail, OrderDocument, OrderEvent, OrderIssue, OrderLine, OrderWorkflow } from '@/lib/orders/store';
 import { OrderAssistantChanges } from './OrderAssistantChanges';
 import { useDraftSync } from './useDraftSync';
 import { useOrderResearchState,assistantRequest } from './useOrderResearchState';
-import { parseEditorValue } from '@/lib/orders/editor-values';
+import { isMarketOrder } from '@/lib/orders/market-order';
+import { parseEditorValue, type EditorValueType } from '@/lib/orders/editor-values';
 import { orderPdfMarkup } from '@/lib/orders/print-markup';
 import { orderVendorGroups, orderVendorLabel } from '@/lib/orders/vendor-groups';
 import type { ResearchView } from '@/lib/order-assistant/types';
@@ -14,7 +15,7 @@ import { OrderResearch, ordersUrl, PriorBilling, quantity, Source, usd, type Bil
 export type OpenOrder = {
   document: OrderDocument; clientId: string; year: number; workflow: OrderWorkflow; marketIds: string[];
   originKey?: string; firmId?: string; repId?: string; archiveId?: string | null; seed?: unknown; order?: OrderDetail;
-  marketProposed?: number; editorKey?:string;
+  marketProposed?: number | null; editorKey?:string;
 };
 
 type OrderEditorProps = {
@@ -34,10 +35,10 @@ type HeaderKey = keyof typeof headerLabels;
 const lineLabels = {
   station: 'Station', program: 'Placement / program', format: 'Format', days: 'Run days', start: 'Start', end: 'End',
   rate: 'Spot rate', quantity: 'Spots', amount: 'Amount', impressions: 'Impressions', notes: 'Notes',
-  spotsPerDay: 'Spots per day', spotsPerWeek: 'Spots per week', weeks: 'Weeks', audience: 'Audience', cpm: 'CPM',
+  feeBasisPoints: 'Fee %', spotsPerDay: 'Spots per day', spotsPerWeek: 'Spots per week', weeks: 'Weeks', audience: 'Audience', cpm: 'CPM',
 } as const;
 type LineKey = keyof typeof lineLabels;
-type FieldType = 'text' | 'date' | 'money' | 'number' | 'decimal' | 'multiline';
+type FieldType = EditorValueType;
 const FieldRecovery=createContext<{fields:Record<string,string>;change:(key:string,value:string|null)=>void}>({fields:{},change:()=>{}});
 
 function PlacementCell({ label, children }: { label?: string; children: React.ReactNode }) {
@@ -51,6 +52,7 @@ function same(left: unknown, right: unknown) {
 function valueLabel(value: unknown, type: FieldType = 'text') {
   if (value === null || value === undefined || value === '') return '—';
   if (type === 'money' && typeof value === 'number') return usd.format(value / 100);
+  if (type === 'percent' && typeof value === 'number') return quantity.format(value / 100) + '%';
   if ((type === 'number' || type === 'decimal') && typeof value === 'number') return quantity.format(value);
   return String(value);
 }
@@ -67,7 +69,7 @@ function PaperValue({ value, type = 'text', label, changed, readOnly, onChange, 
   const editButton = useRef<HTMLButtonElement>(null);
   const original = useRef(value);
   useEffect(() => { if (editing) input.current?.focus(); }, [editing]);
-  const numeric = type === 'money' || type === 'number' || type === 'decimal';
+  const numeric = type === 'money' || type === 'percent' || type === 'number' || type === 'decimal';
   function applyInput() {
     const current=input.current;
     if(!current)return false;
@@ -79,7 +81,7 @@ function PaperValue({ value, type = 'text', label, changed, readOnly, onChange, 
     return true;
   }
   const attrs = {
-    ref: input, 'aria-label': label, defaultValue: raw ?? (type === 'money' && typeof value === 'number' ? value / 100 : value ?? ''),
+    ref: input, 'aria-label': label, defaultValue: raw ?? ((type === 'money' || type === 'percent') && typeof value === 'number' ? value / 100 : value ?? ''),
     onChange: () => { applyInput(); },
     onBlur: () => {
       if(applyInput())recovery.change(fieldKey,null);
@@ -108,7 +110,7 @@ function PaperValue({ value, type = 'text', label, changed, readOnly, onChange, 
   return readOnly ? <span>{display}</span>
     : editing && type === 'multiline' ? <textarea {...attrs} />
     : editing ? <input {...attrs} type="text" inputMode={numeric?'decimal':undefined} placeholder={type==='date'?'YYYY-MM-DD':undefined} aria-invalid={raw!==undefined&&!parseEditorValue(raw,type,max).valid}
-      min={numeric ? 0 : undefined} max={max} step={type === 'money' ? '0.01' : type === 'number' ? '1' : type === 'decimal' ? 'any' : undefined} />
+      min={numeric ? 0 : undefined} max={max} step={type === 'money' || type === 'percent' ? '0.01' : type === 'number' ? '1' : type === 'decimal' ? 'any' : undefined} />
     : <button ref={editButton} type="button" title={'Edit ' + label} aria-label={'Edit ' + label} onClick={() => { original.current = value; setEditing(true); }}
       className={spreadsheet ? 'ow-sheet-cell' : 'ow-paper-value'} data-changed={changed}>
       {display}{!spreadsheet && <span aria-hidden="true">✎</span>}
@@ -116,7 +118,8 @@ function PaperValue({ value, type = 'text', label, changed, readOnly, onChange, 
 }
 
 const sheetHeaders = ['date', 'number', 'vendor', 'rep', 'terms', 'clientName', 'buyer', 'buyerEmail', 'billing', 'start', 'end', 'notes'] as const;
-const sheetPlacements = [
+type SheetColumn = { key: Exclude<keyof OrderLine, 'noCharge' | 'source'> | 'managementFee' | 'amountDue'; title: string; type?: FieldType; max?: number };
+const sheetPlacements: SheetColumn[] = [
   { key: 'station', title: 'Station' }, { key: 'program', title: 'Placement / program' },
   { key: 'rate', title: 'Booked rate', type: 'money' },
   { key: 'spotsPerWeek', title: 'Ads/wk', type: 'number', max: 100_000 },
@@ -129,14 +132,27 @@ const sheetPlacements = [
   { key: 'reportedCpm', title: 'Rpt. CPM', type: 'money' },
   { key: 'format', title: 'Format' }, { key: 'days', title: 'Run days' },
   { key: 'start', title: 'Flight start', type: 'date' }, { key: 'end', title: 'Flight end', type: 'date' },
-] satisfies { key: keyof OrderLine; title: string; type?: FieldType; max?: number }[];
+];
+const digitalPlacements: SheetColumn[] = [
+  { key: 'program', title: 'Placement' }, { key: 'format', title: 'Format' },
+  { key: 'days', title: 'Run days' }, { key: 'weeks', title: 'Weeks', type: 'decimal', max: 520 },
+  { key: 'start', title: 'Flight start', type: 'date' }, { key: 'end', title: 'Flight end', type: 'date' },
+  { key: 'amount', title: 'Media amount', type: 'money', max: 1_000_000_000 },
+  { key: 'feeBasisPoints', title: 'Fee %', type: 'percent', max: 100 },
+  { key: 'managementFee', title: 'Management fee', type: 'money' },
+  { key: 'amountDue', title: 'Amount due', type: 'money' },
+  { key: 'impressions', title: 'Impressions', type: 'number', max: 1_000_000_000 },
+  { key: 'calculatedCpm', title: 'Calc. CPM', type: 'money' },
+  { key: 'notes', title: 'Notes', type: 'multiline' },
+];
 
-function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, detailsOpen, onToggleDetails, onSelect, onHeader, onLine, onRemove, onAdd, readOnly }: {
+function OrderSpreadsheet({ document, baseline, markets, marketIds, digital, selected, detailsOpen, onToggleDetails, onSelect, onHeader, onLine, onRemove, onAdd, readOnly }: {
   document: OrderDocument; baseline: OrderDocument; markets: MarketOption[]; marketIds: string[];
   selected: string | null; onSelect: (id: string) => void; onHeader: (key: HeaderKey, value: string) => void;
   onLine: (id: string, change: Partial<OrderLine>) => void; onRemove: (id: string) => void; onAdd: () => void; readOnly: boolean;
-  detailsOpen: boolean; onToggleDetails: () => void;
+  detailsOpen: boolean; onToggleDetails: () => void; digital: boolean;
 }) {
+  const columns = digital ? digitalPlacements : sheetPlacements;
   const multiMarket = marketIds.length > 1;
   const amount = document.lines.reduce((sum, line) => sum + (bookedAmount(line) ?? 0), 0);
   const impressions = document.lines.reduce((sum, line) => sum + (line.impressions ?? 0), 0);
@@ -162,32 +178,34 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, de
     }}>
       <table className="ow-sheet-table ow-order-grid" aria-label="Order spreadsheet placements">
         <thead><tr>
-          {sheetPlacements.map(({ key, title }) => <th key={key} scope="col" data-field={key}
+          {columns.map(({ key, title }) => <th key={key} scope="col" data-field={key}
             className={['amount', 'quantity', 'impressions', 'calculatedCpm'].includes(key) ? 'ow-sheet-derived' : undefined}>{title}</th>)}
           <th scope="col">Channel</th>{multiMarket && <th scope="col">Market</th>}
           {!readOnly && <th scope="col" className="ow-sheet-line-action">Action</th>}
         </tr></thead>
         <tbody>{groups.map(group => <Fragment key={orderVendorLabel(group)}>
           {(group.vendor || group.rep || groups.length > 1) && <tr className="ow-vendor-divider">
-            <td colSpan={sheetPlacements.length + 1 + Number(multiMarket) + Number(!readOnly)}>{orderVendorLabel(group)}</td>
+            <td colSpan={columns.length + 1 + Number(multiMarket) + Number(!readOnly)}>{orderVendorLabel(group)}</td>
           </tr>}
           {group.items.map(({line, index}) => <tr key={line.id} data-target={line.id === selected}
           onClick={() => onSelect(line.id)} onFocus={() => onSelect(line.id)}>
-          {sheetPlacements.map(({ key, title, type, max }) => {
+          {columns.map(({ key, title, type, max }) => {
             const scheduled = line.spotsPerWeek != null && line.weeks != null;
-            const formula = key === 'amount' || key === 'calculatedCpm' || key === 'reportedCpm'
+            const formula = key === 'amount' && !digital || key === 'managementFee' || key === 'amountDue' || key === 'calculatedCpm' || key === 'reportedCpm'
               || key === 'quantity' && scheduled || key === 'impressions' && line.audience != null && line.quantity != null;
-            const value = key === 'amount' ? bookedAmount(line) : key === 'calculatedCpm' ? calculatedOrderCpm(line)
+            const charges = orderLineCharges(line);
+            const value = key === 'managementFee' ? charges.fee : key === 'amountDue' ? charges.due :
+              key === 'amount' ? (digital ? charges.media : charges.due) : key === 'calculatedCpm' ? calculatedOrderCpm(line)
               : key === 'reportedCpm' ? line.reportedCpm ?? (line.reportedCpm === undefined && !line.source?.facts ? line.cpm : null) ?? null
               : line[key] ?? null;
-            const numeric = type === 'money' || type === 'number' || type === 'decimal';
+            const numeric = type === 'money' || type === 'percent' || type === 'number' || type === 'decimal';
             return <td key={key} data-field={key} data-numeric={numeric} className={formula ? 'ow-sheet-derived' : undefined}
               title={value == null ? missingSource : undefined}>
               <PaperValue spreadsheet fieldKey={'line:'+line.id+':'+key} value={value} label={title + ', line ' + (index + 1)} type={type} max={max}
                 readOnly={readOnly || formula} onChange={next => onLine(line.id, { [key]: next })} />
             </td>;
           })}
-          <td>{line.source || readOnly ? line.media : <select aria-label={'Channel, line ' + (index + 1)} value={line.media}
+          <td>{digital || line.source || readOnly ? line.media : <select aria-label={'Channel, line ' + (index + 1)} value={line.media}
             onChange={event => onLine(line.id, { media: event.target.value as OrderLine['media'] })}>
             <option>TV</option><option>Radio</option>{line.media === 'Digital' && <option>Digital</option>}
           </select>}</td>
@@ -203,8 +221,8 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, de
       {!document.lines.length && <p className="ow-empty">Add a row or select a research quote.</p>}
     </div>
     <div className="ow-sheet-totals">
-      <span>Gross total <strong>{valueLabel(amount, 'money')}</strong></span>
-      <span>{quantity.format(spots)} spots</span>
+      <span>{digital ? 'Digital amount due' : 'Broadcast amount due'} <strong>{valueLabel(amount, 'money')}</strong></span>
+      {!digital && <span>{quantity.format(spots)} spots</span>}
       <span>{quantity.format(impressions)} imps</span>
       {impressions > 0 && document.lines.every(line => line.impressions != null && bookedAmount(line) != null) &&
         <span>{valueLabel(Math.round(amount * 1000 / impressions), 'money')} CPM</span>}
@@ -213,8 +231,7 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, selected, de
 }
 
 function bookedAmount(line: OrderLine) {
-  if (line.noCharge) return 0;
-  return line.amount ?? (line.rate !== null && line.quantity !== null ? line.rate * line.quantity : null);
+  return orderLineCharges(line).due;
 }
 
 const missingSource='Not provided in source';
@@ -236,14 +253,14 @@ function SourceFacts({line}:{line:OrderLine}) {
   })}</dl> : <p className="ow-missing-data">{missingSource}</p>;
 }
 
-function OrderPaper({ document, baseline, markets, marketIds, workflow, selected, onSelect, onHeader, onLine, onRemove, onAdd, readOnly }: {
-  document: OrderDocument; baseline: OrderDocument; markets: MarketOption[]; marketIds: string[]; workflow: OrderWorkflow;
+function OrderPaper({ document, baseline, markets, marketIds, workflow, digitalSection, selected, onSelect, onHeader, onLine, onRemove, onAdd, readOnly }: {
+  document: OrderDocument; baseline: OrderDocument; markets: MarketOption[]; marketIds: string[]; workflow: OrderWorkflow; digitalSection?: boolean;
   selected: string | null; onSelect: (id: string) => void; onHeader: (key: HeaderKey, value: string) => void;
   onLine: (id: string, change: Partial<OrderLine>) => void; onRemove: (id: string) => void;
   onAdd: (media: OrderLine['media']) => void; readOnly: boolean;
 }) {
   const marketName = (id: string) => markets.find(item => item.id === id)?.name ?? id;
-  const sections = workflow === 'digital' ? [true] : document.lines.some(item => item.media === 'Digital') ? [false, true] : [false];
+  const sections = digitalSection !== undefined ? [digitalSection] : workflow === 'digital' ? [true] : document.lines.some(item => item.media === 'Digital') ? [false, true] : [false];
 
   function header(key: HeaderKey, type?: FieldType) {
     return <PaperValue fieldKey={'header:'+key} value={document[key]} type={type} label={headerLabels[key]} readOnly={readOnly}
@@ -251,7 +268,7 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
   }
 
   function field(line: OrderLine, key: LineKey, index: number, type?: FieldType, missing?:string) {
-    return <PaperValue fieldKey={'line:'+line.id+':'+key} value={line[key] ?? null} type={type} label={lineLabels[key] + ', line ' + (index + 1)} readOnly={readOnly}
+    return <PaperValue fieldKey={'line:'+line.id+':'+key} value={line[key] ?? null} type={type} label={lineLabels[key] + ', line ' + (index + 1)} readOnly={readOnly} max={key==='feeBasisPoints'?100:undefined}
       missing={missing} changed={line[key] !== baseline.lines.find(item => line.id === item.id)?.[key]} onChange={value => onLine(line.id, { [key]: value })} />;
   }
 
@@ -273,7 +290,7 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
       <div><strong>Flight end</strong>{header('end', 'date')}</div>
     </div>
     {sections.map(digital => {
-      const columnCount=(digital?8:11)+(marketIds.length>1?1:0)+3;
+      const columnCount=(digital?10:11)+(marketIds.length>1?1:0)+3;
       const lines = document.lines.map((line, index) => ({ line, index })).filter(({ line }) => (line.media === 'Digital') === digital);
       const total = lines.reduce((sum, { line }) => sum + (bookedAmount(line) ?? 0), 0);
       const groups = orderVendorGroups(lines, item => item.line);
@@ -285,7 +302,9 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
               {!digital && <th scope="col">Station</th>}<th scope="col">Placement / program</th>
               <th scope="col">Format</th><th scope="col">Run days</th><th scope="col">Flight</th>
               {!digital && <><th scope="col">Rate</th><th scope="col">Spots</th></>}
-              <th scope="col">Amount</th><th scope="col">Impressions</th><th scope="col">Audience</th>
+              <th scope="col">{digital ? 'Media amount' : 'Amount'}</th>
+              {digital && <><th scope="col">Fee %</th><th scope="col">Amount due</th></>}
+              <th scope="col">Impressions</th><th scope="col">Audience</th>
               <th scope="col">Reported CPM</th><th scope="col">Calculated CPM</th><th scope="col"><span className="ow-sr-only">Line actions</span></th></tr></thead>
             <tbody role="rowgroup">{groups.map(group => <Fragment key={orderVendorLabel(group)}>
               {(group.vendor || group.rep || groups.length > 1) && <tr className="ow-vendor-divider">
@@ -311,6 +330,8 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, selected
                   <PlacementCell label="Spots">{field(line, 'quantity', index, 'number')}</PlacementCell></>}
                 <PlacementCell label="Amount">{line.noCharge || (line.amount == null && line.rate != null && line.quantity != null)
                   ? valueLabel(bookedAmount(line), 'money') : field(line, 'amount', index, 'money')}</PlacementCell>
+                {digital && <><PlacementCell label="Fee %">{field(line,'feeBasisPoints',index,'percent')}</PlacementCell>
+                  <PlacementCell label="Amount due">{valueLabel(bookedAmount(line),'money')}</PlacementCell></>}
                 <PlacementCell label="Impressions">{field(line, 'impressions', index, 'number')}</PlacementCell>
                 <PlacementCell label="Audience">{field(line,'audience',index,'number',missingSource)}</PlacementCell>
                 <PlacementCell label="Reported CPM">{line.reportedCpm===undefined && line.source?.facts===undefined && line.cpm!=null
@@ -350,7 +371,7 @@ function changeRows(event: OrderEvent) {
       continue;
     }
     for (const key of Object.keys(lineLabels) as LineKey[]) if (!same(old[key], next[key])) {
-      const type = key === 'rate' || key === 'amount' || key === 'cpm' ? 'money' : 'text';
+      const type = key === 'feeBasisPoints' ? 'percent' : key === 'rate' || key === 'amount' || key === 'cpm' ? 'money' : 'text';
       rows.push({ label: (next.program || next.station || 'Placement') + ' · ' + lineLabels[key],
         before: valueLabel(old[key], type), after: valueLabel(next[key], type) });
     }
@@ -394,13 +415,13 @@ function OrderHistory({ order, canRestore, busy, onRestore, onDownload, onClose 
   </OrdersDialog>;
 }
 
-function PrintOrderDialog({ document, markets, onClose }: {
-  document: OrderDocument; markets: MarketOption[]; onClose: () => void;
+function PrintOrderDialog({ document, markets, clientOrder, onClose }: {
+  document: OrderDocument; markets: MarketOption[]; clientOrder: boolean; onClose: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const [markup] = useState(() => orderPdfMarkup(document, '/brand/media-order-logo.png',
-    Object.fromEntries(markets.map(market => [market.id, market.name])), true));
+    Object.fromEntries(markets.map(market => [market.id, market.name])), true, clientOrder));
   return <OrdersDialog title="Print preview" onClose={onClose}>
     <iframe ref={frame} className="ow-print-preview" title="Draft media order" srcDoc={markup}
       sandbox="allow-same-origin allow-modals" onLoad={() => setReady(true)} />
@@ -460,7 +481,10 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   const [confirmation, confirm] = useState<'finalize' | 'send' | 'revision' | OrderEvent | null>(null);
   const [send, setSend] = useState<'send' | 'correct' | null>(null);
   const [split, setSplit] = useState(58);
-  const [spreadsheet, setSpreadsheet] = useState(false);
+  const marketOrder = isMarketOrder(selection);
+  const [section, setSection] = useState<'broadcast'|'digital'>(sheet === 'digital' ? 'digital' : 'broadcast');
+  const digitalSection = selection.workflow === 'digital' || marketOrder && section === 'digital';
+  const [spreadsheet, setSpreadsheet] = useState(marketOrder);
   const [sheetDetailsOpen, setSheetDetailsOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(true);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -480,7 +504,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   const dirty=researchState.saving || !!researchState.error || sync.dirty || recoveryConflict || Object.keys(recoveryFields).length>0 || researchState.status.phase==='pending' || researchState.status.phase==='saving' || researchState.status.phase==='error';
   const [assistantError,setAssistantError]=useState('');
   const [launching,setLaunching]=useState(false);
-  const researchView=useRef<ResearchView>({sheet:sheet==='radio'?'radio':'tv'});
+  const researchView=useRef<ResearchView>({sheet:sheet==='digital'?'digital':sheet==='radio'?'radio':'tv'});
   const launchContext=useRef<string|null>(null);
   const onResearchView=useCallback((value:ResearchView)=>{researchView.current=value;researchState.changeView(value);},[researchState.changeView]);
   const saveAndLeave=async(next:()=>void)=>{
@@ -517,7 +541,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'detach',contextId})}).catch(()=>{});
   },[]);
   const total = document.lines.reduce((sum, line) => sum + (bookedAmount(line) ?? 0), 0);
-  const broadcastTotal = document.lines.reduce((sum, line) => sum + (line.media === 'Digital' ? 0 : bookedAmount(line) ?? 0), 0);
+  const visibleDocument = marketOrder ? {...document,lines:document.lines.filter(line => (line.media === 'Digital') === digitalSection)} : document;
   const scope = selection.marketIds.map(id => markets.find(market => market.id === id)?.name ?? id);
   const changeRaw=useCallback((key:string,value:string|null)=>{
     setRecoveryFields(current=>{
@@ -611,7 +635,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   }
 
   function add(media: OrderLine['media']) {
-    const line = blankLine(media === 'TV' && sheet === 'radio' ? 'Radio' : media, selection.marketIds[0]);
+    const line = blankLine(digitalSection ? 'Digital' : media === 'TV' && sheet === 'radio' ? 'Radio' : media, selection.marketIds[0]);
     setDocument(current => ({ ...current, lines: [...current.lines, line] }));
     setSelected(line.id);
   }
@@ -623,9 +647,10 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   }
 
   function apply(quote: OrderLine, replace: boolean) {
-    if (readOnly || !selection.marketIds.includes(quote.marketId) || (selection.workflow==='broadcast' && quote.media==='Digital')) return;
+    if (readOnly || !selection.marketIds.includes(quote.marketId) ||
+      (quote.media === 'Digital') !== digitalSection) return;
     const target = document.lines.find(line => line.id === selected);
-    if (replace && (!target || quote.marketId !== target.marketId)) return;
+    if (replace && (!target || quote.marketId !== target.marketId || quote.media !== target.media)) return;
     if (replace && target) {
       setDocument(current=>({...current,lines:current.lines.map(line=>line.id===target.id?replaceResearchLine(line,quote):line)}));
       return;
@@ -649,12 +674,12 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
 
   const headerChange = (key: HeaderKey, value: string) => setDocument(current => ({ ...current, [key]: value }));
   const orderPane = spreadsheet
-    ? <OrderSpreadsheet key="order" document={document} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
+    ? <OrderSpreadsheet key="order" digital={digitalSection} document={visibleDocument} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
       selected={selected} onSelect={setSelected} onHeader={headerChange} onLine={updateLine} onRemove={removeLine} readOnly={readOnly}
       detailsOpen={sheetDetailsOpen} onToggleDetails={() => setSheetDetailsOpen(open => !open)}
-      onAdd={() => add(document.lines.find(line => line.id === selected)?.media ?? document.lines[0]?.media ?? 'TV')} />
+      onAdd={() => add(visibleDocument.lines.find(line => line.id === selected)?.media ?? visibleDocument.lines[0]?.media ?? 'TV')} />
     : <div className="ow-paper-pane" key="order">
-      <OrderPaper document={document} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
+      <OrderPaper document={visibleDocument} digitalSection={marketOrder ? digitalSection : undefined} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
         workflow={selection.workflow} selected={selected} onSelect={setSelected} onHeader={headerChange}
         onLine={updateLine} onRemove={removeLine} onAdd={add} readOnly={readOnly} />
     </div>;
@@ -672,8 +697,8 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       if (next === undefined) return;
       event.preventDefault(); setSplit(Math.min(72, Math.max(35, next)));
     }} />;
-  const researchPane = <OrderResearch key="research" client={client} markets={markets} marketIds={selection.marketIds} workflow={selection.workflow}
-    year={selection.year} initialSheet={sheet} document={document} target={selected} onApply={apply} onRemove={removeLine}
+  const researchPane = <OrderResearch key={'research:' + section} section={marketOrder ? section : undefined} client={client} markets={markets} marketIds={selection.marketIds} workflow={selection.workflow}
+    year={selection.year} initialSheet={digitalSection ? 'digital' : sheet === 'radio' ? 'radio' : 'tv'} document={document} target={selected} onApply={apply} onRemove={removeLine}
     canEdit={!readOnly} spreadsheet={spreadsheet} hidden={!researchOpen}
     persistedState={researchState.state} shortlistBusy={researchState.saving}
     onStar={researchState.star} onView={onResearchView}
@@ -697,19 +722,24 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       }}>‹ Back to campaign plan</a> : <button type="button" className="ow-link" onClick={()=>void saveAndLeave(onBack)}>
         ‹ {fromCalendar ? 'Back to calendar' : 'Back to orders'}
       </button>}
-      <h2 ref={heading} tabIndex={-1}>{document.number || (selection.workflow === 'digital' ? 'Digital order' : 'Broadcast order')}</h2>
+      <h2 ref={heading} tabIndex={-1}>{document.number || (marketOrder ? 'Market order' : selection.workflow === 'digital' ? 'Digital order' : 'Broadcast order')}</h2>
       <span className="ow-pill">{issue ? 'Finalized' : 'Draft'}</span>
       {order?.downloaded && <span className="ow-pill">PDF downloaded</span>}
       {order?.sent && <span className="ow-pill">Sent</span>}
-      <strong>{selection.marketProposed!==undefined ? 'Actual ' : ''}{valueLabel(selection.marketProposed!==undefined ? broadcastTotal : total, 'money')}</strong>
-      {selection.marketProposed!==undefined && <>
+      <strong>Total due {valueLabel(total, 'money')}</strong>
+      {selection.marketProposed===null && <span>Missing budget</span>}
+      {selection.marketProposed!=null && <>
         <span>Proposed <b>{valueLabel(selection.marketProposed,'money')}</b></span>
-        <span>Difference <b>{valueLabel(selection.marketProposed-broadcastTotal,'money')}</b></span>
+        <span>Difference <b>{valueLabel(selection.marketProposed-total,'money')}</b></span>
       </>}
       {order && <button className="ow-link" type="button" onClick={() => showHistory(true)}>Edit history &amp; activity</button>}
     </div>
     <div className="ow-bar ow-compact ow-editor-tools">
       <span>{selection.year} · {client.name} · {scope.join(', ')}</span>
+      {marketOrder && <div className="ow-order-views" role="group" aria-label="Placement section">
+        {(['broadcast','digital'] as const).map(tab => <button type="button" key={tab} aria-pressed={section===tab}
+          onClick={() => { if (tab!==section) {setSelected(null);setSection(tab);} }}>{tab==='broadcast'?'Broadcast':'Digital'}</button>)}
+      </div>}
       {selection.workflow === 'broadcast' && <div className="ow-order-views" role="group" aria-label="Order view">
         <button type="button" aria-pressed={!spreadsheet} onClick={() => setSpreadsheet(false)}>Order view</button>
         <button type="button" aria-pressed={spreadsheet} onClick={() => setSpreadsheet(true)}>Spreadsheet view</button>
@@ -769,7 +799,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
     </div>}
     {history && order && <OrderHistory order={order} canRestore={canEdit && !issue && !dirty} busy={busy}
       onRestore={event => { showHistory(false); confirm(event); }} onDownload={onDownload} onClose={() => showHistory(false)} />}
-    {printing && !issue && <PrintOrderDialog document={{...document,lines:document.lines.filter(isBroadcastPlacement)}}
+    {printing && !issue && <PrintOrderDialog document={document} clientOrder={marketOrder}
       markets={markets} onClose={() => setPrinting(false)} />}
     {send && order && issue && <SendDialog mode={send} issue={issue} order={order} busy={busy}
       mutate={mutate} onUpdate={onUpdate} onClose={() => setSend(null)}

@@ -7,10 +7,10 @@ import { orderPdfMarkup, type PrintOrder } from './print-markup';
 
 export { orderPdfMarkup } from './print-markup';
 
-export const ORDER_PDF_VERSION = 'ffm-media-order-v3';
+export const ORDER_PDF_VERSION = 'ffm-media-order-v4';
 
 let rendering = false;
-export async function renderOrderPdf(doc: PrintOrder, markets: Readonly<Record<string, string>>) {
+export async function renderOrderPdf(doc: PrintOrder, markets: Readonly<Record<string, string>>, clientOrder = false) {
   if (rendering) throw new StorageError('Another order PDF is being prepared. Try again shortly.');
   rendering = true;
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
@@ -19,7 +19,7 @@ export async function renderOrderPdf(doc: PrintOrder, markets: Readonly<Record<s
     browser = await chromium.launch({ headless: true, timeout: 15_000 });
     const page = await browser.newPage({ javaScriptEnabled: false });
     await page.route('**/*', route => route.abort());
-    await page.setContent(orderPdfMarkup(doc, 'data:image/png;base64,' + logo.toString('base64'), markets), { timeout: 12_000 });
+    await page.setContent(orderPdfMarkup(doc, 'data:image/png;base64,' + logo.toString('base64'), markets, false, clientOrder), { timeout: 12_000 });
     const controller = new AbortController();
     try {
       return await Promise.race([

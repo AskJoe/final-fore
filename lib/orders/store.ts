@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { AccessError } from '../access-error';
 import { Conflict, InputError, check, object } from '../domain/types';
 import { StorageError } from '../store';
-import { calculatedOrderCpm } from './metrics';
+import { calculatedOrderCpm, orderLineCharges } from './metrics';
 
 export type OrderWorkflow = 'broadcast' | 'digital';
 export type OrderSourceFact = { label: string; value: string | number | null; unit?: string; raw?: string; locator?: string; derived?: boolean };
@@ -32,6 +32,7 @@ export type OrderLine = {
   rate: number | null;
   quantity: number | null;
   amount: number | null;
+  feeBasisPoints?: number | null;
   impressions: number | null;
   noCharge: boolean;
   notes: string;
@@ -233,10 +234,14 @@ export function cleanOrderDocument(raw: unknown, scope: { marketIds: string[]; w
     const rate = integer(line.rate, 'placement rate in cents', 100_000_000_000);
     const quantity = integer(line.quantity, 'placement quantity', 1_000_000_000);
     const amount = integer(line.amount, 'placement amount in cents', 100_000_000_000);
+    const feeBasisPoints = integer(line.feeBasisPoints, 'management fee in basis points', 10000);
+    check(feeBasisPoints === null || media === 'Digital', 'Management fees apply to Digital placements.');
+    check(feeBasisPoints === null || (rate === null && quantity === null), 'Enter the net media amount for a Digital management fee.');
     const impressions = integer(line.impressions, 'placement impressions', 1_000_000_000);
     const source = cleanSource(line.source);
     const placement = {
       ...fields, media, rate, quantity, amount, impressions, noCharge: line.noCharge === true,
+      ...(line.feeBasisPoints !== undefined && {feeBasisPoints}),
       ...(line.priorFlight !== undefined && {priorFlight: cleanText(line.priorFlight, 'prior flight', 200)}),
       ...(line.weeks !== undefined && {weeks: weekCount(line.weeks)}),
       ...(line.spotsPerDay !== undefined && {spotsPerDay: integer(line.spotsPerDay, 'spots per day', 10000)}),
@@ -255,16 +260,15 @@ export function cleanOrderDocument(raw: unknown, scope: { marketIds: string[]; w
 }
 
 export function orderLineAmount(line: OrderLine) {
-  if (line.noCharge) return 0;
-  if (line.amount !== null) return line.amount;
-  return line.rate !== null && line.quantity !== null ? line.rate * line.quantity : null;
+  return orderLineCharges(line).due;
 }
 export function orderTotal(document: OrderDocument) {
   return document.lines.reduce((total, line) => total + (orderLineAmount(line) ?? 0), 0);
 }
-export function validateOrderForIssue(document: OrderDocument) {
-  check(!!document.number && !!document.date && !!document.clientName && !!document.vendor,
-    'Enter an order number, order date, client, and vendor before finalizing.');
+export function validateOrderForIssue(document: OrderDocument, clientOrder = false) {
+  check(!!document.number && !!document.date && !!document.clientName && (clientOrder || !!document.vendor),
+    clientOrder ? 'Enter an order number, order date, and client before finalizing.' :
+      'Enter an order number, order date, client, and vendor before finalizing.');
   check(!!document.buyer && /^\S+@\S+\.\S+$/.test(document.buyerEmail) && !!document.billing && !!document.terms,
     'Enter buyer and billing contacts and the order terms before finalizing.');
   check(document.lines.length > 0, 'Add at least one placement before finalizing.');

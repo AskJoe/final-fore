@@ -1,4 +1,5 @@
 import { createContext, useContext, useId, useRef, useEffect, useState, type ReactNode } from 'react';
+import { isMarketOrder, marketOrderKey } from '@/lib/orders/market-order';
 import type { Calendar, Deadline, DeadlineStatus, DeadlineStep, LegacyOrderReference, OrderSummary } from '@/lib/orders/store';
 import type { OrderOpportunity } from '@/lib/orders/sources';
 import type { LegacyOrder } from './OrdersWorkspace';
@@ -252,15 +253,16 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
   const eligibleOrders = (item: Deadline) => orders.filter(order =>
     order.clientId === calendar?.clientId && order.year === calendar.year
     && order.marketIds.includes(item.marketId)
-    && (item.step === 'copy' || (item.step === 'digital' ? order.workflow === 'digital'
+    && (isMarketOrder(order) || item.step === 'copy' || (item.step === 'digital' ? order.workflow === 'digital'
       : order.workflow === 'broadcast' && (item.orderIds.includes(order.id) || order.media.some(medium => medium.toLowerCase() === item.step)))));
   const eligibleLegacy = (item: Deadline) => legacy.filter(order => order.clientId === calendar?.clientId && order.year === calendar.year
     && order.marketId === item.marketId && (item.step === 'copy' || item.step !== 'digital'
       && (Array.isArray(order.media) ? order.media : [order.media]).some(medium => medium.toLowerCase() === item.step)));
-  const eligibleOpportunities = (item: Deadline) => opportunities.filter(order => order.clientId === calendar?.clientId && order.year === calendar.year
-    && order.marketIds.includes(item.marketId) && (item.step === 'digital' ? order.workflow === 'digital'
-      : item.step !== 'copy' && order.workflow === 'broadcast' && order.media.some(medium => medium.toLowerCase() === item.step))
-    && !orders.some(saved => saved.originKey === order.key));
+
+  const eligibleOpportunities = (item: Deadline) => {
+    const key = calendar && marketOrderKey(calendar.clientId, calendar.year, item.marketId);
+    return opportunities.filter(order => order.key === key && !orders.some(saved => saved.originKey === key));
+  };
 
   useEffect(() => {
     if (!hidden) returnTo.current?.focus({ preventScroll: true });
@@ -302,20 +304,18 @@ export function OrderCalendar({ hidden, client, year, scope, calendars, orders, 
   function follow(item: Deadline, trigger: HTMLElement) {
     returnTo.current = trigger;
     if (item.step === 'copy') { setCopySelection(item.id); return; }
-    if (canEdit && (item.step === 'tv' || item.step === 'radio')) {
+    if (canEdit) {
       onCreate(item);
       return;
     }
     const available = eligibleOrders(item);
     const linked = available.filter(order => item.orderIds.includes(order.id));
     const older = eligibleLegacy(item);
-    const matching = eligibleOpportunities(item);
     if (linked.length === 1 && !item.legacyRefs?.length) { onOpen(linked[0].id, item); return; }
     const singleMarket = available.filter(order => order.marketIds.length === 1);
     if (item.legacyRefs?.length || linked.length > 1 || singleMarket.length > 1 || older.length) { setOrderSelection(item.id); return; }
     if (singleMarket.length) { void openLinked(singleMarket[0].id, item); return; }
-    if (canEdit) onCreate(item, matching.find(option => option.marketIds.length === 1));
-    else setOrderSelection(item.id);
+    setOrderSelection(item.id);
   }
 
   function statusControl(item: Deadline, compact = false) {

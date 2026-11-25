@@ -159,6 +159,8 @@ body.campaign-page > main#campaign-main { padding: 4px 12px 12px; }
 .campaign-page #market-search { width: min(154px,35vw); }
 .campaign-page .table-tools :is(input,select) { height: 23px; padding: 1px 4px; font-size: 12px; }
 .campaign-page .market-order { font-weight: 650; text-underline-offset: 2px; }
+.campaign-page .market-order-links { display: flex; flex-wrap: wrap; gap: .25rem .65rem; }
+.campaign-page .market-budget-missing { color: #744816; }
 .campaign-page .market-channels { margin-inline-start: 8px; min-height: 20px; }
 .campaign-page #campaign-workflow { height: 23px; padding: 0 3px; font-size: 12px; }
 .campaign-page { position: relative; }

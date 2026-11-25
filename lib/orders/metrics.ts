@@ -4,6 +4,15 @@ export function isBroadcastPlacement(line: Pick<OrderLine, 'media'>) {
   return line.media === 'TV' || line.media === 'Radio';
 }
 
+type PricedLine = Pick<OrderLine, 'noCharge' | 'amount' | 'rate' | 'quantity' | 'feeBasisPoints'>;
+
+export function orderLineCharges(line: PricedLine) {
+  const media = line.noCharge ? 0 : line.amount ??
+    (line.rate != null && line.quantity != null ? line.rate * line.quantity : null);
+  const fee = media === null ? null : Math.round(media * (line.feeBasisPoints ?? 0) / 10000);
+  return { media, fee, due: media === null || fee === null ? null : media + fee };
+}
+
 export function calculatedOrderCpm(line: Pick<OrderLine,'rate'|'quantity'|'amount'|'impressions'|'audience'|'noCharge'>): number | null {
   const amount=line.noCharge ? 0 : line.amount ?? (line.rate != null && line.quantity != null ? line.rate*line.quantity : null);
   const value=amount != null && line.impressions != null && line.impressions>0

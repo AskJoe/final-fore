@@ -28,13 +28,18 @@ function planUrl(type=workflow,id){
  return '/campaign.html'+(params.size?'?'+params:'');
 }
 function buttons(){
- $('save-campaign').disabled=saving||!valid||!!invalidInputs.size||!dirty;
- $('new-campaign').disabled=saving;$('campaign-picker').disabled=saving;
+ const legacy=workflow==='digital';
+ $('save-campaign').hidden=legacy;$('save-campaign').disabled=legacy||saving||!valid||!!invalidInputs.size||!dirty;
+ if(legacy)for(const field of document.querySelectorAll(
+  '#campaign-name,#campaign-year,#campaign-budget,#campaign-start,#campaign-end,#client,#regions input,'+
+  '#market-rows input,#market-rows select,#market-rows .remove,#market-rows .amount-edit,#market-rows .reset-budget,#add-market'
+ ))field.disabled=true;
+ $('new-campaign').hidden=workflow==='digital';$('new-campaign').disabled=saving;$('campaign-picker').disabled=saving;
  $('campaign-main').inert=false;
  if(draft){
   $('campaign-calendar').href=calendarUrl();
   $('order-list').href=ordersUrl();$('order-history').href=ordersUrl(null,'historical');
-  document.querySelectorAll('a.market-order').forEach(link=>{link.href=ordersUrl(link.closest('[data-market]').dataset.market);});
+  document.querySelectorAll('a.market-order').forEach(link=>{link.href=ordersUrl(link.closest('[data-market]').dataset.market,null,link.dataset.section);});
  }
 }
 function campaignScope(){
@@ -43,10 +48,11 @@ function campaignScope(){
  return params;
 }
 function calendarUrl(){return '/campaign/calendar?'+campaignScope();}
-function ordersUrl(marketId,section){
+function ordersUrl(marketId,view,section){
  const params=campaignScope();
  if(marketId)params.set('marketId',marketId);
- if(section)params.set('view',section);
+ if(view)params.set('view',view);
+ if(section)params.set('section',section);
  return '/campaign/orders?'+params;
 }
 function rememberCampaign(id){try{localStorage.setItem(activeKey(),id||'new');}catch{}}
@@ -115,11 +121,11 @@ async function withBroadcastBudget(result){
  const budget=await broadcastBudget;
  const rows=result.rows.map(row=>{
   const {baseline,actual,placements}=budget.markets[row.marketId];
-  const allocation=row.override??baseline;
-  return {...row,baseline,actual,placements,allocation,gap:allocation-actual};
+  const allocation=row.override;
+  return {...row,baseline,actual,placements,allocation,gap:allocation==null||actual==null?null:allocation-actual};
  });
- const sum=key=>rows.reduce((total,row)=>total+row[key],0);
- const proposed=result.details.budget??sum('baseline');
+ const sum=key=>rows.reduce((total,row)=>total+(row[key]??0),0);
+ const proposed=result.details.budget??sum('allocation');
  return {...result,rows,priorYear:budget.priorYear,proposed,actual:sum('actual'),allocated:sum('allocation'),remaining:proposed-sum('allocation')};
 }
 async function calculatePreview(rebuild=false){
@@ -169,7 +175,9 @@ function renderSummary(){
  if(isBroadcast()){
   $('campaign-actual').textContent=currency(view.actual);
   $('campaign-gap').textContent=currency(view.proposed-view.actual);
-  $('history-label').textContent=view.priorYear?`From ${view.priorYear} broadcast orders`:'No earlier broadcast orders';
+  $('history-label').textContent=view.priorYear?`From ${view.priorYear} market orders`:'No earlier market orders';
+  const missing=view.rows.filter(row=>row.allocation==null).length;
+  $('incomplete').textContent=missing?`${missing} ${missing===1?'market needs':'markets need'} a budget`:'';
   $('baseline-heading').textContent=view.priorYear?`${view.priorYear} orders`:'Prior orders';
   if(document.activeElement!==$('campaign-budget')&&!invalidInputs.has('campaign-budget'))$('campaign-budget').value=currency(view.proposed);
   return;
@@ -305,17 +313,27 @@ function renderRows(){
  for(const row of rows){
   const tr=make('tr');tr.dataset.market=row.marketId;
   const cell=(label,cls='')=>{const td=make('td','',cls);td.dataset.label=label;tr.append(td);return td;};
-  const name=make(assigned.has(row.marketId)?'a':'span',row.name,'market-order');
-  if(name instanceof HTMLAnchorElement)name.href=ordersUrl(row.marketId);
+  const name=make('span',row.name);
   const channels=make('button','Channels','text-action market-channels');channels.type='button';channels.setAttribute('aria-expanded',expanded.has(row.marketId));channels.setAttribute('aria-label',`${row.name} channels`);
   channels.addEventListener('click',()=>{
    if(expanded.has(row.marketId)){expanded.delete(row.marketId);tr.nextElementSibling?.dataset.detail===row.marketId&&tr.nextElementSibling.remove();}
    else{expanded.add(row.marketId);tr.after(detailRow(view.rows.find(r=>r.marketId===row.marketId)));}
    channels.setAttribute('aria-expanded',expanded.has(row.marketId));
-   cacheCampaignView();
+   cacheCampaignView();buttons();
   });
   const market=cell('Market');market.append(name);
-  if(isBroadcast())market.append(make('small',placementCount(row),'market-placement-count'));else market.append(channels);
+  if(isBroadcast()){
+   if(assigned.has(row.marketId)){
+    const links=make('div','','market-order-links');
+    for(const [section,label] of [['broadcast','Broadcast'],['digital','Digital']]){
+     const link=make('a',label,'market-order');link.dataset.section=section;
+     link.href=ordersUrl(row.marketId,null,section);link.setAttribute('aria-label',row.name+' '+label+' order');
+     links.append(link);
+    }
+    market.append(links);
+   }
+   market.append(make('small',placementCount(row),'market-placement-count'));
+  }else market.append(channels);
   const region=make('select','','inline-input');selectOptions(region,catalog.regions,'');region.value=row.region;region.setAttribute('aria-label',row.name+' region');
   region.addEventListener('change',()=>{draft.markets.find(r=>r.marketId===row.marketId).region=region.value;markDirty();recalculate();});cell('Region').append(region);
   cell('Start').append(field(row,'start','start','date'));cell('End').append(field(row,'end','end','date'));
@@ -323,7 +341,9 @@ function renderRows(){
   const amount=make('div','','amount-cell');amount.classList.toggle('manual',!isBroadcast()&&!row.automatic);amount.append(field(row,'override',isBroadcast()?'proposed budget':'allocation'));
   const reset=make('button','Reset','reset-budget');reset.type='button';reset.hidden=row.automatic;reset.setAttribute('aria-label',`Reset ${row.name} allocation`);reset.title='Use the automatic allocation';
   reset.addEventListener('click',()=>{draft.markets.find(r=>r.marketId===row.marketId).override=null;markDirty();recalculate();});
-  if(!isBroadcast())amount.append(reset);cell(isBroadcast()?'Proposed':'Allocation','number').append(amount);
+  if(!isBroadcast())amount.append(reset);
+  else budgetFlag(amount,row.allocation);
+  cell(isBroadcast()?'Proposed':'Allocation','number').append(amount);
   const share=cell(isBroadcast()?'Actual':'Budget %','number share');share.textContent=isBroadcast()?currency(row.actual):percent(row.share);share.classList.toggle('blank-result',!isBroadcast()&&row.share==null);
   if(isBroadcast()){cell('Proposed − actual','number market-gap').textContent=currency(row.gap);body.append(tr);continue;}
   const remove=make('button','×','remove');remove.type='button';remove.setAttribute('aria-label',`Remove ${row.name}`);
@@ -331,8 +351,14 @@ function renderRows(){
   body.append(tr);if(expanded.has(row.marketId))body.append(detailRow(row));
  }
  $('empty-filter').hidden=!!rows.length;$('visible-count').textContent=rows.length===view.rows.length?'':`${rows.length} of ${view.rows.length} markets · totals include all`;
+ if(!isBroadcast())buttons();
 }
-const placementCount=row=>row.placements?`${row.placements} ${row.placements===1?'placement':'placements'}`:'No broadcast placements';
+function budgetFlag(container,allocation){
+ const missing=container.querySelector('.market-budget-missing');
+ if(allocation==null&&!missing)container.append(make('small','Missing budget','market-budget-missing'));
+ if(allocation!=null)missing?.remove();
+}
+const placementCount=row=>row.placements?`${row.placements} ${row.placements===1?'placement':'placements'}`:'No saved placements';
 function updateRows(){
  for(const row of view.rows){
   const tr=[...$('market-rows').children].find(n=>n.dataset.market===row.marketId);if(!tr)continue;
@@ -347,6 +373,7 @@ function updateRows(){
    const previous=tr.querySelector('.average');previous.textContent=currency(row.baseline);previous.dataset.label=$('baseline-heading').textContent;
    tr.querySelector('.share').textContent=currency(row.actual);
    tr.querySelector('.market-gap').textContent=currency(row.gap);
+   budgetFlag(tr.querySelector('.amount-cell'),row.allocation);
    tr.querySelector('.market-placement-count').textContent=placementCount(row);
    continue;
   }
@@ -370,7 +397,7 @@ async function campaignList(loaded){
 }
 function discard(){return !dirty||window.confirm('Leave this campaign without saving your changes?');}
 async function openCampaign(id,{fresh=false,loaded=null}={}){
- const recovery=fresh?null:readRecovery(id);
+ const recovery=fresh||!isBroadcast()?null:readRecovery(id);
  const result=id?loaded||await api('/api/campaign?id='+encodeURIComponent(id)):isBroadcast()
   ? await api('/api/campaign/preview',{...blankDraft.details,workflow,markets:[]}):clone(blankDraft);
  adopt(await withBroadcastBudget(result));
@@ -392,7 +419,7 @@ async function openCampaign(id,{fresh=false,loaded=null}={}){
 async function saveCampaign(){
  clearTimeout(autosaveTimer);
  if(saveTask)return saveTask;
- if(!dirty)return true;
+ if(!isBroadcast()||!dirty)return true;
  // Keep inline channel editing in place until Enter, Tab, or blur commits it.
  if(document.activeElement?.classList.contains('channel-dollar')){cacheRecovery();return false;}
  try{applyPendingEditor(pendingEditor());}catch(error){message(error.message);status('Check amount');cacheRecovery();buttons();return false;}
@@ -450,7 +477,7 @@ for(const [id,key] of [['campaign-name','name'],['campaign-year','year'],['campa
  if(key==='budget')input.addEventListener('blur',commit);
 }
 $('market-search').addEventListener('input',()=>{renderRows();cacheCampaignView();});$('region-filter').addEventListener('change',()=>{renderRows();cacheCampaignView();});
-$('new-campaign').addEventListener('click',async()=>{await flushCampaign();if(discard()){removeRecovery(null);openCampaign('',{fresh:true}).catch(e=>message(e.message));}});
+$('new-campaign').addEventListener('click',async()=>{if(!isBroadcast())return;await flushCampaign();if(discard()){removeRecovery(null);openCampaign('',{fresh:true}).catch(e=>message(e.message));}});
 $('campaign-picker').addEventListener('change',async()=>{const id=$('campaign-picker').value;await flushCampaign();if(dirty&&!cacheRecovery()){$('campaign-picker').value=draft.id||'';return;}try{await openCampaign(id);}catch(error){message(error.message);$('campaign-picker').value=draft.id||'';}});
 $('save-campaign').addEventListener('click',flushCampaign);
 async function followCampaignLink(event){
@@ -458,7 +485,7 @@ async function followCampaignLink(event){
  const marketId=link.classList.contains('market-order')?link.closest('[data-market]').dataset.market:null;
  event.preventDefault();cacheCampaignView();await flushCampaign();
  if(dirty&&!cacheRecovery()){message('Unable to save this draft. Keep this page open and try Save draft again.');return;}
- location.href=!draft?link.href:marketId?ordersUrl(marketId):link.id==='campaign-calendar'?calendarUrl():
+ location.href=!draft?link.href:marketId?ordersUrl(marketId,null,link.dataset.section):link.id==='campaign-calendar'?calendarUrl():
   link.id==='order-list'?ordersUrl():link.id==='order-history'?ordersUrl(null,'historical'):link.href;
 }
 document.querySelector('.workbook-nav').addEventListener('click',followCampaignLink);
@@ -496,8 +523,7 @@ $('campaign-workflow').addEventListener('change',async event=>{
 async function initialize(selected){
  const params=new URLSearchParams(location.search),requested=params.get('id');
  let rememberedType='';try{rememberedType=localStorage.getItem(workflowKey)||'';}catch{}
- const chosen=selected||params.get('workflow')||rememberedType;
- if(!isWorkflow(chosen)&&!requested){$('campaign-workflow').value='';return;}
+ const chosen=selected||params.get('workflow')||(requested?rememberedType:'broadcast');
  $('campaign-workflow').disabled=true;
  $('loading').textContent='Loading campaign…';$('loading').hidden=false;
  try{
@@ -509,7 +535,7 @@ async function initialize(selected){
   if(requested&&!params.has('workflow')){
    loadedCampaigns=(await api('/api/campaigns')).campaigns;
    workflow=loadedCampaigns.find(c=>c.id===requested)?.workflow??'digital';
-  }else workflow=isWorkflow(chosen)?chosen:'digital';
+  }else workflow=isWorkflow(chosen)?chosen:'broadcast';
   $('campaign-workflow').value=workflow;
   try{localStorage.setItem(workflowKey,workflow);}catch{}
   const broadcast=isBroadcast(),main=$('campaign-main');main.dataset.workflow=workflow;
@@ -526,7 +552,8 @@ async function initialize(selected){
   if(!campaignTask){likely=remembered;campaignTask=early(likely);}
   const [data]=await Promise.all([catalogTask,campaignList(loadedCampaigns)]);catalog=data.catalog;blankDraft=data.draft;
   const id=requested&&[...$('campaign-picker').options].some(o=>o.value===requested)?requested:
-   ([...$('campaign-picker').options].some(o=>o.value===remembered)?remembered:'');
+   ([...$('campaign-picker').options].some(o=>o.value===remembered)?remembered:
+    savedCampaigns.find(c=>(c.workflow??'digital')===workflow)?.id||'');
   await openCampaign(id||'',{loaded:id&&id===likely?await campaignTask:null});
   main.hidden=false;$('campaign-actions').hidden=false;$('campaign-order-links').hidden=false;$('loading').hidden=true;
  }catch(error){$('loading').textContent=error.message;status('Unable to load');}

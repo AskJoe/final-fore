@@ -22,7 +22,7 @@ export type SourceVersions = { database: Record<string,unknown>; build: string }
 export type RevisionStamp = { order: number; research: number; view: number; sources: SourceVersions };
 export type StarUpdate = {rowId:string;starred:boolean};
 export type AddPlacement = {rowId:string;period?:number;quantity?:number|null;spotsPerWeek?:number|null;weeks?:number|null};
-export type OrderChanges = {sheet:'tv'|'radio';add:AddPlacement[];remove:string[]};
+export type OrderChanges = {sheet:'tv'|'radio'|'digital';add:AddPlacement[];remove:string[]};
 export type MarketProposal = {
   id:string;contextId:string;orderId:string;userId:string;stamp:RevisionStamp;changes:OrderChanges;
   before:OrderDocument;after:OrderDocument;hash:string;status:'pending'|'applied';operationId:string;

@@ -1,5 +1,6 @@
 'use client';
 import { canonicalJson } from '@/lib/domain/json';
+import { isMarketOrder } from '@/lib/orders/market-order';
 import { cleanOrderDocument } from '@/lib/orders/store';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,8 +24,8 @@ function orderStatus(order: OrderSummary) {
   return order.sent ? 'Sent' : order.currentIssue ? 'Finalized' : 'Draft';
 }
 
-function OrderList({ workflow, orders, opportunities, legacy, markets, filter, canEdit, onFilter, onOpen, onStart }: {
-  workflow: OrderWorkflow; orders: OrderSummary[]; opportunities: OrderOpportunity[]; legacy: LegacyOrder[]; markets: MarketOption[];
+function OrderList({ workflow, orders, opportunities, legacy, markets, filter, canEdit, onFilter, onOpen, onStart, title }: {
+  workflow: OrderWorkflow; orders: OrderSummary[]; opportunities: OrderOpportunity[]; legacy: LegacyOrder[]; markets: MarketOption[]; title?: string;
   filter: OrderFilter; canEdit: boolean; onFilter: (patch: Partial<OrderFilter>) => void; onOpen: (id: string) => void;
   onStart: (market: string, workflow: OrderWorkflow, key?: string, archiveId?: string) => void;
 }) {
@@ -40,7 +41,7 @@ function OrderList({ workflow, orders, opportunities, legacy, markets, filter, c
     && matches([item.title, item.firm, item.rep, marketName(item.marketId)])) : [];
   const shown = available.filter(item => !active.some(order =>
     order.originKey === item.key));
-  const heading = workflow === 'digital' ? 'Digital orders' : 'Order planning';
+  const heading = title ?? (workflow === 'digital' ? 'Legacy Digital orders' : 'Order planning');
 
   return <section className="ow-order-list" aria-label={heading}>
     <div className="ow-bar ow-compact">
@@ -91,19 +92,19 @@ function OrderList({ workflow, orders, opportunities, legacy, markets, filter, c
   </section>;
 }
 
-function selectedOrder(result: OrderDetail, marketProposed?: number): OpenOrder {
+function selectedOrder(result: OrderDetail, marketProposed?: number | null): OpenOrder {
   return { editorKey:result.id, document: result.document, clientId: result.clientId, year: result.year, workflow: result.workflow,
-    marketIds: result.marketIds, order: result, marketProposed };
+    marketIds: result.marketIds, originKey: result.originKey ?? undefined, order: result, marketProposed };
 }
 
-export default function OrdersWorkspace({ initialOrderId, initialClientId, initialYear, initialMarketId, initialWorkflow = 'broadcast',
+export default function OrdersWorkspace({ initialOrderId, initialClientId, initialYear, initialMarketId, initialSection = 'broadcast',
   view = 'calendar', planUrl = '/campaign.html', campaignId, canEdit = true }: {
   initialOrderId?: string; initialClientId?: string; initialYear?: number; initialMarketId?: string; planUrl?: string; canEdit?: boolean;
-  initialWorkflow?: OrderWorkflow; view?: 'calendar' | 'orders' | 'historical'; campaignId?: string;
+  initialSection?: 'broadcast'|'digital'; view?: 'calendar' | 'orders' | 'historical'; campaignId?: string;
 } = {}) {
   const [clientChoice, setClientChoice] = useState(initialClientId ?? '');
   const [yearChoice, setYearChoice] = useState(initialYear ?? 0);
-  const [workflow, setWorkflow] = useState(initialWorkflow);
+  const [workflow, setWorkflow] = useState<OrderWorkflow>('broadcast');
   const [filter, setFilter] = useState<OrderFilter>(emptyFilter);
   const [editor, setEditor] = useState<OpenOrder | null>(null);
   const editorRef = useRef<OpenOrder | null>(null);
@@ -123,7 +124,7 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, initi
   const directMarket = view === 'orders' && canEdit && Boolean(initialMarketId && initialClientId && initialYear && !initialOrderId);
   const waitingForOrderScope = initialOrderId && (!clientChoice || !yearChoice) && !error;
   const workspace = useOrdersQuery<Workspace>(directMarket || waitingForOrderScope ? '' : ordersUrl({
-    view: 'workspace', clientId: clientChoice, year: yearChoice || undefined, scope: view === 'historical' ? 'directory' : undefined,
+    view: 'workspace', clientId: clientChoice, year: yearChoice || undefined, scope: view === 'historical' ? 'history' : undefined,
   }));
   const data = directMarket ? marketScope : workspace.value;
   const client = data?.clients.find(item => item.id === (clientChoice || data.clientId)) ?? data?.clients[0];
@@ -239,8 +240,8 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, initi
   useEffect(() => {
     if (initialOrderId || !initialMarketId || openedInitial.current || (!directMarket && (!client || !data))) return;
     openedInitial.current = true;
-    void startOrder(initialMarketId, initialWorkflow, undefined, undefined, undefined, true);
-  }, [initialOrderId, initialMarketId, initialWorkflow, client, data, directMarket]);
+    void startOrder(initialMarketId, 'broadcast', undefined, undefined, undefined, true);
+  }, [initialOrderId, initialMarketId, client, data, directMarket]);
 
   function update(result: OrderDetail) {
     setEditor(previous=>selectedOrder(result,previous?.marketProposed));
@@ -376,18 +377,22 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, initi
       client={client} year={year} scope={scope} calendars={data?.calendars ?? []} orders={orders} markets={markets} busy={operation}
       legacy={data?.legacyOrders ?? []} opportunities={data?.opportunities ?? []}
       canEdit={editable} mutate={mutate} refresh={refresh} onOpen={openOrder}
-      onCreate={(item, opportunity) => void startOrder(item.marketId, item.step === 'digital' ? 'digital' : 'broadcast',
+      onCreate={(item, opportunity) => void startOrder(item.marketId, 'broadcast',
         opportunity?.key, opportunity?.archiveId ?? undefined, item)} />}
     {!editor && !loadingOrder && data && view === 'orders' &&
-      <OrderList workflow={workflow} orders={orders} opportunities={data.opportunities ?? []}
+      <OrderList workflow="broadcast" orders={orders.filter(isMarketOrder)} opportunities={data.opportunities ?? []}
         legacy={data.legacyOrders ?? []} markets={markets} filter={filter} canEdit={editable}
         onFilter={patch => setFilter(old => ({ ...old, ...patch }))} onOpen={id => void openOrder(id)} onStart={startOrder} />}
+    {!editor && data && view === 'historical' && (['broadcast','digital'] as const).map(kind =>
+      orders.some(order=>order.workflow===kind) && <OrderList key={kind} workflow={kind} orders={orders} legacy={[]}
+        title={kind==='broadcast'?'Legacy vendor orders':'Legacy Digital orders'} opportunities={[]} markets={markets}
+        filter={filter} canEdit={false} onFilter={patch=>setFilter(old=>({...old,...patch}))}
+        onOpen={id=>void openOrder(id)} onStart={startOrder} />)}
     {data && view === 'historical' && <HistoricalOrders key={client?.id + ':' + year} hidden={!!editor}
-      client={client} markets={markets} currentYear={year} canEdit={editable} workflow={workflow}
-      onSeed={(record, marketId) => void startOrder(marketId, record.workflow, undefined, record.id)} />}
-    {editor && editorClient && <OrderEditor key={editor.editorKey} selection={editor} client={editorClient} markets={allMarkets} canEdit={editable}
+      client={client} markets={markets} currentYear={year} />}
+    {editor && editorClient && <OrderEditor key={editor.editorKey} selection={editor} client={editorClient} markets={allMarkets} canEdit={editable && editor.workflow !== 'digital' && (view!=='historical' || isMarketOrder(editor))}
       busy={operation} fromCalendar={calendar} planUrl={fromPlan ? planUrl : undefined}
-      sheet={from?.step ?? ''} mutate={mutate} onDirty={setDirty} onBack={closeEditor} onCancel={cancelEditor}
+      sheet={from?.step ?? initialSection} mutate={mutate} onDirty={setDirty} onBack={closeEditor} onCancel={cancelEditor}
       onSave={save} onUpdate={update} onDownload={download} />}
   </div></OrderFeedbackContext.Provider>;
 }

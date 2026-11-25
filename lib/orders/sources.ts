@@ -8,7 +8,8 @@ import { StorageError } from '../store';
 import marketLinks from '../../data/research-market-links.json';
 import assignmentEvidence from '../../data/research-assignment-seed.json';
 import { type ArchiveFile, type ArchiveLine, type ArchiveRecord, type ArchiveReferenceRole, type OrderArchive, type SourceRef } from './archive-source';
-import { calculatedOrderCpm } from './metrics';
+import { marketOrderKey } from './market-order';
+import { orderLineCharges, calculatedOrderCpm } from './metrics';
 import { validOrderDate } from './dates';
 import { isResearchSelected, type ResearchSelection } from './research-selection';
 import type { OrderDocument, OrderLine, OrderSource, OrderSourceFact, OrderWorkflow } from './store';
@@ -434,9 +435,9 @@ export function orderOpportunities(archive: OrderArchive | null, directory: Dire
     ...owned.map((marketId: string): OrderOpportunity => {
       const template = archiveOrderSeed(archive, directory, {...scope,archiveId:'',workflow:'broadcast',marketIds:[marketId]});
       const media = mediaArray(template.lines.map(line => line.media));
-      return {clientId:scope.clientId,year:scope.year,key:['broadcast',scope.clientId,scope.year,'market',marketId].join('|'),
-        workflow:'broadcast',marketId,marketIds:[marketId],title:displayMarket(marketId)+' broadcast order',
-        firmId:null,repId:null,firm:'',rep:'',media:media.length ? media : ['TV','Radio'],archiveId:null,
+      return {clientId:scope.clientId,year:scope.year,key:marketOrderKey(scope.clientId,scope.year,marketId),
+        workflow:'broadcast',marketId,marketIds:[marketId],title:displayMarket(marketId)+' market order',
+        firmId:null,repId:null,firm:'',rep:'',media:[...new Set<Media>([...media,'TV','Radio','Digital'])],archiveId:null,
         seedAvailable:!!template.lines.length,basis:template.lines.length ? [archive!.year+' market order'] : []};
     }),
     ...[...opportunities.values()].filter(item => item.workflow === 'digital'),
@@ -446,13 +447,13 @@ export function orderOpportunities(archive: OrderArchive | null, directory: Dire
 }
 
 export function archiveOrderSeed(archive: OrderArchive | null, directory: Directory,
-  scope: Scope & { archiveId: string; workflow: OrderWorkflow; marketIds: string[] }) {
+  scope: Scope & { archiveId: string; workflow: OrderWorkflow; marketIds: string[]; includeDigital?: boolean }) {
   const client = selectedClient(directory, scope.clientId);
   for (const market of scope.marketIds) selectedMarket(directory, scope.clientId, market);
   if (!scope.archiveId && scope.workflow === 'broadcast') {
     if (scope.marketIds.length !== 1) throw new InputError('Choose one market for the combined order template.');
     const marketId = scope.marketIds[0];
-    const sample = archive && scope.year > archive.year ? combinedMarketSample(archive, client, marketId) : {lines: [], documents: []};
+    const sample = archive && scope.year > archive.year ? combinedMarketSample(archive, client, marketId, scope.includeDigital === true) : {lines: [], documents: []};
     const header: Omit<OrderDocument, 'lines'> = {
       number:'',date:'',clientName:client.name,vendor:'',rep:'',buyer:TEMPLATE.contact || '',buyerEmail:TEMPLATE.email || '',
       billing:'',terms:TEMPLATE.terms || '',start:'',end:'',notes:'',
@@ -482,7 +483,7 @@ export function archiveOrderSeed(archive: OrderArchive | null, directory: Direct
   return { header, lines, source };
 }
 
-function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof selectedClient>, marketId: string) {
+function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof selectedClient>, marketId: string, includeDigital: boolean) {
   const rows = archive.orders.flatMap(record => {
     const scope = archiveScope(archive, record, client.id, client.marketIds);
     const file = archive.files[record.source];
@@ -491,8 +492,8 @@ function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof s
     return scope.lines.flatMap(item => {
       const line = item.line;
       const channel = medium(line.medium);
-      if (item.marketId !== marketId || line.kind !== 'Placement' || (channel !== 'TV' && channel !== 'Radio')) return [];
-      const identity = JSON.stringify([line.medium, stationKey(line.station), normalize(line.placement),
+      if (item.marketId !== marketId || line.kind !== 'Placement' || !channel || (channel === 'Digital' && !includeDigital)) return [];
+      const identity = JSON.stringify([line.medium, stationKey(line.station), normalize(line.placement || line.description || ''),
         normalize(line.fmt), normalize(line.days)]);
       const key = record.ref.trim() ? JSON.stringify([normalize(record.ref), identity,
         cents(line.amount), cents(line.rate), count(line.spots), count(line.impressions)]) : null;
@@ -521,7 +522,14 @@ function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof s
     paired.add(vendor);
     copies.set(buyer, [...(copies.get(buyer) ?? []), vendor]);
   }
-  const lines = rows.flatMap(row => {
+  const digitalPurchaseRows = purchaseRows.filter(row => medium(row.item.line.medium) === 'Digital');
+  const marketPurchaseRows = digitalPurchaseRows.filter(row => row.record.type === 'Market purchase order' &&
+    orderMarket(archive, row.record.market) === marketId);
+  const primaryDigital = marketPurchaseRows.length ? marketPurchaseRows : digitalPurchaseRows;
+  const supportingDigital = new Set(primaryDigital.flatMap(row => copies.get(row) ?? []));
+  const includeRow = (row: typeof rows[number]) => medium(row.item.line.medium) !== 'Digital' ||
+    !primaryDigital.length || primaryDigital.includes(row) || supportingDigital.has(row);
+  const lines = rows.filter(includeRow).flatMap(row => {
     // The purchase order carries gross cost. A matched vendor copy adds attribution and delivery evidence.
     if (paired.has(row)) return [];
     const {record, item, source, buyerOrder, vendor} = row;
@@ -540,14 +548,18 @@ function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof s
     }
     const draft = draftPlacement(placement);
     if (!draft?.source) return [];
-    return [{ ...draft, noCharge: draft.noCharge || normalize(item.line.context) === 'trade',
+    const feeRate = /^\s*(\d+(?:\.\d{1,2})?)%\s*$/.exec(placement.fee);
+    const basisPoints = feeRate ? Math.round(Number(feeRate[1]) * 100) : null;
+    const netDigital = draft.media === 'Digital' && placement.netMedia !== null && basisPoints !== null && basisPoints <= 10000 &&
+      placement.netMedia + Math.round(placement.netMedia * basisPoints / 10000) === placement.amount;
+    return [{ ...draft, ...(netDigital && {amount:placement.netMedia,rate:null,quantity:null,feeBasisPoints:basisPoints}), noCharge: draft.noCharge || normalize(item.line.context) === 'trade',
       source: {...draft.source, facts: [...(draft.source.facts ?? []),
         {label: 'Firm', value: assigned.firm}, {label: 'Representative', value: assigned.rep},
         ...evidence.flatMap(copy => [{label: 'Vendor order', value: copy.source.title},
           {label: 'Vendor flight', value: copy.item.line.flight},
           {label: 'Vendor impressions', value: count(copy.item.line.impressions)}])] } }];
   });
-  return {lines, documents: distinctSources(rows.map(row => row.source))};
+  return {lines, documents: distinctSources(rows.filter(includeRow).map(row => row.source))};
 }
 
 function overlappingArchiveFlights(left: string, right: string) {
@@ -650,9 +662,9 @@ function emptyResearchLine(id: string, marketId: string, media: Media, program: 
 }
 
 export function orderResearch(archive: OrderArchive | null, directory: Directory, query: ResearchQuery) {
-  selectedMarket(directory, query.clientId, query.marketId);
+  const client = selectedMarket(directory, query.clientId, query.marketId);
   const market = displayMarket(query.marketId);
-  if (query.sheet === 'digital' && query.workflow === 'digital') {
+  if (query.sheet === 'digital') {
     const referenceYear = query.year - 1;
     const digitalWorkbook = archive?.digitalResearch;
     const history = query.clientId === 'epic3' ? CHANNEL_CATALOG.markets[query.marketId] : null;
@@ -695,11 +707,25 @@ export function orderResearch(archive: OrderArchive | null, directory: Directory
         const line=emptyResearchLine(id,query.marketId,'Digital',channel.name,source,basisYear);
         line.source={...line.source!,facts:researchFacts(columnsForYear,cells)};
         line.reportedCpm=null;
-        return {id,marketId:query.marketId,market,program:channel.name,rep:'',firm:'',source,cells,line,digitalDraftValues};
+        return {id,marketId:query.marketId,market,program:channel.name,rep:'',firm:'',source,cells,line,
+          ...(query.workflow === 'digital' && {digitalDraftValues})};
       });
     return finishResearch(columnsForYear, rows, query, true);
   }
-  if (['station-history','digital-history'].includes(query.sheet) && query.workflow === 'broadcast') {
+  if (query.sheet === 'digital-history' && query.workflow === 'broadcast') {
+    const lines = archive && archive.year < query.year ? combinedMarketSample(archive,client,query.marketId,true).lines : [];
+    const rows = lines.flatMap((line): ResearchRow[] => {
+      if (line.media!=='Digital'||!line.source) return [];
+      const source:SourceRef={kind:'historical-order',id:line.source.id,title:line.source.label,
+        url:line.source.url,locator:line.source.locator};
+      const {media,fee,due}=orderLineCharges(line);
+      return [{id:line.id,marketId:query.marketId,market,program:line.program,rep:'',firm:'',source,line:null,
+        cells:[line.program,line.format,line.priorFlight??null,moneyCell(media,source.locator??''),
+          moneyCell(fee,source.locator??''),moneyCell(due,source.locator??''),countCell(line.impressions,source.locator??'')]}];
+    });
+    return finishResearch(columns(['Placement','Format','Prior flight','Media amount','Fee','Amount due','Impressions']),rows,query,!!archive);
+  }
+  if (query.sheet === 'station-history' && query.workflow === 'broadcast') {
     const rows: ResearchRow[] = [];
     if (archive && archive.year < query.year) {
       for (const order of archive.orders) {

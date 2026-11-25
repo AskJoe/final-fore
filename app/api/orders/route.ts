@@ -1,14 +1,14 @@
 import { createHash } from 'node:crypto';
 import { AccessError, requireMember } from '@/lib/access';
-import { MARKETS, TEMPLATE } from '@/lib/domain/catalogs';
+import { MARKETS } from '@/lib/domain/catalogs';
 import type { Directory } from '@/lib/domain/directory';
 import { check, Conflict, object, today, type Data } from '@/lib/domain/types';
 import { failure, json, privateHeaders, sameOrigin } from '@/lib/http';
 import { ORDER_PDF_VERSION, renderOrderPdf } from '@/lib/orders/pdf';
-import { isBroadcastPlacement } from '@/lib/orders/metrics';
+import { isMarketOrder, marketOrderKey } from '@/lib/orders/market-order';
 import { attestLine, verifyDraftSources } from '@/lib/orders/provenance';
 import { archiveOrderSeed, loadOrderArchive, marketBroadcastHistory, orderOpportunities, searchOrderArchive, type ResearchQuery } from '@/lib/orders/sources';
-import { cleanOrderDocument, orderStore, orderTotal, validateOrderForIssue, type OrderAction, type OrderLine } from '@/lib/orders/store';
+import { cleanOrderDocument, orderStore, orderTotal, validateOrderForIssue, type OrderAction, type OrderDocument, type OrderLine } from '@/lib/orders/store';
 import { campaignKey, orderKey, Service } from '@/lib/service';
 import { StorageError } from '@/lib/store';
 import { orderRuntime as context, ordersSecret } from '@/lib/orders/runtime';
@@ -76,43 +76,30 @@ async function seed(directory: Directory, input: Data) {
   const archive = await loadOrderArchive();
   const client = findClient(directory, input.clientId);
   const year = yearNumber(input.year);
-  const workflow = workflowName(input.workflow);
-  const step = validStep(input.step);
-  if (step && step !== 'copy') check((step === 'digital') === (workflow === 'digital'), 'The order workflow must match the deadline.');
-  const opportunities = await orderOpportunities(archive, directory, {clientId:client.id,year,marketWide:!input.archiveId});
-  const archiveId = input.archiveId ? String(input.archiveId) : '';
-  const key = typeof input.originKey === 'string' ? input.originKey : typeof input.key === 'string' ? input.key : '';
-  const requestedMarket = input.marketId || input.marketIds?.[0];
-  if (!key && !archiveId) ensureMarket(client,requestedMarket);
-  const candidates = opportunities.filter(o => o.workflow === workflow &&
-    (!requestedMarket || o.marketIds.includes(requestedMarket)) &&
-    (!step || step === 'copy' || workflow === 'broadcast' && !archiveId || o.media.some((medium: string) => medium.toLowerCase() === step)));
-  const opportunity = (key ? candidates.find(o => o.key === key) : undefined) ??
-    (archiveId ? candidates.find(o => String(o.archiveId) === archiveId) : undefined) ??
-    (!key && !archiveId ? candidates.find(o => o.marketIds.length === 1) : undefined);
-  if (archiveId) check(opportunity && String(opportunity.archiveId) === archiveId, 'The historical order is unavailable for this scope.');
-  const marketIds = opportunity?.marketIds ?? [requestedMarket];
-  for (const marketId of marketIds) ensureMarket(client, marketId);
-  const originKey = opportunity?.key ?? [workflow,client.id,year,marketIds[0],workflow === 'broadcast' ? step ?? 'tv' : 'market'].join(':');
-  check(!key || key === originKey, 'This order opportunity is no longer available. Reopen it before saving.');
-  const history = workflow === 'broadcast' && !archiveId
-    ? archiveOrderSeed(archive, directory, {archiveId:'',workflow,clientId:client.id,year,marketIds})
-    : opportunity?.archiveId && opportunity.seedAvailable
-      ? archiveOrderSeed(archive, directory, {archiveId:String(opportunity.archiveId),workflow,clientId:client.id,year,marketIds})
-      : null;
-  const document = {
-    number:'', date:'', clientName:client.name, vendor:opportunity?.firm ?? '', rep:opportunity?.rep ?? '',
-    buyer:String(TEMPLATE.contact ?? 'Final Fore Media'), buyerEmail:String(TEMPLATE.email ?? ''),
-    billing:'', terms:String(TEMPLATE.terms ?? ''), start:'', end:'', notes:'',
-    ...history?.header, lines:history?.lines ?? [],
-  };
+  const requestedWorkflow = workflowName(input.workflow);
+  check(!input.archiveId, 'Open the shared market order to use historical evidence.');
+  const workflow = 'broadcast' as const;
+  const marketId: unknown = input.marketId || input.marketIds?.[0];
+  ensureMarket(client, marketId);
+  check(!input.marketIds || Array.isArray(input.marketIds) && input.marketIds.length === 1 && input.marketIds[0] === marketId,
+    'Choose one market per order.');
+  const marketIds = [marketId];
+  const originKey = marketOrderKey(client.id, year, marketId);
+  const key = input.originKey || input.key;
+  check(!key || key === originKey || requestedWorkflow === 'digital' &&
+    key === ['digital', client.id, year, marketId].join('|'),
+    'This order opportunity is no longer available. Reopen it before saving.');
+  const history = archiveOrderSeed(archive, directory, {archiveId:'',workflow,clientId:client.id,year,marketIds});
+  const document: OrderDocument = {...history.header, lines:history.lines.map(line=>({...line,
+    rate:null,quantity:null,amount:null,impressions:null,noCharge:false,spotsPerDay:null,spotsPerWeek:null,weeks:null,
+    audience:null,reportedCpm:null,cpm:null,calculatedCpm:null,
+  }))};
   // Original dates, issue numbers and signatures never become new issuance values.
   Object.assign(document, {number:'',date:'',start:'',end:''});
   const scope = {clientId:client.id,year,workflow};
   document.lines = document.lines.map(line => attestLine(line,scope,ordersSecret()));
   return {document,...scope,marketIds,originKey,
-    firmId:opportunity?.firmId || null,repId:opportunity?.repId || null,
-    archiveId:opportunity?.archiveId ? String(opportunity.archiveId) : null,seed:history?.source ?? null};
+    firmId:null,repId:null,archiveId:null,seed:history.source};
 }
 
 async function researchResponse(directory: Directory, params: URLSearchParams, memberClient: OrderContext['supabase'],
@@ -149,11 +136,11 @@ export async function GET(request: Request) {
       .map(id => ({id,name:marketNames[id]}));
     if (view === 'campaign-budget') {
       const marketIds = (client.marketIds as string[]).filter(id => Object.hasOwn(marketNames, id));
-      const origin = ['broadcast', clientId, year, 'market'].join('|') + '|';
+      const origin = (id: string) => marketOrderKey(clientId, year, id);
       const [archive, drafts] = await Promise.all([
         loadOrderArchive(),
         marketIds.length ? ctx.admin.from('ff_order_drafts').select('origin_key, market_ids, lines:document->lines')
-          .eq('client_id', clientId).eq('year', year).eq('workflow', 'broadcast').in('origin_key', marketIds.map(id => origin + id))
+          .eq('client_id', clientId).eq('year', year).eq('workflow', 'broadcast').in('origin_key', marketIds.map(origin))
           : Promise.resolve({ data: [], error: null }),
       ]);
       if (!archive) throw new StorageError('The broadcast order archive is unavailable.');
@@ -161,13 +148,11 @@ export async function GET(request: Request) {
       const current = new Map((drafts.data as { origin_key: string; market_ids: string[]; lines: OrderLine[] }[])
         .filter(order => order.market_ids.length === 1).map(order => [order.origin_key, order.lines]));
       const amounts = marketIds.map(id=>{
-        const previous=archiveOrderSeed(archive,directory,{archiveId:'',workflow:'broadcast',clientId,year,marketIds:[id]});
-        const priorBroadcast=previous.lines.filter(isBroadcastPlacement);
-        const baseline=orderTotal({...previous.header,lines:priorBroadcast});
-        const saved = current.get(origin + id);
-        const lines = saved ? saved.filter(isBroadcastPlacement) : priorBroadcast;
-        const actual = saved ? orderTotal({ ...previous.header, lines }) : baseline;
-        return [id,{baseline,actual,placements:lines.length}] as const;
+        const previous=archiveOrderSeed(archive,directory,{archiveId:'',workflow:'broadcast',clientId,year,marketIds:[id],includeDigital:true});
+        const baseline=orderTotal({...previous.header,lines:previous.lines});
+        const saved = current.get(origin(id));
+        const actual = saved ? orderTotal({ ...previous.header, lines:saved }) : null;
+        return [id,{baseline,actual,placements:saved?.length ?? 0}] as const;
       });
       return json({priorYear:year>archive.year?archive.year:null,markets:Object.fromEntries(amounts)});
     }
@@ -187,8 +172,7 @@ export async function GET(request: Request) {
         draft.document.start=market.start||dates?.start||details!.start||'';
         draft.document.end=market.end||dates?.end||details!.end||'';
       }
-      const marketProposed=draft.workflow==='broadcast'&&!draft.archiveId
-        ? market?.override??orderTotal({...draft.document,lines:draft.document.lines.filter(isBroadcastPlacement)}) : undefined;
+      const marketProposed=market ? (market.override ?? null) : undefined;
       const scope = get('includeScope') === '1' ? { clients, clientId, year, markets: marketDirectory(), orders: [], calendars: [], canEdit: true } : undefined;
       return json({...draft,marketProposed,scope,order:existing.data ? stripPrivate(await ctx.orders.readOrder(existing.data.id)) : null});
     }
@@ -205,7 +189,10 @@ export async function GET(request: Request) {
     }
     if (view === 'research') return await researchResponse(directory, params, ctx.supabase, {clientId,marketId,year});
     check(view === 'workspace','Unknown Orders view.');
-    if (get('scope') === 'directory') return json({ clients, clientId, year, markets: marketDirectory(), orders: [], calendars: [], canEdit: true });
+    if (get('scope') === 'directory' || get('scope') === 'history') {
+      const orders = get('scope') === 'history' ? (await ctx.orders.readWorkspace(clientId,year)).orders.filter(order=>!isMarketOrder(order)) : [];
+      return json({clients,clientId,year,markets:marketDirectory(),orders,calendars:[],canEdit:true});
+    }
     const [state,archive,legacy] = await Promise.all([
       ctx.orders.readWorkspace(clientId,year),loadOrderArchive().catch(() => null),ctx.directoryStore.list('campaign_order'),
     ]);
@@ -234,14 +221,15 @@ async function issuePdf(ctx: OrderContext, input: Data) {
   if (draft.revision !== input.expectedRevision) throw new Conflict('This order changed. Reopen it before finalizing.');
   const previous = draft.issues.find(issue=>issue.revision === input.expectedRevision);
   if (previous) return json(stripPrivate(draft));
-  const document = draft.workflow === 'broadcast'
-    ? {...draft.document, lines: draft.document.lines.filter(isBroadcastPlacement)} : draft.document;
-  validateOrderForIssue(document);
+  const document = draft.document;
+  check(draft.workflow !== 'digital', 'Open the shared market order to finalize Digital placements.');
+  const clientOrder = isMarketOrder(draft);
+  validateOrderForIssue(document, clientOrder);
   const storageKey = draft.id + '/' + draft.revision + '-' + ORDER_PDF_VERSION + '.pdf';
   const storage = ctx.admin.storage.from(bucket);
   const info = await storage.info(storageKey);
   if (!info.data) {
-    const bytes = await renderOrderPdf(document, marketNames);
+    const bytes = await renderOrderPdf(document, marketNames, clientOrder);
     await storage.upload(storageKey, bytes, {contentType:'application/pdf',upsert:false});
   }
   const persisted = await pdfBytes(ctx,storageKey);
@@ -324,6 +312,7 @@ export async function POST(request: Request) {
         requireId(input.id);
         scope = await ctx.orders.readOrder(input.id);
         if (!scope) throw new AccessError('Order not found.',404);
+        check(scope.workflow !== 'digital', 'Open the shared market order to edit Digital placements.');
       } else {
         scope = await seed((await ctx.share.directory()).data,input);
         const {clientId,year,workflow,marketIds,originKey,firmId,repId,seed:source} = scope;
@@ -332,6 +321,12 @@ export async function POST(request: Request) {
       verifyDraftSources(input.document,scope,ordersSecret(),input.id ? scope.document : null,
         input.id ? null : scope.document);
       input.document = cleanOrderDocument(input.document,scope);
+    }
+    if (action === 'createRevision' || action === 'reviseOrder' || action === 'restoreRevision') {
+      requireId(input.id);
+      const draft = await ctx.orders.readOrder(input.id);
+      if (!draft) throw new AccessError('Order not found.',404);
+      check(draft.workflow !== 'digital', 'Open the shared market order to edit Digital placements.');
     }
     if (action === 'saveCalendar') {
       const client = findClient((await ctx.share.directory()).data,input.clientId);

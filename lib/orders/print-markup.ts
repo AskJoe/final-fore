@@ -1,12 +1,13 @@
 import originalTemplate from '../../epic3/order-template.json';
 import type { OrderLine } from './store';
+import { orderLineCharges } from './metrics';
 import { orderVendorGroups, orderVendorLabel } from './vendor-groups';
 
 type PrintLine = {
   id: string; media: string; marketId: string; station: string; program: string;
   format: string; days: string; start: string; end: string; rate: number | null;
   quantity: number | null; amount: number | null; impressions: number | null;
-  noCharge: boolean; notes: string;
+  noCharge: boolean; notes: string; feeBasisPoints?: number | null;
   spotsPerDay?: number | null; spotsPerWeek?: number | null; weeks?: number | null;
   audience?: number | null; cpm?: number | null; calculatedCpm?: number | null; reportedCpm?: number | null;
   priorFlight?: string;
@@ -24,13 +25,12 @@ const escape = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, char => entit
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const money = (v: number | null | undefined) => v == null ? '' : currency.format(v / 100);
 const number = (v: number | null | undefined) => v == null ? '' : v.toLocaleString('en-US');
-const total = (line: PrintLine) =>
-  line.noCharge ? 0 : line.amount ?? (line.rate != null && line.quantity != null ? line.rate * line.quantity : null);
+const total = (line: PrintLine) => orderLineCharges(line).due;
 
-export function orderPdfMarkup(doc: PrintOrder, logo: string, markets: Readonly<Record<string, string>> = {}, draft = false) {
+export function orderPdfMarkup(doc: PrintOrder, logo: string, markets: Readonly<Record<string, string>> = {}, draft = false, clientOrder = false) {
   const orderMarkets = [...new Set(doc.lines.map(line => markets[line.marketId]).filter(Boolean))];
   const headers = [
-    ['Order Date', doc.date], ['Media Vendor', doc.vendor, doc.rep], ['Order No.', doc.number],
+    ['Order Date', doc.date], ...(!clientOrder ? [['Media Vendor', doc.vendor, doc.rep]] : []), ['Order No.', doc.number],
     ['Terms', doc.terms], ['Client', doc.clientName], ['Buyer Contact', doc.buyer, doc.buyerEmail],
     ['Billing Contact', doc.billing],
   ];
@@ -46,13 +46,16 @@ export function orderPdfMarkup(doc: PrintOrder, logo: string, markets: Readonly<
   const amounts = (line: PrintLine) =>
     '<td class="num">' + (line.noCharge ? 'No charge' : money(total(line))) + '</td>' +
     '<td class="num">' + number(line.impressions) + '</td>';
-  const section = (type: 'broadcast' | 'digital') => {
-    const digital = type === 'digital';
-    const lines = doc.lines.filter(line => (line.media === 'Digital') === digital);
+  const section = (type: 'broadcast' | 'digital' | 'net') => {
+    const digital = type !== 'broadcast';
+    const net = type === 'net';
+    const lines = doc.lines.filter(line => digital
+      ? line.media === 'Digital' && (line.feeBasisPoints != null) === net : line.media !== 'Digital');
     if (!lines.length) return '';
-    const label = digital ? 'DIGITAL ADS' : 'BROADCAST ADS';
+    const label = net ? 'NET DIGITAL ADS' : digital ? 'DIGITAL ADS' : 'BROADCAST ADS';
     const columns = digital
-      ? ['Placement / Market', 'Length', 'Run Days', 'Total Wks', 'Flight Dates', 'Total $', 'IMPs']
+      ? ['Placement / Market', 'Length', 'Run Days', 'Total Wks', 'Flight Dates',
+        ...(net ? ['Net media', 'Management fee', 'Amount due'] : ['Total $']), 'IMPs']
       : ['Station / channel', 'Placement / program', 'Rate', 'Schedule', 'Flight', 'Spots', 'Total $', 'Imps', 'CPM', 'Audience'];
     const schedule = (line: PrintLine) => {
       const days = [line.days, line.weeks == null ? '' : number(line.weeks) + ' wks'];
@@ -60,10 +63,16 @@ export function orderPdfMarkup(doc: PrintOrder, logo: string, markets: Readonly<
         line.spotsPerWeek == null ? '' : number(line.spotsPerWeek) + '/wk'];
       return [days, spots].map(values => values.filter(Boolean).map(escape).join(' · ')).filter(Boolean).join('<br>');
     };
+    const netAmounts = (line: PrintLine) => {
+      const { media, fee, due } = orderLineCharges(line);
+      return '<td class="num">' + money(media) + '</td><td class="num">' + money(fee) +
+        '<small>' + number((line.feeBasisPoints ?? 0) / 100) + '%</small></td><td class="num">' +
+        (line.noCharge ? 'No charge' : money(due)) + '</td><td class="num">' + number(line.impressions) + '</td>';
+    };
     const renderRow = (line: PrintLine) => '<tr>' + (digital
       ? '<td class="description">' + placement(line) + '<div>' + escape(markets[line.marketId] || '') + '</div></td>' +
         '<td>' + escape(line.format) + '</td><td>' + escape(line.days) + '</td><td class="num">' + number(line.weeks) +
-        '</td><td>' + flight(line) + '</td>' + amounts(line)
+        '</td><td>' + flight(line) + '</td>' + (net ? netAmounts(line) : amounts(line))
       : '<td><strong>' + escape(line.station) + '</strong><small>' + escape(line.media) + '</small></td><td>' +
         placement(line) + '<small>' + escape(line.format) + '</small></td><td class="num">' + money(line.rate) +
         '</td><td>' + schedule(line) + '</td><td>' + flight(line) + '</td><td class="num">' + number(line.quantity) +
@@ -80,9 +89,11 @@ export function orderPdfMarkup(doc: PrintOrder, logo: string, markets: Readonly<
     return '<section class="schedule"><table><thead><tr><th class="section-title" colspan="' + columns.length + '">' + label +
       '</th></tr><tr>' + columns.map(column => '<th scope="col">' + column + '</th>').join('') +
       '</tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<div class="subtotal">' + (digital ? 'DIGITAL TOTAL' : 'GROSS TOTAL') + ' &nbsp; ' + money(subtotal) +
+      '<div class="subtotal">' + (net ? 'NET DIGITAL TOTAL DUE' : digital ? 'DIGITAL TOTAL' : 'BROADCAST TOTAL') + ' &nbsp; ' + money(subtotal) +
       (impressions ? ' &nbsp; ' + number(impressions) + ' IMPs' : '') + '</div></section>';
   };
+  const amountDue = doc.lines.reduce((sum, line) => sum + (total(line) ?? 0), 0);
+  const knownImpressions = doc.lines.reduce((sum, line) => sum + (line.impressions ?? 0), 0);
   return `<!doctype html><html lang="en"><meta charset="utf-8"><title>${[draft && 'Draft', escape(doc.number), 'Media Order'].filter(Boolean).join(' · ')}</title>
 <style>
 @page { size: Letter; margin: .42in .18in; }
@@ -128,12 +139,13 @@ th.section-title { color:#91660d; border:0; padding-bottom:7pt; }
 ${orderMarkets.length ? '<p class="order-market">' + escape(orderMarkets.join(' · ')) + '</p>' : ''}
 <div class="meta">${headers.map(([label, ...values]) => '<div class="field' + (label === 'Buyer Contact' ? ' contact' : '') + '"><strong>' + label + '</strong>' +
   values.map(value => '<div>' + escape(value) + '</div>').join('') + '</div>').join('')}</div>
-${section('broadcast')}${section('digital')}
+${section('broadcast')}${section('digital')}${section('net')}
+<div class="subtotal">TOTAL DUE &nbsp; ${money(amountDue)}${knownImpressions ? ' &nbsp; ' + number(knownImpressions) + ' IMPs' : ''}</div>
 <section class="notes"><h2>Order notes</h2><p class="note-space">${escape(doc.notes)}</p></section>
 ${doc.lines.some(line => line.media !== 'Digital') ? `<section class="notes sample-notes"><h2>Sample notes</h2>
 <ul><li>${escape(originalTemplate.rateNote.trim())}</li><li>${escape(originalTemplate.stationNote)}</li></ul></section>` : ''}
 ${draft ? '' : `<footer class="acceptance">
-<p>Please sign and date below. By signing this Final Fore Media Order, the media company's representative acknowledges and accepts the order and its terms.</p>
+<p>Please sign and date below. By signing this Final Fore Media Order, the ${clientOrder ? 'client’s' : 'media company’s'} representative acknowledges and accepts the order and its terms.</p>
 <div class="signatures"><div><div class="signature"></div>Signature</div><div><div class="signature"></div>Date</div></div>
 </footer>`}</html>`;
 }
