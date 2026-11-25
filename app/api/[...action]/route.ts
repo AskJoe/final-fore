@@ -7,7 +7,7 @@ import { object } from '@/lib/domain/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ action: string[] }> };
-const reads = new Set(['planning','directory','table','markets','order','campaign/catalog','campaigns','campaign','campaign-order/options','campaign-order']);
+const reads = new Set(['planning','directory','table','markets','order','campaign/catalog','campaign/history','campaigns','campaign','campaign-order/options','campaign-order']);
 const writes = new Set(['planning/cell','planning/formula','directory/entity','cell','formula','variable','order','order/preview','campaign','campaign/preview','campaign-order','campaign-order/preview']);
 export async function GET(request: Request, context: Context) {
   const path = (await context.params).action.join('/');

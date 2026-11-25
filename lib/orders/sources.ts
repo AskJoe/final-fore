@@ -540,9 +540,9 @@ function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof s
     const placement = archivePlacement(source, archive, record, item);
     const signedFlights = new Set(evidence.filter(copy => copy.source.kind === 'signed-order')
       .map(copy => copy.item.line.flight.trim()).filter(Boolean));
-    if (signedFlights.size === 1) placement.flight = [...signedFlights][0];
+    if (signedFlights.size === 1 && placement.media !== 'Digital') placement.flight = [...signedFlights][0];
     const copyImpressions = new Set(evidence.map(copy => count(copy.item.line.impressions)).filter(value => value != null));
-    if (placement.impressions === null && copyImpressions.size === 1) {
+    if (placement.media !== 'Digital' && placement.impressions === null && copyImpressions.size === 1) {
       placement.impressions = [...copyImpressions][0];
       placement.impressionsText = String(placement.impressions);
     }

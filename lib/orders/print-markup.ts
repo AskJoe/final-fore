@@ -67,7 +67,7 @@ export function orderPdfMarkup(doc: PrintOrder, logo: string, markets: Readonly<
       const { media, fee, due } = orderLineCharges(line);
       return '<td class="num">' + money(media) + '</td><td class="num">' + money(fee) +
         '<small>' + number((line.feeBasisPoints ?? 0) / 100) + '%</small></td><td class="num">' +
-        (line.noCharge ? 'No charge' : money(due)) + '</td><td class="num">' + number(line.impressions) + '</td>';
+        (line.noCharge ? 'No charge' : money(due)) + '</td><td class="num">' + (line.impressions == null ? 'TBD' : number(line.impressions)) + '</td>';
     };
     const renderRow = (line: PrintLine) => '<tr>' + (digital
       ? '<td class="description">' + placement(line) + '<div>' + escape(markets[line.marketId] || '') + '</div></td>' +

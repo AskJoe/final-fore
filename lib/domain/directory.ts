@@ -95,19 +95,7 @@ export function update(directory: Directory, collection: unknown, raw: unknown) 
 }
 
 // Legacy records are interpreted at the service boundary; stored rows are not rewritten on read.
-export function campaignClient(raw: Data, directory: Directory): Data {
-  const id = raw.clientId === 'weed-man' ? 'epic3' : raw.clientId;
-  const client = directory.clients.find(c => c.id === id);
-  check(client, 'Choose a client from Clients.');
-  if(raw.workflow!=='broadcast'||!Array.isArray(raw.markets))return { ...raw, clientId: id, clientName: client.name, brand: client.brand };
-  const assigned = new Set(client.marketIds);
-  const markets = raw.markets.filter((market: Data)=>assigned.has(market?.marketId));
-  const planned = new Set(markets.map((market: Data)=>market.marketId));
-  for(const marketId of client.marketIds)if(!planned.has(marketId)){
-    markets.push({marketId,region:MARKETS[marketId]?.region??'',start:'',end:'',override:null});
-  }
-  return { ...raw, clientId:id,clientName:client.name,brand:client.brand,markets };
-}
+export { campaignClient } from './campaign-client';
 
 export function vendorSnapshot(raw: Data | undefined, directory: Directory, media: string, previous?: Data): Data | undefined {
   if (!raw) return undefined;
