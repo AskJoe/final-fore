@@ -576,12 +576,14 @@ async function initialize(selected){
   if(!campaign){likely=remembered;campaign=campaignData(likely);}
   let history=null;
   const calculate=value=>{if(value)history=value;if(catalog&&history)useCalculator(history);};
+  const campaignToOpen=list=>{
+   const available=list.campaigns.filter(c=>(c.workflow??'digital')===workflow);
+   return [requested,remembered].find(id=>id&&available.some(c=>c.id===id))||available[0]?.id||'';
+  };
   const show=async(data,list,loaded,cached=false)=>{
    catalog=data.catalog;blankDraft=data.draft;calculate();
    await campaignList(list.campaigns);
-   const listed=id=>!!id&&[...$('campaign-picker').options].some(o=>o.value===id);
-   const id=listed(requested)?requested:listed(remembered)?remembered:
-    savedCampaigns.find(c=>(c.workflow??'digital')===workflow)?.id||'';
+   const id=campaignToOpen(list);
    await openCampaign(id,{loaded:id&&id===likely?loaded:null,cached});
    main.hidden=false;$('campaign-actions').hidden=false;$('campaign-order-links').hidden=false;$('loading').hidden=true;
    return id;
@@ -589,7 +591,7 @@ async function initialize(selected){
   const text=value=>JSON.stringify(value??null);
   const [savedCatalog,savedList,savedCampaign,savedHistory]=await Promise.all([catalogData.saved,listData.saved,campaign?campaign.saved:null,historyData.saved]);
   let shown=null;
-  if(savedCatalog&&savedList){
+  if(savedCatalog&&savedList&&(!requested||campaignToOpen(savedList)===requested)){
    calculate(savedHistory);
    try{shown={id:await show(savedCatalog,savedList,savedCampaign,true)};}catch{}
   }
@@ -608,7 +610,8 @@ async function initialize(selected){
   const current=(draft?.id||'')===shown.id;
   const catalogChanged=text(freshCatalog)!==text(savedCatalog);
   const campaignChanged=!!shown.id&&shown.id===likely&&text(freshCampaign)!==text(savedCampaign);
-  if(!catalogChanged&&!campaignChanged){
+  const selectionChanged=campaignToOpen(freshList)!==shown.id;
+  if(!catalogChanged&&!campaignChanged&&!selectionChanged){
    if(text(freshList)!==text(savedList))await campaignList(freshList.campaigns);
    if(current&&isBroadcast()&&broadcastBudget)broadcastBudget.then(()=>{
     if((draft?.id||'')===shown.id&&!dirty&&!saving)void recalculate();
