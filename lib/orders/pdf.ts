@@ -7,7 +7,7 @@ import { orderPdfMarkup, type PrintOrder } from './print-markup';
 
 export { orderPdfMarkup } from './print-markup';
 
-export const ORDER_PDF_VERSION = 'ffm-media-order-v4';
+export const ORDER_PDF_VERSION = 'ffm-media-order-v5';
 
 let rendering = false;
 export async function renderOrderPdf(doc: PrintOrder, markets: Readonly<Record<string, string>>, clientOrder = false) {

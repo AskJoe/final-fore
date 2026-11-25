@@ -51,8 +51,12 @@ export function orderPdfMarkup(doc: PrintOrder, logo: string, markets: Readonly<
     const net = type === 'net';
     const lines = doc.lines.filter(line => digital
       ? line.media === 'Digital' && (line.feeBasisPoints != null) === net : line.media !== 'Digital');
-    if (!lines.length) return '';
     const label = net ? 'NET DIGITAL ADS' : digital ? 'DIGITAL ADS' : 'BROADCAST ADS';
+    if (!lines.length) {
+      if (!clientOrder || net || (digital && doc.lines.some(line => line.media === 'Digital'))) return '';
+      return '<section class="schedule empty-schedule"><h2>' + label + '</h2><p>No ' +
+        (digital ? 'Digital' : 'Broadcast') + ' placements.</p></section>';
+    }
     const columns = digital
       ? ['Placement / Market', 'Length', 'Run Days', 'Total Wks', 'Flight Dates',
         ...(net ? ['Net media', 'Management fee', 'Amount due'] : ['Total $']), 'IMPs']
@@ -110,6 +114,8 @@ h1 { font-size:23pt; color:#91660d; margin:0 0 12pt; }
 .field strong { display:block; margin-bottom:3pt; }
 .field div + div { margin-top:3pt; }
 .schedule { margin-top:14pt; }
+.empty-schedule h2 { color:#91660d; margin:0 0 4pt; font-size:8pt; }
+.empty-schedule p { margin:0 0 6pt; }
 table { border-collapse:collapse; width:100%; font-size:8pt; }
 thead { display:table-header-group; }
 tr { break-inside:avoid; }

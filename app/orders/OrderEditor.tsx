@@ -146,25 +146,15 @@ const digitalPlacements: SheetColumn[] = [
   { key: 'notes', title: 'Notes', type: 'multiline' },
 ];
 
-function OrderSpreadsheet({ document, baseline, markets, marketIds, digital, selected, detailsOpen, onToggleDetails, onSelect, onHeader, onLine, onRemove, onAdd, readOnly }: {
-  document: OrderDocument; baseline: OrderDocument; markets: MarketOption[]; marketIds: string[];
-  selected: string | null; onSelect: (id: string) => void; onHeader: (key: HeaderKey, value: string) => void;
-  onLine: (id: string, change: Partial<OrderLine>) => void; onRemove: (id: string) => void; onAdd: () => void; readOnly: boolean;
-  detailsOpen: boolean; onToggleDetails: () => void; digital: boolean;
+function OrderSpreadsheetDetails({ document, baseline, detailsOpen, onToggleDetails, onHeader, readOnly }: {
+  document: OrderDocument; baseline: OrderDocument; detailsOpen: boolean; onToggleDetails: () => void;
+  onHeader: (key: HeaderKey, value: string) => void; readOnly: boolean;
 }) {
-  const columns = digital ? digitalPlacements : sheetPlacements;
-  const multiMarket = marketIds.length > 1;
-  const amount = document.lines.reduce((sum, line) => sum + (bookedAmount(line) ?? 0), 0);
-  const impressions = document.lines.reduce((sum, line) => sum + (line.impressions ?? 0), 0);
-  const spots = document.lines.reduce((sum, line) => sum + (line.quantity ?? 0), 0);
-  const groups = orderVendorGroups(document.lines.map((line, index) => ({line, index})), item => item.line);
-  return <section className="ow-order-sheet" aria-label="Order spreadsheet">
+  return <>
     <div className="ow-sheet-toolbar">
       <h3>Market order</h3>
-      <span>{document.lines.length} {document.lines.length === 1 ? 'placement' : 'placements'}</span>
       <button className="ow-link ow-sheet-order-details" type="button" aria-expanded={detailsOpen}
         aria-controls="ow-spreadsheet-header-fields" onClick={onToggleDetails}>Order details</button>
-      {!readOnly && <button type="button" className="ow-link" onClick={onAdd}>+ Add row</button>}
     </div>
     <div className="ow-sheet-header-fields" id="ow-spreadsheet-header-fields" hidden={!detailsOpen}>{sheetHeaders.map(key => <div key={key}>
       <strong>{headerLabels[key]}</strong>
@@ -172,11 +162,33 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, digital, sel
         changed={document[key] !== baseline[key]} type={key === 'notes' ? 'multiline' : ['date', 'start', 'end'].includes(key) ? 'date' : 'text'}
         onChange={value => onHeader(key, String(value ?? ''))} />
     </div>)}</div>
-    <div className="ow-sheet-scroll" tabIndex={0} role="region" aria-label="Scroll order placements" onFocus={event => {
+  </>;
+}
+
+function OrderSpreadsheet({ lines, markets, marketIds, digital, shared, selected, onSelect, onLine, onRemove, onAdd, readOnly }: {
+  lines: OrderLine[]; markets: MarketOption[]; marketIds: string[]; digital: boolean; shared: boolean;
+  selected: string | null; onSelect: (id: string) => void;
+  onLine: (id: string, change: Partial<OrderLine>) => void; onRemove: (id: string) => void; onAdd: () => void; readOnly: boolean;
+}) {
+  const name = digital ? 'Digital' : 'Broadcast';
+  const columns = digital ? digitalPlacements : sheetPlacements;
+  const multiMarket = marketIds.length > 1;
+  const amount = lines.reduce((sum, line) => sum + (bookedAmount(line) ?? 0), 0);
+  const impressions = lines.reduce((sum, line) => sum + (line.impressions ?? 0), 0);
+  const spots = lines.reduce((sum, line) => sum + (line.quantity ?? 0), 0);
+  const groups = orderVendorGroups(lines.map((line, index) => ({line, index})), item => item.line);
+  return <section className="ow-placement-sheet" aria-label={name + ' placements'}>
+    <div className="ow-sheet-toolbar">
+      <h3>{name} placements</h3>
+      <span>{lines.length} {lines.length === 1 ? 'placement' : 'placements'}</span>
+      {shared && <span className="ow-placement-access">{readOnly ? 'View only' : 'Editing'}</span>}
+      {!readOnly && <button type="button" className="ow-link" onClick={onAdd}>+ Add row</button>}
+    </div>
+    <div className="ow-sheet-scroll" tabIndex={0} role="region" aria-label={'Scroll ' + name + ' placements'} onFocus={event => {
       const cell = event.target.closest<HTMLTableCellElement>('td[data-field]');
       if (cell && cell.dataset.field !== 'station') event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }}>
-      <table className="ow-sheet-table ow-order-grid" aria-label="Order spreadsheet placements">
+      <table className="ow-sheet-table ow-order-grid" aria-label={name + ' placements spreadsheet'}>
         <thead><tr>
           {columns.map(({ key, title }) => <th key={key} scope="col" data-field={key}
             className={['amount', 'quantity', 'impressions', 'calculatedCpm'].includes(key) ? 'ow-sheet-derived' : undefined}>{title}</th>)}
@@ -188,7 +200,7 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, digital, sel
             <td colSpan={columns.length + 1 + Number(multiMarket) + Number(!readOnly)}>{orderVendorLabel(group)}</td>
           </tr>}
           {group.items.map(({line, index}) => <tr key={line.id} data-target={line.id === selected}
-          onClick={() => onSelect(line.id)} onFocus={() => onSelect(line.id)}>
+          onClick={readOnly ? undefined : () => onSelect(line.id)} onFocus={readOnly ? undefined : () => onSelect(line.id)}>
           {columns.map(({ key, title, type, max }) => {
             const scheduled = line.spotsPerWeek != null && line.weeks != null;
             const formula = key === 'amount' && !digital || key === 'managementFee' || key === 'amountDue' || key === 'calculatedCpm' || key === 'reportedCpm'
@@ -218,13 +230,13 @@ function OrderSpreadsheet({ document, baseline, markets, marketIds, digital, sel
             aria-label={'Remove line ' + (index + 1)} onClick={event => { event.stopPropagation(); onRemove(line.id); }}>Remove</button></td>}
         </tr>)}</Fragment>)}</tbody>
       </table>
-      {!document.lines.length && <p className="ow-empty">Add a row or select a research quote.</p>}
+      {!lines.length && <p className="ow-empty">{readOnly ? 'No ' + name + ' placements.' : 'Add a row or select a research quote.'}</p>}
     </div>
     <div className="ow-sheet-totals">
       <span>{digital ? 'Digital amount due' : 'Broadcast amount due'} <strong>{valueLabel(amount, 'money')}</strong></span>
       {!digital && <span>{quantity.format(spots)} spots</span>}
       <span>{quantity.format(impressions)} imps</span>
-      {impressions > 0 && document.lines.every(line => line.impressions != null && bookedAmount(line) != null) &&
+      {impressions > 0 && lines.every(line => line.impressions != null && bookedAmount(line) != null) &&
         <span>{valueLabel(Math.round(amount * 1000 / impressions), 'money')} CPM</span>}
     </div>
   </section>;
@@ -253,22 +265,24 @@ function SourceFacts({line}:{line:OrderLine}) {
   })}</dl> : <p className="ow-missing-data">{missingSource}</p>;
 }
 
-function OrderPaper({ document, baseline, markets, marketIds, workflow, digitalSection, selected, onSelect, onHeader, onLine, onRemove, onAdd, readOnly }: {
-  document: OrderDocument; baseline: OrderDocument; markets: MarketOption[]; marketIds: string[]; workflow: OrderWorkflow; digitalSection?: boolean;
+function OrderPaper({ document, baseline, markets, marketIds, workflow, editingDigital, selected, onSelect, onHeader, onLine, onRemove, onAdd, readOnly }: {
+  document: OrderDocument; baseline: OrderDocument; markets: MarketOption[]; marketIds: string[]; workflow: OrderWorkflow; editingDigital?: boolean;
   selected: string | null; onSelect: (id: string) => void; onHeader: (key: HeaderKey, value: string) => void;
   onLine: (id: string, change: Partial<OrderLine>) => void; onRemove: (id: string) => void;
   onAdd: (media: OrderLine['media']) => void; readOnly: boolean;
 }) {
   const marketName = (id: string) => markets.find(item => item.id === id)?.name ?? id;
-  const sections = digitalSection !== undefined ? [digitalSection] : workflow === 'digital' ? [true] : document.lines.some(item => item.media === 'Digital') ? [false, true] : [false];
+  const sections = editingDigital !== undefined ? [false, true] : workflow === 'digital' ? [true] : document.lines.some(item => item.media === 'Digital') ? [false, true] : [false];
 
   function header(key: HeaderKey, type?: FieldType) {
     return <PaperValue fieldKey={'header:'+key} value={document[key]} type={type} label={headerLabels[key]} readOnly={readOnly}
       changed={document[key] !== baseline[key]} onChange={value => onHeader(key, String(value ?? ''))} />;
   }
 
+  const placementReadOnly = (digital: boolean) => readOnly || (editingDigital !== undefined && editingDigital !== digital);
+
   function field(line: OrderLine, key: LineKey, index: number, type?: FieldType, missing?:string) {
-    return <PaperValue fieldKey={'line:'+line.id+':'+key} value={line[key] ?? null} type={type} label={lineLabels[key] + ', line ' + (index + 1)} readOnly={readOnly} max={key==='feeBasisPoints'?100:undefined}
+    return <PaperValue fieldKey={'line:'+line.id+':'+key} value={line[key] ?? null} type={type} label={lineLabels[key] + ', line ' + (index + 1)} readOnly={placementReadOnly(line.media === 'Digital')} max={key==='feeBasisPoints'?100:undefined}
       missing={missing} changed={line[key] !== baseline.lines.find(item => line.id === item.id)?.[key]} onChange={value => onLine(line.id, { [key]: value })} />;
   }
 
@@ -290,12 +304,14 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, digitalS
       <div><strong>Flight end</strong>{header('end', 'date')}</div>
     </div>
     {sections.map(digital => {
+      const sectionReadOnly = placementReadOnly(digital);
       const columnCount=(digital?10:11)+(marketIds.length>1?1:0)+3;
       const lines = document.lines.map((line, index) => ({ line, index })).filter(({ line }) => (line.media === 'Digital') === digital);
       const total = lines.reduce((sum, { line }) => sum + (bookedAmount(line) ?? 0), 0);
       const groups = orderVendorGroups(lines, item => item.line);
       return <section className="ow-schedule" key={String(digital)} aria-label={digital ? 'Digital schedule' : 'Broadcast schedule'}>
         <h4>{digital ? 'Digital ads' : 'Broadcast ads'}</h4>
+        {editingDigital !== undefined && <p className="ow-placement-access">{sectionReadOnly ? 'View only' : 'Editing'}</p>}
         <div className="ow-table-viewport">
           <table role="table" aria-label={digital ? 'Digital placements' : 'Broadcast placements'} className="ow-paper-lines">
             <thead role="rowgroup"><tr role="row"><th scope="col">Channel</th>{marketIds.length > 1 && <th scope="col">Market</th>}
@@ -312,12 +328,12 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, digitalS
               </tr>}
               {group.items.map(({ line, index }) =>
               <tr key={line.id} role="row" className="ow-placement" data-selected={selected === line.id}
-                onClick={() => onSelect(line.id)} onFocus={() => onSelect(line.id)}>
-                <PlacementCell label="Channel">{!digital && !readOnly && !line.source
+                onClick={sectionReadOnly ? undefined : () => onSelect(line.id)} onFocus={sectionReadOnly ? undefined : () => onSelect(line.id)}>
+                <PlacementCell label="Channel">{!digital && !sectionReadOnly && !line.source
                   ? <select aria-label={'Media for line ' + (index + 1)} value={line.media} onChange={event => onLine(line.id, { media: event.target.value as OrderLine['media'] })}>
                     <option>TV</option><option>Radio</option>
                   </select> : line.media}</PlacementCell>
-                {marketIds.length > 1 && <PlacementCell label="Market">{readOnly || line.source ? marketName(line.marketId) : <select aria-label={'Market for line ' + (index + 1)}
+                {marketIds.length > 1 && <PlacementCell label="Market">{sectionReadOnly || line.source ? marketName(line.marketId) : <select aria-label={'Market for line ' + (index + 1)}
                   value={line.marketId} onChange={event => onLine(line.id, { marketId: event.target.value })}>
                   {marketIds.map(id => <option key={id} value={id}>{marketName(id)}</option>)}
                 </select>}</PlacementCell>}
@@ -337,14 +353,14 @@ function OrderPaper({ document, baseline, markets, marketIds, workflow, digitalS
                 <PlacementCell label="Reported CPM">{line.reportedCpm===undefined && line.source?.facts===undefined && line.cpm!=null
                   ? <><small>Saved CPM</small>{sourceMetric(line.cpm,true)}</> : sourceMetric(line.reportedCpm,true)}</PlacementCell>
                 <PlacementCell label="Calculated CPM">{sourceMetric(calculatedOrderCpm(line),true)}</PlacementCell>
-                <PlacementCell>{!readOnly && <button className="ow-link ow-remove-line" type="button"
+                <PlacementCell>{!sectionReadOnly && <button className="ow-link ow-remove-line" type="button"
                   aria-label={'Remove line ' + (index + 1)} onClick={event => { event.stopPropagation(); onRemove(line.id); }}>Remove</button>}</PlacementCell>
               </tr>)}</Fragment>)}
-              {!lines.length && <tr role="row"><td role="cell" colSpan={columnCount} className="ow-blank-line">{readOnly ? 'No placements' : 'Add a line or select a research quote.'}</td></tr>}
+              {!lines.length && <tr role="row"><td role="cell" colSpan={columnCount} className="ow-blank-line">{sectionReadOnly ? 'No placements' : 'Add a line or select a research quote.'}</td></tr>}
             </tbody>
           </table>
         </div>
-        {!readOnly && <div className="ow-line-actions">
+        {!sectionReadOnly && <div className="ow-line-actions">
           <button className="ow-link" type="button" onClick={() => onAdd(digital ? 'Digital' : lines[0]?.line.media === 'Radio' ? 'Radio' : 'TV')}>+ Add a line</button>
         </div>}
         <p className="ow-schedule-total">{digital ? 'Digital total' : 'Gross total'} <strong>{valueLabel(total, 'money')}</strong></p>
@@ -541,7 +557,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'detach',contextId})}).catch(()=>{});
   },[]);
   const total = document.lines.reduce((sum, line) => sum + (bookedAmount(line) ?? 0), 0);
-  const visibleDocument = marketOrder ? {...document,lines:document.lines.filter(line => (line.media === 'Digital') === digitalSection)} : document;
+  const canEditPlacement = (line: OrderLine) => !readOnly && (!marketOrder || (line.media === 'Digital') === digitalSection);
   const scope = selection.marketIds.map(id => markets.find(market => market.id === id)?.name ?? id);
   const changeRaw=useCallback((key:string,value:string|null)=>{
     setRecoveryFields(current=>{
@@ -626,7 +642,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
 
   function updateLine(id: string, patch: Partial<OrderLine>) {
     setDocument(current=>({...current,lines:current.lines.map(line=>{
-      if(line.id!==id)return line;
+      if(line.id!==id||!canEditPlacement(line))return line;
       const changes = spreadsheetScheduleChanges(line, patch);
       const next={...line,...changes,
         ...(changes.amount===undefined && ('rate' in changes || 'quantity' in changes) && line.media!=='Digital' ? {amount:null}: {})};
@@ -641,6 +657,8 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   }
 
   function removeLine(id: string) {
+    const line = document.lines.find(item => item.id === id);
+    if (!line || !canEditPlacement(line)) return;
     setRecoveryFields(current=>Object.fromEntries(Object.entries(current).filter(([key])=>!key.startsWith('line:'+id+':'))));
     setDocument(current => ({ ...current, lines: current.lines.filter(line => line.id !== id) }));
     setSelected(current => current === id ? null : current);
@@ -674,12 +692,21 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
 
   const headerChange = (key: HeaderKey, value: string) => setDocument(current => ({ ...current, [key]: value }));
   const orderPane = spreadsheet
-    ? <OrderSpreadsheet key="order" digital={digitalSection} document={visibleDocument} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
-      selected={selected} onSelect={setSelected} onHeader={headerChange} onLine={updateLine} onRemove={removeLine} readOnly={readOnly}
-      detailsOpen={sheetDetailsOpen} onToggleDetails={() => setSheetDetailsOpen(open => !open)}
-      onAdd={() => add(visibleDocument.lines.find(line => line.id === selected)?.media ?? visibleDocument.lines[0]?.media ?? 'TV')} />
+    ? <section className="ow-order-sheet" key="order" aria-label="Order spreadsheet">
+      <OrderSpreadsheetDetails document={document} baseline={selection.document} readOnly={readOnly}
+        onHeader={headerChange} detailsOpen={sheetDetailsOpen} onToggleDetails={() => setSheetDetailsOpen(open => !open)} />
+      <div className="ow-placement-sheets">
+        {(marketOrder ? [false, true] : [digitalSection]).map(digital => {
+          const lines = marketOrder ? document.lines.filter(line => (line.media === 'Digital') === digital) : document.lines;
+          return <OrderSpreadsheet key={String(digital)} digital={digital} shared={marketOrder} lines={lines}
+            markets={markets} marketIds={selection.marketIds} selected={selected} onSelect={setSelected}
+            onLine={updateLine} onRemove={removeLine} readOnly={readOnly || (marketOrder && digital !== digitalSection)}
+            onAdd={() => add(lines.find(line => line.id === selected)?.media ?? lines[0]?.media ?? 'TV')} />;
+        })}
+      </div>
+    </section>
     : <div className="ow-paper-pane" key="order">
-      <OrderPaper document={visibleDocument} digitalSection={marketOrder ? digitalSection : undefined} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
+      <OrderPaper document={document} editingDigital={marketOrder ? digitalSection : undefined} baseline={selection.document} markets={markets} marketIds={selection.marketIds}
         workflow={selection.workflow} selected={selected} onSelect={setSelected} onHeader={headerChange}
         onLine={updateLine} onRemove={removeLine} onAdd={add} readOnly={readOnly} />
     </div>;

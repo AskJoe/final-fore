@@ -486,6 +486,11 @@
 .ow-order-sheet, .ow-research-sheet {
   display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--ow-line); background: white;
 }
+.ow-placement-sheets { display: grid; grid-auto-rows: minmax(0, 1fr); flex: 1; min-height: 0 }
+.ow-placement-sheet { display: flex; flex-direction: column; min-width: 0; min-height: 0 }
+.ow-placement-sheet + .ow-placement-sheet { border-top: 1px solid var(--ow-line) }
+.ow-placement-access { color: var(--ow-muted); font-size: 12px }
+.ow-schedule > .ow-placement-access { margin: 0 0 5px }
 .ow-research-sheet { container-type: inline-size }
 .ow-research[hidden], .ow-sheet-header-fields[hidden] { display: none }
 .ow-research-sheet .ow-order-line-source[open] { max-height: 110px; overflow: auto }
