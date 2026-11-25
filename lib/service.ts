@@ -4,7 +4,7 @@ import * as workbook from './domain/workbook';
 import * as campaigns from './domain/campaigns';
 import * as orders from './domain/orders';
 import * as campaignOrders from './domain/campaign-orders';
-import { OPTIONS } from './domain/catalogs';
+import { CHANNEL_CATALOG, OPTIONS } from './domain/catalogs';
 import { StorageError, type Store } from './store';
 import * as directory from './domain/directory';
 import * as planning from './domain/planning';
@@ -28,6 +28,8 @@ export class Service {
       result.draft=campaigns.calculate(directory.campaignClient(campaigns.defaults(),data));
       return result;
     }
+    // The browser calculator needs the same channel history the server calculates from.
+    if (path === 'campaign/history') return CHANNEL_CATALOG;
     if (path === 'campaign-order/options') return OPTIONS;
     if (path === 'campaigns') return { campaigns: (await this.store.list('campaign')).sort((a,b)=>b.updated_at.localeCompare(a.updated_at)).map(r=>({ id:r.payload.id, name:r.payload.name, clientId:r.payload.clientId==='weed-man'?'epic3':r.payload.clientId,year:r.payload.year,workflow:r.payload.workflow??'digital',updatedAt:r.updated_at })) };
     if (path === 'campaign') {

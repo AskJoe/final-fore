@@ -18,6 +18,26 @@ async function api(path,body){
  let data;try{data=await response.json();}catch{throw Error('The app could not be reached. Your edits are still on this page.');}
  if(!response.ok)throw Error(data.error||'Unable to complete the request.');return data;
 }
+// The last server answers are kept on this computer so the page can open from them at
+// once and then check the server for changes. The sign-in page clears them.
+const savedCopies='ffm-campaign-saved-v1';
+async function savedRead(path){try{const hit=await (await caches.open(savedCopies)).match(path);return hit?await hit.json():null;}catch{return null;}}
+function savedWrite(path,data){try{caches.open(savedCopies).then(store=>store.put(path,new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}}))).catch(()=>{});}catch{}}
+async function load(path){const data=await api(path);savedWrite(path,data);return data;}
+function remote(path){const fresh=load(path);fresh.catch(()=>{});return {saved:savedRead(path),fresh};}
+// campaign-calc.js is the server's own calculation. Once it has the catalog and channel
+// history, edits recalculate here; until then, and if it ever fails, the server does it.
+let calculator=null;
+function useCalculator(history){
+ try{window.FinalForeCampaign.load(catalog,history);calculator=window.FinalForeCampaign;}catch{calculator=null;}
+}
+async function preview(details){
+ if(calculator){
+  let local=null;try{local=calculator.preview(details,catalog.clients);}catch{}
+  if(local){if(local.ok)return local.result;throw Error(local.message);}
+ }
+ return api('/api/campaign/preview',details);
+}
 function message(value){$('message').textContent=value;$('message').hidden=!value;}
 function status(value){$('save-status').textContent=value;}
 const isBroadcast=()=>workflow==='broadcast';
@@ -125,7 +145,7 @@ async function withBroadcastBudget(result){
 async function calculatePreview(rebuild=false){
  const token=++sequence;pending=true;buttons();
  try{
-  const result=await withBroadcastBudget(await api('/api/campaign/preview',draft));
+  const result=await withBroadcastBudget(await preview(draft));
   if(token!==sequence)return;
   if(isBroadcast())draft.markets=result.details.markets;
   view=result;valid=true;if(!invalidInputs.size)message('');
@@ -363,7 +383,7 @@ function adopt(result){
  rememberCampaign(draft.id);
 }
 async function campaignList(loaded){
- savedCampaigns=loaded??(await api('/api/campaigns')).campaigns;
+ savedCampaigns=loaded??(await load('/api/campaigns')).campaigns;
  const select=$('campaign-picker');select.replaceChildren(new Option('Select draft',''));
  for(const c of savedCampaigns.filter(c=>(c.workflow??'digital')===workflow))select.append(new Option(c.name,c.id));
  select.value=draft?.id||'';
@@ -371,14 +391,14 @@ async function campaignList(loaded){
 function discard(){return !dirty||window.confirm('Leave this campaign without saving your changes?');}
 async function openCampaign(id,{fresh=false,loaded=null}={}){
  const recovery=fresh?null:readRecovery(id);
- const result=id?loaded||await api('/api/campaign?id='+encodeURIComponent(id)):isBroadcast()
-  ? await api('/api/campaign/preview',{...blankDraft.details,workflow,markets:[]}):clone(blankDraft);
+ const result=id?loaded||await load('/api/campaign?id='+encodeURIComponent(id)):isBroadcast()
+  ? await preview({...blankDraft.details,workflow,markets:[]}):clone(blankDraft);
  adopt(await withBroadcastBudget(result));
  if(recovery?.details){
   draft=clone(recovery.details);invalidInputs=new Map(recovery.invalid||[]);
   try{applyPendingEditor(recovery.pending);}catch{}
-  try{view=await withBroadcastBudget(await api('/api/campaign/preview',draft));valid=true;}
-  catch(error){valid=false;message(error.message);if(recovery.base)try{view=await withBroadcastBudget(await api('/api/campaign/preview',recovery.base));}catch{}}
+  try{view=await withBroadcastBudget(await preview(draft));valid=true;}
+  catch(error){valid=false;message(error.message);if(recovery.base)try{view=await withBroadcastBudget(await preview(recovery.base));}catch{}}
   dirty=true;editVersion++;settings();renderRows();renderSummary();status('Recovered changes');buttons();
   if(recovery.pending&&invalidInputs.has(recovery.pending.inputKey)){
    const input=[...document.querySelectorAll('input')].find(e=>inputKey(e)===recovery.pending.inputKey);
@@ -406,7 +426,8 @@ async function saveCampaign(){
  cacheRecovery();saving=true;status('Saving…');buttons();
  saveTask=(async()=>{
   try{
-   const result=await withBroadcastBudget(await api('/api/campaign',submitted));
+   const stored=await api('/api/campaign',submitted);savedWrite('/api/campaign?id='+encodeURIComponent(stored.details.id),stored);
+   const result=await withBroadcastBudget(stored);
    draft.id=result.details.id;draft.revision=result.details.revision;draft.channelVersion=result.details.channelVersion;
    rememberCampaign(draft.id);cacheCampaignView();history.replaceState(null,'',planUrl(workflow,draft.id));
    if(version===editVersion){
@@ -501,14 +522,13 @@ async function initialize(selected){
  $('campaign-workflow').disabled=true;
  $('loading').textContent='Loading campaign…';$('loading').hidden=false;
  try{
-  // Nothing below depends on the workflow, so the catalog starts with the first request.
-  const catalogTask=api('/api/campaign/catalog');catalogTask.catch(()=>{});
-  const early=id=>id?api('/api/campaign?id='+encodeURIComponent(id)).catch(()=>null):null;
-  let likely=requested||'',campaignTask=early(likely);
-  let loadedCampaigns;
+  // Each answer is read twice: the copy saved on this computer, then the server.
+  const catalogData=remote('/api/campaign/catalog'),listData=remote('/api/campaigns'),historyData=remote('/api/campaign/history');
+  const campaignData=id=>id?remote('/api/campaign?id='+encodeURIComponent(id)):null;
+  let likely=requested||'',campaign=campaignData(likely);
   if(requested&&!params.has('workflow')){
-   loadedCampaigns=(await api('/api/campaigns')).campaigns;
-   workflow=loadedCampaigns.find(c=>c.id===requested)?.workflow??'digital';
+   const list=(await listData.saved)??await listData.fresh;
+   workflow=list.campaigns.find(c=>c.id===requested)?.workflow??'digital';
   }else workflow=isWorkflow(chosen)?chosen:'digital';
   $('campaign-workflow').value=workflow;
   try{localStorage.setItem(workflowKey,workflow);}catch{}
@@ -521,14 +541,47 @@ async function initialize(selected){
    $('actual-heading').textContent='Actual';$('last-heading').textContent='Proposed − actual';
   }
   let remembered='';try{remembered=localStorage.getItem(activeKey())||'';}catch{}
-  // Fetch the campaign most likely to open alongside the catalog and list. It is
+  if(remembered==='new')remembered='';
+  // The campaign most likely to open is requested with the catalog and list. It is
   // used only once the list confirms it belongs to this workflow.
-  if(!campaignTask){likely=remembered;campaignTask=early(likely);}
-  const [data]=await Promise.all([catalogTask,campaignList(loadedCampaigns)]);catalog=data.catalog;blankDraft=data.draft;
-  const id=requested&&[...$('campaign-picker').options].some(o=>o.value===requested)?requested:
-   ([...$('campaign-picker').options].some(o=>o.value===remembered)?remembered:'');
-  await openCampaign(id||'',{loaded:id&&id===likely?await campaignTask:null});
-  main.hidden=false;$('campaign-actions').hidden=false;$('campaign-order-links').hidden=false;$('loading').hidden=true;
+  if(!campaign){likely=remembered;campaign=campaignData(likely);}
+  let history=null;
+  const calculate=value=>{if(value)history=value;if(catalog&&history)useCalculator(history);};
+  const show=async(data,list,loaded)=>{
+   catalog=data.catalog;blankDraft=data.draft;calculate();
+   await campaignList(list.campaigns);
+   const listed=id=>!!id&&[...$('campaign-picker').options].some(o=>o.value===id);
+   const id=listed(requested)?requested:listed(remembered)?remembered:'';
+   await openCampaign(id,{loaded:id&&id===likely?loaded:null});
+   main.hidden=false;$('campaign-actions').hidden=false;$('campaign-order-links').hidden=false;$('loading').hidden=true;
+   return id;
+  };
+  const text=value=>JSON.stringify(value??null);
+  const [savedCatalog,savedList,savedCampaign,savedHistory]=await Promise.all([catalogData.saved,listData.saved,campaign?campaign.saved:null,historyData.saved]);
+  let shown=null;
+  if(savedCatalog&&savedList){
+   calculate(savedHistory);
+   try{shown={id:await show(savedCatalog,savedList,savedCampaign)};}catch{}
+  }
+  historyData.fresh.then(calculate,()=>{});
+  let fresh;
+  try{fresh=await Promise.all([catalogData.fresh,listData.fresh,campaign?campaign.fresh.catch(()=>null):null]);}
+  catch(error){
+   if(!shown)throw error;
+   // fetch rejects with a TypeError when the server cannot be reached at all.
+   message((error instanceof TypeError?'Final Fore could not be reached.':error.message)+' Showing the copy kept on this computer.');status('Offline copy');return;
+  }
+  const [freshCatalog,freshList,freshCampaign]=fresh;
+  if(!shown){await show(freshCatalog,freshList,freshCampaign);return;}
+  // The saved copy is already on screen. Replace it only where the server differs,
+  // and never underneath edits in progress.
+  const current=(draft?.id||'')===shown.id;
+  const catalogChanged=text(freshCatalog)!==text(savedCatalog);
+  const campaignChanged=!!shown.id&&shown.id===likely&&text(freshCampaign)!==text(savedCampaign);
+  if(!catalogChanged&&!campaignChanged){if(text(freshList)!==text(savedList))await campaignList(freshList.campaigns);return;}
+  if(current&&!dirty&&!saving){await show(freshCatalog,freshList,freshCampaign);return;}
+  catalog=freshCatalog.catalog;blankDraft=freshCatalog.draft;calculate();await campaignList(freshList.campaigns);
+  if(current&&campaignChanged&&freshCampaign?.details.revision!==draft.revision)message('This campaign changed in another window. Reopen it before saving.');
  }catch(error){$('loading').textContent=error.message;status('Unable to load');}
  finally{$('campaign-workflow').disabled=false;}
 }

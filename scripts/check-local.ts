@@ -52,11 +52,32 @@ async function main() {
   await page.locator('#preview').click();await page.locator('#paper').waitFor({state:'visible'});assert.ok((await page.locator('#paper').innerText()).includes('Weed Man'));await page.pdf({path:'.local-migration/legacy-order-preview.pdf',format:'Letter'});pass('legacy order preview and PDF rendering');
   const orders=JSON.parse(fs.readFileSync('.local-migration/campaign-orders.json','utf8')),order=orders[0];
   await page.goto(base+'/orders.html?campaign='+encodeURIComponent(order.campaign_id)+'&market='+encodeURIComponent(order.market_id));await page.locator('#editor').waitFor({state:'visible'});await page.locator('#preview').click();await page.locator('#paper').waitFor({state:'visible'});await page.pdf({path:'.local-migration/campaign-order-preview.pdf',format:'Letter'});pass('campaign order load, preview and PDF rendering');
+  {
+    const previews:string[]=[];page.on('request',r=>{if(r.url().includes('/api/campaign/preview'))previews.push(r.url());});
+    await page.goto(base+'/campaign.html?workflow=digital');await page.locator('#campaign-picker').waitFor({state:'visible'});await page.waitForLoadState('networkidle');
+    // Keep this check from creating a campaign: the edit is recalculated, never saved.
+    await page.route('**/api/campaign',r=>r.request().method()==='POST'?r.abort():r.continue());
+    const before=await page.locator('#market-rows').evaluate(node=>node.textContent);
+    await page.locator('#campaign-budget').fill('250000');await page.locator('#campaign-budget').blur();
+    await page.waitForFunction(text=>document.querySelector('#market-rows')!.textContent!==text,before);
+    assert.equal(await page.locator('#message:visible').count(),0);assert.deepEqual(previews,[]);
+    pass('campaign edits recalculate in the browser without a server round trip');
+    await page.goto(base+'/markets.html');await page.evaluate(()=>{for(const key of Object.keys(localStorage))if(key.startsWith('ffm.campaign.recovery.'))localStorage.removeItem(key);});
+    await page.unroute('**/api/campaign');
+    await page.goto(base+'/campaign.html?workflow=digital');await page.locator('#campaign-picker').waitFor({state:'visible'});await page.waitForLoadState('networkidle');
+    await page.route('**/api/**',r=>r.abort());
+    await page.reload();await page.locator('#campaign-picker').waitFor({state:'visible'});
+    await page.waitForFunction(()=>document.querySelector('#message')?.textContent==='Final Fore could not be reached. Showing the copy kept on this computer.');
+    assert.ok(await page.locator('#market-rows').evaluate(node=>node.children.length>0));
+    await page.unroute('**/api/**');
+    pass('campaign page opens from its saved copy when the server cannot be reached');
+  }
   for(const path of ['/data.html','/dashboard.html']) {await page.goto(base+path);await page.waitForFunction(()=>document.querySelector('#freshness')?.textContent?.includes('Through'));assert.equal(await page.locator('#load-state:visible').count(),0);pass(path+' reporting snapshot loaded');}
   await page.screenshot({path:'.local-migration/dashboard-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});await page.goto(base+'/campaign.html');await page.waitForLoadState('networkidle');await page.screenshot({path:'.local-migration/campaign-mobile.png',fullPage:true});pass('desktop and mobile screenshots captured');
   await checkDirectory(page,context,base,pass);
   await checkPlanning(page,context,base,mock.store,pass);
   await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.waitForURL('**/login');assert.equal((await context.request.get(base+'/api/table')).status(),401);assert.equal((await context.request.get(base+'/api/directory')).status(),401);pass('sign-out removes access');
+  await page.waitForFunction(async()=>!(await caches.keys()).includes('ffm-campaign-saved-v1'));pass('sign-in page clears the saved campaign copies');
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);assert.ok(mock.calls.some(c=>c.includes('/rpc/ff_save_record')));pass('no browser runtime errors or external browser requests');
   fs.writeFileSync('.local-migration/browser-checks.json',JSON.stringify({checks,errors,external,testPort:port,supabaseRequests:mock.calls.length,backend:'local mock; no remote project calls'},null,2));
   console.log(`${checks} local integration checks passed.`);
