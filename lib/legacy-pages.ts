@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-const workbookFiles = ['clients.html','vendors.html','directory.js','directory.css','index.html','markets.html','campaign.html','orders.html','legacy-orders.html','app.js','styles.css','markets.js','markets.css','campaign.js','campaign-calc.js','campaign.css','orders.js','orders.css','orders-print.css','legacy-orders.js','legacy-orders.css','favicon.svg'];
+const workbookFiles = ['clients.html','vendors.html','directory.js','directory.css','index.html','markets.html','campaign.html','orders.html','legacy-orders.html','app.js','styles.css','markets.js','markets.css','campaign.js','campaign-calc.js','saved-copy.js','campaign.css','orders.js','orders.css','orders-print.css','legacy-orders.js','legacy-orders.css','favicon.svg'];
 const reportFiles = ['data.html','dashboard.html','reporting.js','reporting-model.js','reporting.css'];
 export const available = new Set([...workbookFiles,...reportFiles]);
 // These scripts embed contact data, so they are never left in a browser cache.
@@ -42,6 +42,7 @@ export async function legacyAsset(name:string) {
     'markets.js': () => readFile(path.join(process.cwd(), 'epic3/web/markets.js'), 'utf8'),
     'markets.css': () => readFile(path.join(process.cwd(), 'epic3/web/markets.css'), 'utf8'),
     'campaign.js': () => readFile(path.join(process.cwd(), 'epic3/web/campaign.js'), 'utf8'),
+    'saved-copy.js': () => readFile(path.join(process.cwd(), 'epic3/web/saved-copy.js'), 'utf8'),
     'campaign-calc.js': () => readFile(path.join(process.cwd(), 'epic3/web/campaign-calc.js'), 'utf8'),
     'campaign.css': () => readFile(path.join(process.cwd(), 'epic3/web/campaign.css'), 'utf8'),
     'orders.js': () => readFile(path.join(process.cwd(), 'epic3/web/orders.js'), 'utf8'),

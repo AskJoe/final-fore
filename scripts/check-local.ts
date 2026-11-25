@@ -72,6 +72,25 @@ async function main() {
     await page.unroute('**/api/**');
     pass('campaign page opens from its saved copy when the server cannot be reached');
   }
+  {
+    const saved=()=>document.querySelector('#save-status')?.textContent==='Saved to Supabase';
+    await page.goto(base+'/index.html');await page.waitForFunction(saved);await page.waitForLoadState('networkidle');
+    await page.goto(base+'/markets.html');await page.locator('#sheet').waitFor({state:'visible'});await page.waitForLoadState('networkidle');
+    await page.route('**/api/**',r=>r.abort());
+    for(const path of ['/index.html','/markets.html']){
+      await page.goto(base+path);await page.locator('#sheet').waitFor({state:'visible'});
+      await page.waitForFunction(()=>document.querySelector('#message')?.textContent==='Final Fore could not be reached. Showing the copy kept on this computer.');
+      assert.ok(await page.locator('#sheet td').count()>0,path);
+    }
+    await page.unroute('**/api/**');
+    pass('media planning and markets open from their saved copies when the server cannot be reached');
+    // A kept copy that is out of date is replaced by what the server holds.
+    await page.goto(base+'/index.html');await page.waitForFunction(saved);await page.waitForLoadState('networkidle');
+    await page.evaluate(async()=>{const store=await caches.open('ffm-pages-saved-v1'),copy=await (await store.match('/api/planning'))!.json();copy.cells.DP8.value=copy.cells.DP8.input=987654321;await store.put('/api/planning',new Response(JSON.stringify(copy)));});
+    await page.goto(base+'/index.html?cell=DP8');await page.waitForFunction(()=>document.querySelector<HTMLInputElement>('#address')?.value==='DP8'&&document.querySelector<HTMLInputElement>('#formula')?.value==='1234');
+    assert.equal(await page.locator('#message:visible').count(),0);
+    pass('an out-of-date saved copy is replaced by the server version');
+  }
   for(const path of ['/data.html','/dashboard.html']) {await page.goto(base+path);await page.waitForFunction(()=>document.querySelector('#freshness')?.textContent?.includes('Through'));assert.equal(await page.locator('#load-state:visible').count(),0);pass(path+' reporting snapshot loaded');}
   await page.screenshot({path:'.local-migration/dashboard-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});await page.goto(base+'/campaign.html');await page.waitForLoadState('networkidle');await page.screenshot({path:'.local-migration/campaign-mobile.png',fullPage:true});pass('desktop and mobile screenshots captured');
   await checkDirectory(page,context,base,pass);
