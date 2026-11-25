@@ -1,8 +1,23 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 const workbookFiles = ['clients.html','vendors.html','directory.js','directory.css','index.html','markets.html','campaign.html','orders.html','legacy-orders.html','app.js','styles.css','markets.js','markets.css','campaign.js','campaign.css','orders.js','orders.css','orders-print.css','legacy-orders.js','legacy-orders.css','favicon.svg'];
 const reportFiles = ['data.html','dashboard.html','reporting.js','reporting-model.js','reporting.css'];
 export const available = new Set([...workbookFiles,...reportFiles]);
+// These scripts embed contact data, so they are never left in a browser cache.
+const dataScripts = new Set(['orders.js','legacy-orders.js']);
+/** Styles and code-only scripts may be kept by the browser when requested by content version. */
+export const browserCacheable = (name:string) => available.has(name) && (name.endsWith('.css') || name.endsWith('.js') && !dataScripts.has(name));
+const versions = new Map<string,Promise<string>>();
+/** A content hash, so a page always asks for the script and styles it was built with. */
+export function assetVersion(name:string) {
+  const known = versions.get(name);
+  if (known) return known;
+  const version = legacyAsset(name).then(({content}) => createHash('sha256').update(content).digest('hex').slice(0,16));
+  // Files only change with a deploy; development re-reads them on every request.
+  if (process.env.NODE_ENV === 'production') { versions.set(name,version); version.catch(() => versions.delete(name)); }
+  return version;
+}
 const brandIcon = '<link rel="icon" href="/brand/favicon.png" type="image/png" sizes="32x32">';
 const sidebarBrand = `<div class="sidebar-brand ff-sidebar-brand">
   <img src="/brand/final-fore-monogram.png" alt="" width="23" height="36">
@@ -61,6 +76,12 @@ export async function legacyAsset(name:string) {
   }
   if (/\.(html|js)$/.test(name)) content=content.replaceAll('Saved locally','Saved to Supabase').replaceAll('saved locally','saved to Supabase').replaceAll('saved on this computer','saved to Supabase').replaceAll('Opening local table…','Opening workbook…').replaceAll('Unable to open the local database.','Unable to open the workbook. Sign in again or confirm the data import is complete.').replaceAll('The local app could not be reached.','Final Fore could not be reached.').replaceAll('Reload after the local app update.','Confirm the workbook import is complete.');
   if (name.endsWith('.html')) content=content.replace('</footer>',signOut+'</footer>');
+  if (name.endsWith('.html')) {
+    const reference=/\b(href|src)="\/([\w-]+\.(?:css|js))(?:\?[^"]*)?"/g;
+    const files=[...new Set([...content.matchAll(reference)].map(match=>match[2]).filter(browserCacheable))];
+    const hashes=new Map(await Promise.all(files.map(async file=>[file,await assetVersion(file)] as const)));
+    content=content.replace(reference,(whole,attribute,file)=>hashes.has(file)?`${attribute}="/${file}?v=${hashes.get(file)}"`:whole);
+  }
   const type = name.endsWith('.html')?'text/html':name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'image/svg+xml';
   return {content,type};
 }

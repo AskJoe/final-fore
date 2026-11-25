@@ -40,8 +40,14 @@ async function main() {
   const csrf=await context.request.post(base+'/api/cell',{headers:{origin:'https://other.example'},data:{address:'DP8',text:'5',revision:w.revision}});assert.equal(csrf.status(),403);
   const stale=await context.request.post(base+'/api/cell',{headers:{origin:base},data:{address:'DP8',text:'5',revision:w.revision-1}});assert.equal(stale.status(),409);pass('cross-origin writes and stale revisions rejected');
   await page.goto(base+'/?cell=DP8');await page.waitForFunction(()=>document.querySelector<HTMLInputElement>('#address')?.value==='DP8');pass('root cell deep links retained');
-  for(const [path,selector] of [['/markets.html','#sheet'],['/markets.html#variables','#sheet'],['/campaign.html','#campaign-picker'],['/legacy-orders.html','#market']]){
+  for(const [path,selector] of [['/markets.html','#sheet'],['/markets.html#variables','#sheet'],['/campaign.html?workflow=digital','#campaign-picker'],['/legacy-orders.html','#market']]){
     await page.goto(base+path);await page.locator(selector).waitFor({state:'visible'});await page.waitForLoadState('networkidle');assert.equal(await page.locator('#message:visible').count(),0,path);pass(path+' loaded');
+  }
+  {
+    const html=await (await context.request.get(base+'/campaign.html')).text(),script=html.match(/src="(\/campaign\.js\?v=[a-f0-9]{16})"/)?.[1];assert.ok(script);
+    assert.equal((await context.request.get(base+script)).headers()['cache-control'],'private, max-age=31536000, immutable');
+    for(const fresh of ['/campaign.js','/campaign.js?v=old','/legacy-orders.js?v=old','/campaign.html','/api/campaigns'])assert.equal((await context.request.get(base+fresh)).headers()['cache-control'],'private, no-store',fresh);
+    pass('only content-versioned code and styles are browser-cacheable');
   }
   await page.locator('#preview').click();await page.locator('#paper').waitFor({state:'visible'});assert.ok((await page.locator('#paper').innerText()).includes('Weed Man'));await page.pdf({path:'.local-migration/legacy-order-preview.pdf',format:'Letter'});pass('legacy order preview and PDF rendering');
   const orders=JSON.parse(fs.readFileSync('.local-migration/campaign-orders.json','utf8')),order=orders[0];

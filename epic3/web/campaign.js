@@ -369,9 +369,9 @@ async function campaignList(loaded){
  select.value=draft?.id||'';
 }
 function discard(){return !dirty||window.confirm('Leave this campaign without saving your changes?');}
-async function openCampaign(id,{fresh=false}={}){
+async function openCampaign(id,{fresh=false,loaded=null}={}){
  const recovery=fresh?null:readRecovery(id);
- const result=id?await api('/api/campaign?id='+encodeURIComponent(id)):isBroadcast()
+ const result=id?loaded||await api('/api/campaign?id='+encodeURIComponent(id)):isBroadcast()
   ? await api('/api/campaign/preview',{...blankDraft.details,workflow,markets:[]}):clone(blankDraft);
  adopt(await withBroadcastBudget(result));
  if(recovery?.details){
@@ -501,6 +501,10 @@ async function initialize(selected){
  $('campaign-workflow').disabled=true;
  $('loading').textContent='Loading campaign…';$('loading').hidden=false;
  try{
+  // Nothing below depends on the workflow, so the catalog starts with the first request.
+  const catalogTask=api('/api/campaign/catalog');catalogTask.catch(()=>{});
+  const early=id=>id?api('/api/campaign?id='+encodeURIComponent(id)).catch(()=>null):null;
+  let likely=requested||'',campaignTask=early(likely);
   let loadedCampaigns;
   if(requested&&!params.has('workflow')){
    loadedCampaigns=(await api('/api/campaigns')).campaigns;
@@ -516,11 +520,14 @@ async function initialize(selected){
    $('allocated-label').textContent='Market targets';$('target-heading').textContent='Proposed';
    $('actual-heading').textContent='Actual';$('last-heading').textContent='Proposed − actual';
   }
-  const [data]=await Promise.all([api('/api/campaign/catalog'),campaignList(loadedCampaigns)]);catalog=data.catalog;blankDraft=data.draft;
   let remembered='';try{remembered=localStorage.getItem(activeKey())||'';}catch{}
+  // Fetch the campaign most likely to open alongside the catalog and list. It is
+  // used only once the list confirms it belongs to this workflow.
+  if(!campaignTask){likely=remembered;campaignTask=early(likely);}
+  const [data]=await Promise.all([catalogTask,campaignList(loadedCampaigns)]);catalog=data.catalog;blankDraft=data.draft;
   const id=requested&&[...$('campaign-picker').options].some(o=>o.value===requested)?requested:
    ([...$('campaign-picker').options].some(o=>o.value===remembered)?remembered:'');
-  await openCampaign(id||'');
+  await openCampaign(id||'',{loaded:id&&id===likely?await campaignTask:null});
   main.hidden=false;$('campaign-actions').hidden=false;$('campaign-order-links').hidden=false;$('loading').hidden=true;
  }catch(error){$('loading').textContent=error.message;status('Unable to load');}
  finally{$('campaign-workflow').disabled=false;}

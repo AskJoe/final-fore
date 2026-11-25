@@ -30,7 +30,10 @@ export class Service {
     }
     if (path === 'campaign-order/options') return OPTIONS;
     if (path === 'campaigns') return { campaigns: (await this.store.list('campaign')).sort((a,b)=>b.updated_at.localeCompare(a.updated_at)).map(r=>({ id:r.payload.id, name:r.payload.name, clientId:r.payload.clientId==='weed-man'?'epic3':r.payload.clientId,year:r.payload.year,workflow:r.payload.workflow??'digital',updatedAt:r.updated_at })) };
-    if (path === 'campaign') return campaigns.calculate(directory.campaignClient((await this.required(campaignKey(query.get('id') ?? ''))).payload,(await this.directory()).data));
+    if (path === 'campaign') {
+      const [record,parties]=await Promise.all([this.required(campaignKey(query.get('id') ?? '')),this.directory()]);
+      return campaigns.calculate(directory.campaignClient(record.payload,parties.data));
+    }
     if (path === 'campaign-order') {
       const id = query.get('campaign') ?? '', market = query.get('market') ?? '';
       const saved = await this.store.get(orderKey(id, market));

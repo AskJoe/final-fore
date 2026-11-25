@@ -1,4 +1,5 @@
-import { requireMember } from '@/lib/access';
+import { readForMember, requireMember } from '@/lib/access';
+import { createClient } from '@/utils/supabase/server';
 import { Service } from '@/lib/service';
 import { SupabaseStore } from '@/lib/store';
 import { failure, json, sameOrigin } from '@/lib/http';
@@ -12,7 +13,11 @@ export async function GET(request: Request, context: Context) {
   const path = (await context.params).action.join('/');
   if (path === 'health') return json({ok:true,app:'Final Fore',backend:'Supabase',storageVerified:false});
   if (!reads.has(path)) return json({error:'Not found.'},404);
-  try { const {supabase} = await requireMember(); return json(await new Service(new SupabaseStore(supabase)).get(path,new URL(request.url).searchParams)); }
+  try {
+    // Every read here goes through ff_records, whose RLS policy admits members only.
+    const supabase = await createClient();
+    return json(await readForMember(supabase,() => new Service(new SupabaseStore(supabase)).get(path,new URL(request.url).searchParams)));
+  }
   catch (error) { return failure(error); }
 }
 export async function POST(request: Request, context: Context) {

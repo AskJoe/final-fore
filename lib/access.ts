@@ -18,3 +18,15 @@ export async function memberForClient(supabase:Awaited<ReturnType<typeof createC
   if (!result.data||result.data.user_id!==user.id) throw new AccessError('Your account has not been granted access to Final Fore.', 403);
   return { supabase, user };
 }
+/**
+ * Runs a read through the caller's RLS client while that caller is verified, so the
+ * two waits overlap. Nothing is released unless verification passes, and an access
+ * failure is always reported ahead of anything the read returned or threw.
+ * Use only for reads that RLS already limits to members.
+ */
+export async function readForMember<T>(supabase:Awaited<ReturnType<typeof createClient>>,read:()=>Promise<T>):Promise<T>{
+  const pending=read();
+  pending.catch(()=>{});
+  await memberForClient(supabase);
+  return pending;
+}

@@ -15,6 +15,10 @@ export async function updateSession(request: NextRequest) {
   // Verify the signature and refresh expired sessions. Protected routes still use
   // getUser plus a fresh membership query; no authorization decision is cached here.
   await supabase.auth.getClaims();
-  response.headers.set('Cache-Control', 'private, no-store');
+  // A header set here replaces the route's own. Versioned scripts and styles are
+  // left to their route, which allows browser caching only for an exact content
+  // version and answers everything else with no-store itself.
+  const versionedAsset = /\.(?:css|js)$/.test(request.nextUrl.pathname) && request.nextUrl.searchParams.has('v');
+  if (!versionedAsset) response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }
