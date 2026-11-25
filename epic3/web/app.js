@@ -136,7 +136,7 @@ function reveal(node){const wrap=el('sheet-wrap'),nr=node.getBoundingClientRect(
 function preserveDraft(){if(!dirty)return true;message('Press Enter to save this cell, or Escape to cancel.');(el('cell-editor')||el('formula')).focus();return false;}
 async function save(){
  if(busy||!editableInput(selected))return false;if(!dirty)return true;busy=true;el('save-cell').disabled=true;el('formula').disabled=true;if(el('cell-editor'))el('cell-editor').disabled=true;updateStatus('Saving…');message('');
- try{const response=await fetch('/api/planning/cell',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...state.targets[addressOf(selected)],text:el('formula').value})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Unable to save.');receive(data);dirty=false;render();renderIssues();updateStatus('Saved locally',true);return true;}
+ try{const response=await fetch('/api/planning/cell',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...state.targets[addressOf(selected)],text:el('formula').value})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Unable to save.');receive(data);keepCopy(data);dirty=false;render();renderIssues();updateStatus('Saved locally',true);return true;}
  catch(e){message(e.message);updateStatus('Not saved');return false;}
  finally{busy=false;el('formula').disabled=false;if(el('cell-editor'))el('cell-editor').disabled=false;el('save-cell').disabled=!dirty;}
 }
@@ -187,12 +187,35 @@ el('reset-view').addEventListener('click',()=>{if(busy||!preserveDraft())return;
 function showIssues(show){el('issues').hidden=!show;el('issues-button').setAttribute('aria-expanded',String(show));}
 el('issues-button').addEventListener('click',()=>showIssues(el('issues').hidden));el('close-issues').addEventListener('click',()=>showIssues(false));
 window.addEventListener('beforeunload',e=>{if(dirty||el('formula-dialog').open){e.preventDefault();e.returnValue='';}});
-(async()=>{try{const response=await fetch('/api/planning');if(!response.ok)throw new Error('Unable to open the local database.');receive(await response.json());if(!state.planning)throw new Error('Column update is not installed. Reload after the local app update.');
- for(const client of state.clients)el('planning-client').append(new Option(client.name+(client.active?'':' (inactive)'),client.id));
+const planningPath='/api/planning',savedCopy=window.FinalForeSaved;
+const keepCopy=data=>savedCopy?.write(planningPath,JSON.stringify(data));
+function listClients(){
+ const picker=el('planning-client'),chosen=picker.value;picker.length=1;
+ for(const client of state.clients)picker.append(new Option(client.name+(client.active?'':' (inactive)'),client.id));
+ picker.value=state.clients.some(c=>c.id===chosen)?chosen:'';
+}
+function openPlanning(data){receive(data);if(!state.planning)throw new Error('Column update is not installed. Reload after the local app update.');
+ listClients();
  const query=new URLSearchParams(location.search),client=query.get('client')||'';if(client&&!state.clients.some(c=>c.id===client))throw Error('This client is not in the directory. Choose All clients to open media planning.');el('planning-client').value=client;
  updateFilters();if(el('year').options.length>1)el('year').selectedIndex=1;render();renderIssues();const target=query.get('cell');if(target&&!el('sheet').hidden)goTo(target);updateStatus('Saved locally',true);
- }catch(e){el('loading').textContent=e.message;message(e.message);updateStatus('Unable to load');}})();
+}
+(async()=>{
+ const fresh=fetch(planningPath).then(async response=>{const text=await response.text();if(!response.ok)throw new Error('Unable to open the local database.');return text;});
+ fresh.catch(()=>{});
+ try{
+  // Open from the copy kept on this computer, then check the server.
+  let shown=null,shownState=null;const copy=savedCopy?await savedCopy.read(planningPath):null;
+  if(copy)try{openPlanning(JSON.parse(copy));shown=copy;shownState=state;}catch{shown=null;}
+  let text;
+  try{text=await fresh;}
+  catch(error){if(shown===null)throw error;message(error instanceof TypeError?savedCopy.offline:error.message);updateStatus('Offline copy');return;}
+  savedCopy?.write(planningPath,text);
+  if(shown===null)openPlanning(JSON.parse(text));
+  // Redraw only if the server differs, and never over an edit or a newer save.
+  else if(text!==shown&&state===shownState&&!dirty&&!busy&&!el('cell-editor')&&!el('formula-dialog').open){receive(JSON.parse(text));listClients();updateFilters();render();renderIssues();}
+ }catch(e){el('loading').textContent=e.message;message(e.message);updateStatus('Unable to load');}
+})();
 el('edit-formula').addEventListener('click',()=>{const address=addressOf(selected);if(busy||!preserveDraft()||!canEditFormula(address))return;selectCell(address);el('formula-context').textContent=sourceLabel(address)+' · Current result: '+format(cell(address))+' · References use this client’s original workbook addresses.';el('formula-expression').value=cell(address).formula||'=';el('formula-error').hidden=true;el('formula-dialog').showModal();el('formula-expression').focus();});
 el('cancel-formula').addEventListener('click',()=>{if(!busy)el('formula-dialog').close();});
 el('formula-dialog').addEventListener('cancel',e=>{if(busy)e.preventDefault();});
-el('formula-editor').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;el('save-formula').disabled=true;el('cancel-formula').disabled=true;el('formula-error').hidden=true;try{const response=await fetch('/api/planning/formula',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...state.targets[addressOf(selected)],text:el('formula-expression').value})});const data=await response.json();if(!response.ok)throw Error(data.error||'Unable to save formula.');receive(data);el('formula-dialog').close();render();renderIssues();updateStatus('Formula saved locally',true);}catch(error){el('formula-error').textContent=error.message;el('formula-error').hidden=false;}finally{busy=false;el('save-formula').disabled=false;el('cancel-formula').disabled=false;}});
+el('formula-editor').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;el('save-formula').disabled=true;el('cancel-formula').disabled=true;el('formula-error').hidden=true;try{const response=await fetch('/api/planning/formula',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...state.targets[addressOf(selected)],text:el('formula-expression').value})});const data=await response.json();if(!response.ok)throw Error(data.error||'Unable to save formula.');receive(data);keepCopy(data);el('formula-dialog').close();render();renderIssues();updateStatus('Formula saved locally',true);}catch(error){el('formula-error').textContent=error.message;el('formula-error').hidden=false;}finally{busy=false;el('save-formula').disabled=false;el('cancel-formula').disabled=false;}});

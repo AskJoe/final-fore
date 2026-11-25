@@ -68,8 +68,30 @@ function goto(a){a=a.trim().replaceAll('$','').toUpperCase();const rc=coords(a);
  if(!isVariables()&&rc[0]<4){message('The full table displays source rows 4–400; column headings come from row 3.');return;}
  const col=letters(rc[1]);if(!columns.includes(col)||!visibleRows.includes(rc[0])){el('market').value='';if(!isVariables())el('view').value='full';else{const match=Object.entries(variableViews).find(([,v])=>v[1].includes(col));if(match)el('view').value=match[0];else return;}render();}
  if(!select(a,true))message('This cell is outside the active market orders.');else message('');}
-async function load(config=false){if(busy)return;busy=true;try{const response=await fetch('/api/markets?sheet='+(isVariables()?'Variables':'Markets'));const data=await response.json();if(!response.ok)throw Error(data.error||'Unable to load workbook.');state=data;if(config)configure();render();status('Saved locally');}catch(e){message(e.message);status('Unable to load',false);}finally{busy=false;}}
-async function save(){if(busy||!dirty||!editable(selected))return;busy=true;el('save-cell').disabled=true;el('formula').disabled=true;status('Saving…',false);message('');try{const response=await fetch('/api/variable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({address:selected,text:el('formula').value,revision:state.revision})});const data=await response.json();if(!response.ok)throw Error(data.error||'Unable to save variable.');state=data;dirty=false;render();status('Saved locally');}catch(e){message(e.message);status('Not saved',false);}finally{busy=false;el('formula').disabled=false;el('save-cell').disabled=!dirty;}}
+const savedCopy=window.FinalForeSaved,sheetPath=()=>'/api/markets?sheet='+(isVariables()?'Variables':'Markets');
+const keepCopy=data=>{if(data.sheet===(isVariables()?'Variables':'Markets'))savedCopy?.write(sheetPath(),JSON.stringify(data));};
+async function load(config=false){
+ if(busy)return;busy=true;const path=sheetPath();
+ // Once a kept copy is on screen the page is usable, so this load no longer holds busy.
+ let released=false;
+ try{
+  // Opening a sheet shows the copy kept on this computer, then checks the server.
+  let shown=null,shownState=null;
+  if(config&&savedCopy){
+   const copy=await savedCopy.read(path);
+   if(copy&&path===sheetPath())try{state=JSON.parse(copy);configure();render();status('Saved locally');shown=copy;shownState=state;busy=false;released=true;}catch{shown=null;}
+  }
+  let text;
+  try{const response=await fetch(path);text=await response.text();if(!response.ok){let reason='';try{reason=JSON.parse(text).error;}catch{}throw Error(reason||'Unable to load workbook.');}}
+  catch(error){if(shown===null)throw error;if(state===shownState){message(error instanceof TypeError?savedCopy.offline:error.message);status('Offline copy',false);}return;}
+  savedCopy?.write(path,text);
+  if(shown===null){state=JSON.parse(text);if(config)configure();render();status('Saved locally');}
+  // Redraw only if the server differs, and never over an edit or a newer save.
+  else if(text!==shown&&state===shownState&&!dirty&&!busy&&!el('formula-dialog').open){state=JSON.parse(text);render();}
+ }catch(e){message(e.message);status('Unable to load',false);}
+ finally{if(!released)busy=false;}
+}
+async function save(){if(busy||!dirty||!editable(selected))return;busy=true;el('save-cell').disabled=true;el('formula').disabled=true;status('Saving…',false);message('');try{const response=await fetch('/api/variable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({address:selected,text:el('formula').value,revision:state.revision})});const data=await response.json();if(!response.ok)throw Error(data.error||'Unable to save variable.');state=data;keepCopy(data);dirty=false;render();status('Saved locally');}catch(e){message(e.message);status('Not saved',false);}finally{busy=false;el('formula').disabled=false;el('save-cell').disabled=!dirty;}}
 function edit(){if(editable(selected)){el('formula').focus();if(el('formula').type!=='date')el('formula').select();}}
 function renderIssues(){el('issues-button').textContent=`Review (${state.issues.length})`;el('issue-list').replaceChildren();for(const i of state.issues){const b=text('button','');b.type='button';b.append(text('strong',i.address),text('span',i.market+': '+i.reason));b.addEventListener('click',async()=>{if(!preserve())return;if(!isVariables()){location.hash='variables';await load(true);}goto(i.address);});el('issue-list').append(b);}}
 el('sheet').addEventListener('click',e=>{const td=e.target.closest('td[data-address]');if(td&&!busy&&preserve()){select(td.dataset.address,true);message('');}});
@@ -91,4 +113,4 @@ load(true);
 el('edit-formula').addEventListener('click',()=>{if(busy||!preserve()||!cell(selected).formula)return;el('formula-context').textContent=state.sheet+' '+selected+' · Current result: '+format(selected);el('formula-expression').value=cell(selected).formula;el('formula-error').hidden=true;el('formula-dialog').showModal();el('formula-expression').focus();});
 el('cancel-formula').addEventListener('click',()=>{if(!busy)el('formula-dialog').close();});
 el('formula-dialog').addEventListener('cancel',e=>{if(busy)e.preventDefault();});
-el('formula-editor').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;el('save-formula').disabled=true;el('cancel-formula').disabled=true;el('formula-error').hidden=true;try{const response=await fetch('/api/formula',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sheet:state.sheet,address:selected,text:el('formula-expression').value,revision:state.revision})});const data=await response.json();if(!response.ok)throw Error(data.error||'Unable to save formula.');state=data;el('formula-dialog').close();render();status('Formula saved locally');}catch(error){el('formula-error').textContent=error.message;el('formula-error').hidden=false;}finally{busy=false;el('save-formula').disabled=false;el('cancel-formula').disabled=false;}});
+el('formula-editor').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;el('save-formula').disabled=true;el('cancel-formula').disabled=true;el('formula-error').hidden=true;try{const response=await fetch('/api/formula',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sheet:state.sheet,address:selected,text:el('formula-expression').value,revision:state.revision})});const data=await response.json();if(!response.ok)throw Error(data.error||'Unable to save formula.');state=data;keepCopy(data);el('formula-dialog').close();render();status('Formula saved locally');}catch(error){el('formula-error').textContent=error.message;el('formula-error').hidden=false;}finally{busy=false;el('save-formula').disabled=false;el('cancel-formula').disabled=false;}});
