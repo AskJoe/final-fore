@@ -10,7 +10,7 @@ import { orderPdfMarkup } from '@/lib/orders/print-markup';
 import { orderVendorGroups, orderVendorLabel } from '@/lib/orders/vendor-groups';
 import type { ResearchView } from '@/lib/order-assistant/types';
 import { displayTime, OrdersDialog, type ClientOption, type MarketOption, type Mutate } from './OrderCalendar';
-import { OrderResearch, ordersUrl, PriorBilling, quantity, Source, usd, type BillingReference } from './OrdersCatalog';
+import { OrderResearch, ordersJson, ordersUrl, PriorBilling, quantity, Source, usd, type BillingReference } from './OrdersCatalog';
 
 export type OpenOrder = {
   document: OrderDocument; clientId: string; year: number; workflow: OrderWorkflow; marketIds: string[];
@@ -518,7 +518,8 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
   const researchState=useOrderResearchState(order?.id,()=>sync.flush(true));
   const readOnly=immutable || !!order && !researchState.ready || researchState.viewConflict || applying;
   const dirty=researchState.saving || !!researchState.error || sync.dirty || recoveryConflict || Object.keys(recoveryFields).length>0 || researchState.status.phase==='pending' || researchState.status.phase==='saving' || researchState.status.phase==='error';
-  const [assistantError,setAssistantError]=useState('');
+  const [editorError,setEditorError]=useState('');
+  const [loadingPriorDigital, setLoadingPriorDigital] = useState(false);
   const [launching,setLaunching]=useState(false);
   const researchView=useRef<ResearchView>({sheet:sheet==='digital'?'digital':sheet==='radio'?'radio':'tv'});
   const launchContext=useRef<string|null>(null);
@@ -532,11 +533,11 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
         baseRevision:saved?.revision??order!.revision,document:work.current.document,fields:work.current.fields}:null);
       next();
     }
-    catch(error){setAssistantError(error instanceof Error?error.message:'Could not save before leaving.');}
+    catch(error){setEditorError(error instanceof Error?error.message:'Could not save before leaving.');}
   };
   async function askChatGPT(){
-    setLaunching(true);setAssistantError('');
-    if(Object.keys(recoveryFields).length||recoveryConflict){setAssistantError('Correct or review the recovered entries before opening ChatGPT.');setLaunching(false);return;}
+    setLaunching(true);setEditorError('');
+    if(Object.keys(recoveryFields).length||recoveryConflict){setEditorError('Correct or review the recovered entries before opening ChatGPT.');setLaunching(false);return;}
     // Reserve the window during the user gesture so the later save does not trigger a popup block.
     const destination=window.open('about:blank','_blank');
     if(destination)destination.opener=null;
@@ -548,7 +549,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       launchContext.current=result.contextId;
       if(destination)destination.location.replace(result.url);
       else window.location.assign(result.url);
-    }catch(error){destination?.close();setAssistantError(error instanceof Error?error.message:'Could not open ChatGPT.');}
+    }catch(error){destination?.close();setEditorError(error instanceof Error?error.message:'Could not open ChatGPT.');}
     finally{setLaunching(false);}
   }
   useEffect(()=>()=>{
@@ -581,9 +582,31 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       Object.keys(recoveryFields).length||sync.dirty?{baseRevision:order.revision,document,fields:recoveryFields}:null);
   },[document,recoveryFields,order?.id,order?.revision,sync.dirty,immutable,researchState.ready,researchState.viewConflict,applying,researchState.changeRecovery,recoveryConflict]);
   const sourceLine = document.lines.find(line => line.id === selected) ?? document.lines.find(line => line.source?.facts?.length);
-  const source = (order?.seed ?? selection.seed) as { id?: string; title?: string; url?: string; orderNumber?: string;
+  const source = (order?.seed ?? selection.seed) as { id?: string; title?: string; url?: string; orderNumber?: string; year?: number;
     related?: { id: string; title?: string; url?: string }[]; billing?: BillingReference | null } | null | undefined;
   const hasLineSource = !!sourceLine?.source?.facts?.length;
+  const priorDigitalYear = marketOrder && digitalSection && order && !readOnly &&
+    !document.lines.some(line => line.media === 'Digital') ? source?.year : undefined;
+
+  async function usePriorDigital() {
+    if (!priorDigitalYear || busy || loadingPriorDigital) return;
+    setLoadingPriorDigital(true);
+    setEditorError('');
+    try {
+      const template = await fetch(ordersUrl({
+        view: 'seed', clientId: selection.clientId, year: selection.year,
+        marketId: selection.marketIds[0], workflow: selection.workflow,
+      }), { cache: 'no-store' }).then(ordersJson<OpenOrder>);
+      const lines = template.document.lines.filter(line => line.media === 'Digital' && line.source?.year === priorDigitalYear);
+      if (!lines.length) throw new Error('No prior Digital placements were found for this market.');
+      setDocument(current => current.lines.some(line => line.media === 'Digital')
+        ? current : { ...current, lines: [...current.lines, ...lines] });
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : 'Could not load prior Digital placements.');
+    } finally {
+      setLoadingPriorDigital(false);
+    }
+  }
 
   const leave=useRef(saveAndLeave);leave.current=saveAndLeave;
   const unsaved=useRef(dirty);unsaved.current=dirty;
@@ -767,6 +790,8 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
         {(['broadcast','digital'] as const).map(tab => <button type="button" key={tab} aria-pressed={section===tab}
           onClick={() => { if (tab!==section) {setSelected(null);setSection(tab);} }}>{tab==='broadcast'?'Broadcast':'Digital'}</button>)}
       </div>}
+      {priorDigitalYear && <button type="button" className="ow-link" disabled={busy || loadingPriorDigital}
+        onClick={() => void usePriorDigital()}>{loadingPriorDigital ? 'Loading prior placements…' : `Use ${priorDigitalYear} Digital placements`}</button>}
       {selection.workflow === 'broadcast' && <div className="ow-order-views" role="group" aria-label="Order view">
         <button type="button" aria-pressed={!spreadsheet} onClick={() => setSpreadsheet(false)}>Order view</button>
         <button type="button" aria-pressed={spreadsheet} onClick={() => setSpreadsheet(true)}>Spreadsheet view</button>
@@ -804,10 +829,10 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       })}</details>
       {!immutable&&<button type="button" onClick={async()=>{try{
         await researchState.flush(order?.id,null);setRecoveryFields({});setRecoveryConflict(false);
-      }catch(error){setAssistantError(error instanceof Error?error.message:'Could not resolve recovery.');}}}>Keep the current saved order and clear recovered entries</button>}
+      }catch(error){setEditorError(error instanceof Error?error.message:'Could not resolve recovery.');}}}>Keep the current saved order and clear recovered entries</button>}
     </div>}
-    {(assistantError||researchState.error||researchState.status.error) && <p className="ow-feedback" role="alert">
-      {assistantError||researchState.error||researchState.status.error}
+    {(editorError||researchState.error||researchState.status.error) && <p className="ow-feedback" role="alert">
+      {editorError||researchState.error||researchState.status.error}
       {researchState.error&&<button type="button" onClick={()=>void researchState.retryStar().catch(()=>{})}>Retry shortlist</button>} <button type="button" onClick={()=>void researchState.reload()}>Reload research</button></p>}
     <div ref={panels} className={'ow-split' + (researchOpen ? '' : ' ow-split-alone') + (spreadsheet ? ' ow-split-spreadsheet' : '')}
       style={{ '--ow-split': split + '%' } as React.CSSProperties}>

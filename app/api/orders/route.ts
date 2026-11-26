@@ -90,14 +90,11 @@ async function seed(directory: Directory, input: Data) {
     key === ['digital', client.id, year, marketId].join('|'),
     'This order opportunity is no longer available. Reopen it before saving.');
   const history = archiveOrderSeed(archive, directory, {archiveId:'',workflow,clientId:client.id,year,marketIds});
-  const document: OrderDocument = {...history.header, lines:history.lines.map(line=>({...line,
-    rate:null,quantity:null,amount:null,impressions:null,noCharge:false,spotsPerDay:null,spotsPerWeek:null,weeks:null,
-    audience:null,reportedCpm:null,cpm:null,calculatedCpm:null,
-  }))};
-  // Original dates, issue numbers and signatures never become new issuance values.
-  Object.assign(document, {number:'',date:'',start:'',end:''});
   const scope = {clientId:client.id,year,workflow};
-  document.lines = document.lines.map(line => attestLine(line,scope,ordersSecret()));
+  const document: OrderDocument = {
+    ...history.header,
+    lines: history.lines.map(line => attestLine(line, scope, ordersSecret())),
+  };
   return {document,...scope,marketIds,originKey,
     firmId:null,repId:null,archiveId:null,seed:history.source};
 }
@@ -148,7 +145,7 @@ export async function GET(request: Request) {
       const current = new Map((drafts.data as { origin_key: string; market_ids: string[]; lines: OrderLine[] }[])
         .filter(order => order.market_ids.length === 1).map(order => [order.origin_key, order.lines]));
       const amounts = marketIds.map(id=>{
-        const previous=archiveOrderSeed(archive,directory,{archiveId:'',workflow:'broadcast',clientId,year,marketIds:[id],includeDigital:true});
+        const previous=archiveOrderSeed(archive,directory,{archiveId:'',workflow:'broadcast',clientId,year,marketIds:[id]});
         const baseline=orderTotal({...previous.header,lines:previous.lines});
         const saved = current.get(origin(id));
         const actual = saved ? orderTotal({ ...previous.header, lines:saved }) : null;

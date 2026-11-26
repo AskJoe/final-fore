@@ -447,13 +447,13 @@ export function orderOpportunities(archive: OrderArchive | null, directory: Dire
 }
 
 export function archiveOrderSeed(archive: OrderArchive | null, directory: Directory,
-  scope: Scope & { archiveId: string; workflow: OrderWorkflow; marketIds: string[]; includeDigital?: boolean }) {
+  scope: Scope & { archiveId: string; workflow: OrderWorkflow; marketIds: string[] }) {
   const client = selectedClient(directory, scope.clientId);
   for (const market of scope.marketIds) selectedMarket(directory, scope.clientId, market);
   if (!scope.archiveId && scope.workflow === 'broadcast') {
     if (scope.marketIds.length !== 1) throw new InputError('Choose one market for the combined order template.');
     const marketId = scope.marketIds[0];
-    const sample = archive && scope.year > archive.year ? combinedMarketSample(archive, client, marketId, scope.includeDigital === true) : {lines: [], documents: []};
+    const sample = archive && scope.year > archive.year ? combinedMarketSample(archive, client, marketId) : {lines: [], documents: []};
     const header: Omit<OrderDocument, 'lines'> = {
       number:'',date:'',clientName:client.name,vendor:'',rep:'',buyer:TEMPLATE.contact || '',buyerEmail:TEMPLATE.email || '',
       billing:'',terms:TEMPLATE.terms || '',start:'',end:'',notes:'',
@@ -483,7 +483,7 @@ export function archiveOrderSeed(archive: OrderArchive | null, directory: Direct
   return { header, lines, source };
 }
 
-function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof selectedClient>, marketId: string, includeDigital: boolean) {
+function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof selectedClient>, marketId: string) {
   const rows = archive.orders.flatMap(record => {
     const scope = archiveScope(archive, record, client.id, client.marketIds);
     const file = archive.files[record.source];
@@ -492,7 +492,7 @@ function combinedMarketSample(archive: OrderArchive, client: ReturnType<typeof s
     return scope.lines.flatMap(item => {
       const line = item.line;
       const channel = medium(line.medium);
-      if (item.marketId !== marketId || line.kind !== 'Placement' || !channel || (channel === 'Digital' && !includeDigital)) return [];
+      if (item.marketId !== marketId || line.kind !== 'Placement' || !channel) return [];
       const identity = JSON.stringify([line.medium, stationKey(line.station), normalize(line.placement || line.description || ''),
         normalize(line.fmt), normalize(line.days)]);
       const key = record.ref.trim() ? JSON.stringify([normalize(record.ref), identity,
@@ -713,7 +713,7 @@ export function orderResearch(archive: OrderArchive | null, directory: Directory
     return finishResearch(columnsForYear, rows, query, true);
   }
   if (query.sheet === 'digital-history' && query.workflow === 'broadcast') {
-    const lines = archive && archive.year < query.year ? combinedMarketSample(archive,client,query.marketId,true).lines : [];
+    const lines = archive && archive.year < query.year ? combinedMarketSample(archive,client,query.marketId).lines : [];
     const rows = lines.flatMap((line): ResearchRow[] => {
       if (line.media!=='Digital'||!line.source) return [];
       const source:SourceRef={kind:'historical-order',id:line.source.id,title:line.source.label,

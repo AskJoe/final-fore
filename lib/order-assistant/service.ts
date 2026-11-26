@@ -115,7 +115,7 @@ export class MarketOrderAssistant {
     const before=await this.versions(context.marketId);
     const [{data:directory},archive]=await Promise.all([this.runtime.share.directory(),loadOrderArchive()]);
     const sample=archive ? archiveOrderSeed(archive,directory,{...scope,year:Math.max(scope.year,archive.year+1),
-      marketIds:[scope.marketId],workflow:'broadcast',archiveId:'',includeDigital:true}) : null;
+      marketIds:[scope.marketId],workflow:'broadcast',archiveId:''}) : null;
     const research=await Promise.all((['tv','radio'] as const).map(async sheet=>{
       const data=await loadOrderResearch(directory,new URLSearchParams({workflow:'broadcast',sheet,quoteFilters:'1'}),
         this.runtime.supabase,scope,{includeMarketCoverage:true},this.runtime.researchApiKey);
