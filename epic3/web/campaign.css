@@ -160,6 +160,8 @@ body.campaign-page > main#campaign-main { padding: 4px 12px 12px; }
 .campaign-page .table-tools :is(input,select) { height: 23px; padding: 1px 4px; font-size: 12px; }
 .campaign-page .market-order { font-weight: 650; text-underline-offset: 2px; }
 .campaign-page .market-order-links { display: flex; flex-wrap: wrap; gap: .25rem .65rem; }
+.campaign-page .amount-cell:has(.market-budget-note) { flex-wrap: wrap; justify-content: flex-end; }
+.campaign-page .market-budget-note { color: var(--muted); text-align: right; line-height: 1.2; }
 .campaign-page .market-budget-missing { color: #744816; }
 .campaign-page .market-channels { margin-inline-start: 8px; min-height: 20px; }
 .campaign-page #campaign-workflow { height: 23px; padding: 0 3px; font-size: 12px; }
@@ -167,23 +169,46 @@ body.campaign-page > main#campaign-main { padding: 4px 12px 12px; }
 .campaign-page .campaign-order-links { position: absolute; inset: 33px 12px auto auto; z-index: 8; font-size: 12px; }
 .campaign-page .campaign-order-links summary { padding-block: 4px; color: var(--ff-action); text-decoration: underline; cursor: pointer; text-align: right; }
 .campaign-page .campaign-order-links div { display: grid; gap: 6px; background: white; border: 1px solid var(--ff-line); padding: 8px; }
+.campaign-media-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 18px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.campaign-media-summary table { width: min(100%, 380px); }
+.campaign-media-summary :is(th,td) { height: auto; padding: 3px 6px; font-size: 12px; }
+.campaign-media-summary tbody th { color: var(--ink); }
+.campaign-media-summary .table-note { max-width: 305px; margin: 0; }
+.campaign-media-summary .table-note p { margin: 2px 0; }
 .campaign-page #campaign-main[data-workflow=broadcast] .campaign-market-viewport { overflow-x: auto; }
-.campaign-page #campaign-main[data-workflow=broadcast] #market-table { min-width: 700px; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-market { width: 21%; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-region { width: 8%; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-date { width: 13%; }
-.campaign-page #campaign-main[data-workflow=broadcast] :is(.col-history,.col-share) { width: 10%; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-money { width: 12%; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-remove { width: 13%; }
+.campaign-page #campaign-main[data-workflow=broadcast] #market-table { min-width: 1040px; }
+.campaign-page #campaign-main[data-workflow=broadcast] .col-market { width: 175px; }
+.campaign-page #campaign-main[data-workflow=broadcast] .col-region { width: 69px; }
+.campaign-page #campaign-main[data-workflow=broadcast] .col-date { width: 108px; }
+.campaign-page #campaign-main[data-workflow=broadcast] :is(.col-history,.col-share,.col-media) { width: 77px; }
+.campaign-page #campaign-main[data-workflow=broadcast] .col-money { width: 99px; }
+.campaign-page #campaign-main[data-workflow=broadcast] .col-remove { width: 91px; }
+.campaign-page #campaign-main[data-workflow=broadcast] [data-media-column] { white-space: normal; }
 .campaign-page #campaign-main[data-workflow=broadcast] #last-heading { text-align: right; white-space: normal; }
 .campaign-page .market-placement-count { display: block; font-size: 11px; color: #52665a; }
 .campaign-page .summary-line .budget-field { display: inline-flex; flex-direction: row; align-items: center; gap: 4px; }
 .campaign-page .summary-line #campaign-budget { width: 105px; height: 23px; padding: 1px 4px; border: 0; border-bottom: 1px dotted #a6b4a8; border-radius: 0; background: var(--input); }
+@media (max-width: 1050px) {
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table { display: block; min-width: 0; }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table tbody { display: block; }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table :is(colgroup,thead) { display: none; }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table tbody tr {
+    display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 4px 12px;
+    border-bottom: 1px solid var(--line); padding: 10px 0;
+  }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table tbody tr td {
+    grid-column: auto; grid-row: auto; text-align: left; padding: 0; border: 0; height: auto; min-width: 0;
+  }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table td::before {
+    content: attr(data-label); display: block; font-size: 10px; color: var(--muted); text-align: left;
+  }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table td:first-child { grid-column: 1 / -2; }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table td:first-child::before { display: none; }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table .amount-cell:has(.market-budget-note) { justify-content: flex-start; }
+}
 @media (max-width: 760px) {
   .campaign-page .campaign-order-links { position: relative; inset: auto; margin: 0 12px; width: fit-content; }
-  .campaign-page #campaign-main[data-workflow=broadcast] #market-table { min-width: 0; }
-  .campaign-page #campaign-main[data-workflow=broadcast] #market-table td:last-child { grid-column: 2; grid-row: auto; }
-  .campaign-page #campaign-main[data-workflow=broadcast] #market-table td:last-child::before { display: block; }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table tbody tr { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (max-width: 760px) {
   .campaign-page .campaign-actions { justify-content: flex-start; }

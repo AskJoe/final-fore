@@ -60,7 +60,10 @@ export function clean(raw:any):Data {
   check(raw.channelVersion==null||[VERSION,CHANNEL_CATALOG.version].includes(raw.channelVersion),'This campaign uses a different history version. Reload its source before editing.');
   const result:Data={channelVersion:VERSION,id,revision,clientId:raw.clientId,name:name.trim(),year,budget:money(raw.budget,'Campaign budget'),start:day(raw.start,'Campaign start'),end:day(raw.end,'Campaign end'),regions:{},markets:[]};
   check(raw.workflow==null||raw.workflow==='digital'||raw.workflow==='broadcast','Choose Digital or Broadcast.');
-  if(raw.workflow==='broadcast')result.workflow='broadcast';
+  if(raw.workflow==='broadcast'){
+    result.workflow='broadcast';
+    if(raw.weatherReserve!=null)result.weatherReserve=money(raw.weatherReserve,'Campaign weather reserve');
+  }
   for(const key of ['clientName','brand'])if(raw[key]!==undefined){check(typeof raw[key]==='string'&&raw[key].length<=200,'Invalid client details.');result[key]=raw[key];}
   datePair(result.start,result.end,'Campaign');
   for(const key of ['start','end'])check(!result[key]||Number(result[key].slice(0,4))===year,'Campaign dates must fall within the campaign year.');
@@ -73,11 +76,21 @@ export function clean(raw:any):Data {
     if(!Object.hasOwn(MARKETS,mid))check(mid.startsWith('custom-')&&mid.length<=80&&typeof custom==='string'&&!!custom.trim()&&custom.length<=100,'Choose a market or enter a new market name.');
     seen.add(mid);const region=r.region??'';check(['',...CATALOG.regions].includes(region),'Choose South, Mid, or North.');
     const item:Data={marketId:mid,region,start:day(r.start,'Market start'),end:day(r.end,'Market end'),override:money(r.override,'Market allocation'),channels:cleanChannels(r.channels??{})};
+    if(result.workflow==='broadcast'&&r.sharedBudgetMarketId!=null){
+      check(typeof r.sharedBudgetMarketId==='string'&&r.sharedBudgetMarketId!==mid&&item.override===null,'Choose another market as the shared budget owner.');
+      item.sharedBudgetMarketId=r.sharedBudgetMarketId;
+    }
     if(!Object.hasOwn(MARKETS,mid))item.name=custom.trim();
     const name=MARKETS[mid]?.name??custom,regional=result.regions[region]??{},start=item.start||regional.start||result.start,end=item.end||regional.end||result.end;
     datePair(start,end,name);
     for(const value of [start,end]) {check(!value||Number(value.slice(0,4))===year,name+': dates must fall within the campaign year.');check(!value||!result.start||value>=result.start,name+': dates begin before the campaign starts.');check(!value||!result.end||value<=result.end,name+': dates extend beyond the campaign end.');}
     result.markets.push(item);
+  }
+  const marketsById=new Map(result.markets.map((item:Data)=>[item.marketId,item]));
+  for(const item of result.markets){
+    if(!item.sharedBudgetMarketId)continue;
+    const owner=marketsById.get(item.sharedBudgetMarketId) as Data|undefined;
+    check(owner&&!owner.sharedBudgetMarketId,'Shared budgets must reference a market in the same campaign.');
   }
   return result;
 }

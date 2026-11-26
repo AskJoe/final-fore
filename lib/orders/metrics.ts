@@ -13,6 +13,15 @@ export function orderLineCharges(line: PricedLine) {
   return { media, fee, due: media === null || fee === null ? null : media + fee };
 }
 
+export function orderMediaTotals(lines: Pick<OrderLine, 'media' | keyof PricedLine>[]) {
+  const totals = { broadcast: 0, digital: 0 };
+  for (const line of lines) {
+    const bucket = isBroadcastPlacement(line) ? 'broadcast' : 'digital';
+    totals[bucket] += orderLineCharges(line).due ?? 0;
+  }
+  return totals;
+}
+
 export function calculatedOrderCpm(line: Pick<OrderLine,'rate'|'quantity'|'amount'|'impressions'|'audience'|'noCharge'>): number | null {
   const amount=line.noCharge ? 0 : line.amount ?? (line.rate != null && line.quantity != null ? line.rate*line.quantity : null);
   const value=amount != null && line.impressions != null && line.impressions>0

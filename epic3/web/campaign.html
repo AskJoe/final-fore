@@ -110,6 +110,21 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
       <span id="incomplete"></span>
       <span class="grow"></span><span class="muted" id="history-label">History 2023–2026</span>
     </div>
+    <section id="campaign-media-summary" class="campaign-media-summary" aria-label="Campaign budget by media" hidden>
+      <table aria-label="Media budget and saved orders">
+        <thead><tr><th scope="col">Media</th><th scope="col" class="number">Proposed</th><th scope="col" class="number">Actual</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Broadcast</th><td class="number">—</td><td class="number" id="campaign-broadcast-actual"></td></tr>
+          <tr><th scope="row">Weather reserve</th><td class="number" id="campaign-weather-reserve"></td><td class="number">—</td></tr>
+          <tr><th scope="row">Digital</th><td class="number">—</td><td class="number" id="campaign-digital-actual"></td></tr>
+        </tbody>
+      </table>
+      <div class="table-note">
+        <p id="campaign-media-available" hidden>Available for Broadcast and Digital <strong id="campaign-media-available-total"></strong></p>
+        <p id="campaign-market-weather" hidden>Market weather targets total <strong id="campaign-market-weather-total"></strong></p>
+        <p><strong>Proposed</strong> is the planned budget, including the weather reserve. <strong>Actual</strong> is what the saved order drafts add up to, including fees.</p>
+      </div>
+    </section>
     <details id="regional-settings" class="regional-settings">
       <summary>Regional dates</summary>
       <div class="region-settings-grid" id="regions"></div>
@@ -121,10 +136,10 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
       <span id="visible-count" class="muted"></span><span class="grow"></span>
       <button type="button" id="add-market" class="text-action">Add market</button>
     </div>
-    <div class="campaign-market-viewport"><table id="market-table">
-      <colgroup><col class="col-market"><col class="col-region"><col class="col-date"><col class="col-date"><col class="col-history"><col class="col-money"><col class="col-share"><col class="col-remove"></colgroup>
-      <thead><tr><th scope="col">Market</th><th scope="col">Region</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="number" id="baseline-heading">History avg.</th><th scope="col" class="number" id="target-heading">Allocation</th><th scope="col" class="number" id="actual-heading">Budget %</th><th scope="col" id="last-heading"><span class="sr-only">Remove</span></th></tr></thead>
-      <tbody id="market-rows"></tbody>
+    <div class="campaign-market-viewport"><table id="market-table" role="table">
+      <colgroup><col class="col-market"><col class="col-region"><col class="col-date"><col class="col-date"><col class="col-history"><col class="col-media" data-media-column hidden><col class="col-media" data-media-column hidden><col class="col-media" data-media-column hidden><col class="col-money"><col class="col-share"><col class="col-remove"></colgroup>
+      <thead><tr><th scope="col">Market</th><th scope="col">Region</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="number" id="baseline-heading">History avg.</th><th scope="col" class="number" data-media-column hidden>Broadcast</th><th scope="col" class="number" data-media-column hidden>Weather reserve</th><th scope="col" class="number" data-media-column hidden>Digital</th><th scope="col" class="number" id="target-heading">Allocation</th><th scope="col" class="number" id="actual-heading">Budget %</th><th scope="col" id="last-heading"><span class="sr-only">Remove</span></th></tr></thead>
+      <tbody id="market-rows" role="rowgroup"></tbody>
     </table></div>
     <p id="empty-filter" class="empty" hidden>No markets match these filters.</p>
     <p class="table-note" id="allocation-note">Changing an allocation keeps that amount fixed and rebalances the others.</p>

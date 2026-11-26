@@ -142,13 +142,26 @@ async function withBroadcastBudget(result,cached=false){
  const fresh=broadcastBudget;
  const budget=(cached?await savedRead(path):null)??await fresh;
  const rows=result.rows.map(row=>{
-  const {baseline,actual,placements}=budget.markets[row.marketId];
+  const {baseline,actual,broadcast,digital,placements}=budget.markets[row.marketId]??{};
   const allocation=row.override;
-  return {...row,baseline,actual,placements,allocation,gap:allocation==null||actual==null?null:allocation-actual};
+  return {...row,baseline,actual,broadcast,digital,weatherReserve:row.channels?.r3??null,placements,allocation};
  });
+ const byMarket=new Map(rows.map(row=>[row.marketId,row]));
+ for(const row of rows){
+  const owner=byMarket.get(row.sharedBudgetMarketId);
+  if(!owner)continue;
+  row.budgetOwner=owner.name;
+  (owner.sharedMarkets??=[]).push(row);
+ }
+ for(const row of rows){
+  const group=[row,...(row.sharedMarkets??[])];
+  row.gap=row.allocation==null||!group.some(market=>market.actual!=null)?null:
+   row.allocation-group.reduce((total,market)=>total+(market.actual??0),0);
+ }
  const sum=key=>rows.reduce((total,row)=>total+(row[key]??0),0);
  const proposed=result.details.budget??sum('allocation');
- return {...result,rows,priorYear:budget.priorYear,proposed,actual:sum('actual'),allocated:sum('allocation'),remaining:proposed-sum('allocation')};
+ const media=Object.fromEntries(['broadcast','weatherReserve','digital'].map(key=>[key,rows.some(row=>row[key]!=null)?sum(key):null]));
+ return {...result,rows,priorYear:budget.priorYear,proposed,actual:sum('actual'),media,allocated:sum('allocation'),remaining:proposed-sum('allocation')};
 }
 async function calculatePreview(rebuild=false){
  const token=++sequence;pending=true;buttons();
@@ -196,9 +209,17 @@ function renderSummary(){
  $('counts').textContent=`${draft.markets.length} markets`;
  if(isBroadcast()){
   $('campaign-actual').textContent=currency(view.actual);
+  $('campaign-broadcast-actual').textContent=currency(view.media.broadcast)||'—';
+  $('campaign-digital-actual').textContent=currency(view.media.digital)||'—';
+  const weatherReserve=view.details.weatherReserve??view.media.weatherReserve;
+  $('campaign-weather-reserve').textContent=currency(weatherReserve)||'—';
+  $('campaign-media-available').hidden=weatherReserve==null;
+  $('campaign-media-available-total').textContent=currency(view.proposed-(weatherReserve??0));
+  $('campaign-market-weather').hidden=view.media.weatherReserve==null||view.media.weatherReserve===weatherReserve;
+  $('campaign-market-weather-total').textContent=currency(view.media.weatherReserve);
   $('campaign-gap').textContent=currency(view.proposed-view.actual);
   $('history-label').textContent=view.priorYear?`From ${view.priorYear} market orders`:'No earlier market orders';
-  const missing=view.rows.filter(row=>row.allocation==null).length;
+  const missing=view.rows.filter(row=>row.allocation==null&&!row.budgetOwner).length;
   $('incomplete').textContent=missing?`${missing} ${missing===1?'market needs':'markets need'} a budget`:'';
   $('baseline-heading').textContent=view.priorYear?`${view.priorYear} orders`:'Prior orders';
   if(document.activeElement!==$('campaign-budget')&&!invalidInputs.has('campaign-budget'))$('campaign-budget').value=currency(view.proposed);
@@ -334,7 +355,10 @@ function renderRows(){
  const assigned=new Set(catalog.clients.find(c=>c.id===$('client').value)?.marketIds||[]);
  for(const row of rows){
   const tr=make('tr');tr.dataset.market=row.marketId;
-  const cell=(label,cls='')=>{const td=make('td','',cls);td.dataset.label=label;tr.append(td);return td;};
+  if(isBroadcast())tr.setAttribute('role','row');
+  const cell=(label,cls='')=>{const td=make('td','',cls);td.dataset.label=label;
+   if(isBroadcast())td.setAttribute('role','cell');
+   tr.append(td);return td;};
   const name=make('span',row.name);
   const channels=make('button','Channels','text-action market-channels');channels.type='button';channels.setAttribute('aria-expanded',expanded.has(row.marketId));channels.setAttribute('aria-label',`${row.name} channels`);
   channels.addEventListener('click',()=>{
@@ -360,14 +384,22 @@ function renderRows(){
   region.addEventListener('change',()=>{draft.markets.find(r=>r.marketId===row.marketId).region=region.value;markDirty();recalculate();});cell('Region').append(region);
   cell('Start').append(field(row,'start','start','date'));cell('End').append(field(row,'end','end','date'));
   const avg=cell($('baseline-heading').textContent,'number average');avg.textContent=isBroadcast()?currency(row.baseline):percent(row.average);avg.classList.toggle('blank-result',!isBroadcast()&&row.average==null);
-  const amount=make('div','','amount-cell');amount.classList.toggle('manual',!isBroadcast()&&!row.automatic);amount.append(field(row,'override',isBroadcast()?'proposed budget':'allocation'));
+  if(isBroadcast()){
+   cell('Broadcast','number market-broadcast').textContent=currency(row.broadcast)||'—';
+   cell('Weather reserve','number market-weather').textContent=currency(row.weatherReserve)||'—';
+   cell('Digital','number market-digital').textContent=currency(row.digital)||'—';
+  }
+  const amount=make('div','','amount-cell');amount.classList.toggle('manual',!isBroadcast()&&!row.automatic);
+  if(!row.budgetOwner)amount.append(field(row,'override',isBroadcast()?'proposed budget':'allocation'));
   const reset=make('button','Reset','reset-budget');reset.type='button';reset.hidden=row.automatic;reset.setAttribute('aria-label',`Reset ${row.name} allocation`);reset.title='Use the automatic allocation';
   reset.addEventListener('click',()=>{draft.markets.find(r=>r.marketId===row.marketId).override=null;markDirty();recalculate();});
   if(!isBroadcast())amount.append(reset);
-  else budgetFlag(amount,row.allocation);
-  cell(isBroadcast()?'Proposed':'Allocation','number').append(amount);
+  else budgetFlag(amount,row);
+  cell(isBroadcast()?'Proposed':'Allocation',isBroadcast()?'number market-proposed':'number').append(amount);
   const share=cell(isBroadcast()?'Actual':'Budget %','number share');share.textContent=isBroadcast()?currency(row.actual):percent(row.share);share.classList.toggle('blank-result',!isBroadcast()&&row.share==null);
-  if(isBroadcast()){cell('Proposed − actual','number market-gap').textContent=currency(row.gap);body.append(tr);continue;}
+  if(isBroadcast()){const gap=cell('Proposed − actual','number market-gap');gap.textContent=currency(row.gap);
+   if(row.sharedMarkets?.length)gap.title='Includes actual orders from '+row.sharedMarkets.map(market=>market.name).join(', ');
+   body.append(tr);continue;}
   const remove=make('button','×','remove');remove.type='button';remove.setAttribute('aria-label',`Remove ${row.name}`);
   remove.addEventListener('click',()=>{draft.markets=draft.markets.filter(r=>r.marketId!==row.marketId);expanded.delete(row.marketId);for(const n of tr.querySelectorAll('input'))invalidInputs.delete(inputKey(n));markDirty();recalculate(true);});cell('Remove').append(remove);
   body.append(tr);if(expanded.has(row.marketId))body.append(detailRow(row));
@@ -375,10 +407,15 @@ function renderRows(){
  $('empty-filter').hidden=!!rows.length;$('visible-count').textContent=rows.length===view.rows.length?'':`${rows.length} of ${view.rows.length} markets · totals include all`;
  if(!isBroadcast())buttons();
 }
-function budgetFlag(container,allocation){
- const missing=container.querySelector('.market-budget-missing');
- if(allocation==null&&!missing)container.append(make('small','Missing budget','market-budget-missing'));
- if(allocation!=null)missing?.remove();
+function budgetFlag(container,row){
+ const previous=container.querySelector('.market-budget-note');
+ const note=row.budgetOwner?'Shared with '+row.budgetOwner:row.allocation==null?'Missing budget':
+  row.sharedMarkets?.length?'Includes '+row.sharedMarkets.map(market=>market.name).join(', '):'';
+ if(!note){previous?.remove();return;}
+ const label=previous??make('small','','market-budget-note');
+ label.textContent=note;
+ label.classList.toggle('market-budget-missing',row.allocation==null&&!row.budgetOwner);
+ if(!previous)container.append(label);
 }
 const placementCount=row=>row.placements?`${row.placements} ${row.placements===1?'placement':'placements'}`:'No saved placements';
 function updateRows(){
@@ -394,8 +431,11 @@ function updateRows(){
   if(isBroadcast()){
    const previous=tr.querySelector('.average');previous.textContent=currency(row.baseline);previous.dataset.label=$('baseline-heading').textContent;
    tr.querySelector('.share').textContent=currency(row.actual);
+   tr.querySelector('.market-broadcast').textContent=currency(row.broadcast)||'—';
+   tr.querySelector('.market-weather').textContent=currency(row.weatherReserve)||'—';
+   tr.querySelector('.market-digital').textContent=currency(row.digital)||'—';
    tr.querySelector('.market-gap').textContent=currency(row.gap);
-   budgetFlag(tr.querySelector('.amount-cell'),row.allocation);
+   budgetFlag(tr.querySelector('.amount-cell'),row);
    tr.querySelector('.market-placement-count').textContent=placementCount(row);
    continue;
   }
@@ -562,6 +602,8 @@ async function initialize(selected){
   $('campaign-workflow').value=workflow;
   try{localStorage.setItem(workflowKey,workflow);}catch{}
   const broadcast=isBroadcast(),main=$('campaign-main');main.dataset.workflow=workflow;
+  $('campaign-media-summary').hidden=!broadcast;
+  main.querySelectorAll('[data-media-column]').forEach(column=>{column.hidden=!broadcast;});
   $('add-market').hidden=broadcast;$('allocation-note').hidden=broadcast;$('campaign-actual-wrap').hidden=!broadcast;$('campaign-gap-wrap').hidden=!broadcast;
   if(broadcast){
    $('campaign-budget-label').textContent='Proposed';$('campaign-budget').placeholder='';

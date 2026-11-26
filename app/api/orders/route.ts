@@ -6,6 +6,7 @@ import { check, Conflict, object, today, type Data } from '@/lib/domain/types';
 import { failure, json, privateHeaders, sameOrigin } from '@/lib/http';
 import { ORDER_PDF_VERSION, renderOrderPdf } from '@/lib/orders/pdf';
 import { isMarketOrder, marketOrderKey } from '@/lib/orders/market-order';
+import { orderMediaTotals } from '@/lib/orders/metrics';
 import { attestLine, verifyDraftSources } from '@/lib/orders/provenance';
 import { archiveOrderSeed, loadOrderArchive, marketBroadcastHistory, orderOpportunities, searchOrderArchive, type ResearchQuery } from '@/lib/orders/sources';
 import { cleanOrderDocument, orderStore, orderTotal, validateOrderForIssue, type OrderAction, type OrderDocument, type OrderLine } from '@/lib/orders/store';
@@ -148,8 +149,9 @@ export async function GET(request: Request) {
         const previous=archiveOrderSeed(archive,directory,{archiveId:'',workflow:'broadcast',clientId,year,marketIds:[id]});
         const baseline=orderTotal({...previous.header,lines:previous.lines});
         const saved = current.get(origin(id));
-        const actual = saved ? orderTotal({ ...previous.header, lines:saved }) : null;
-        return [id,{baseline,actual,placements:saved?.length ?? 0}] as const;
+        const totals = saved ? orderMediaTotals(saved) : null;
+        const actual = totals ? totals.broadcast + totals.digital : null;
+        return [id,{baseline,actual,broadcast:totals?.broadcast ?? null,digital:totals?.digital ?? null,placements:saved?.length ?? 0}] as const;
       });
       return json({priorYear:year>archive.year?archive.year:null,markets:Object.fromEntries(amounts)});
     }
@@ -169,7 +171,7 @@ export async function GET(request: Request) {
         draft.document.start=market.start||dates?.start||details!.start||'';
         draft.document.end=market.end||dates?.end||details!.end||'';
       }
-      const marketProposed=market ? (market.override ?? null) : undefined;
+      const marketProposed=market && !market.sharedBudgetMarketId ? (market.override ?? null) : undefined;
       const scope = get('includeScope') === '1' ? { clients, clientId, year, markets: marketDirectory(), orders: [], calendars: [], canEdit: true } : undefined;
       return json({...draft,marketProposed,scope,order:existing.data ? stripPrivate(await ctx.orders.readOrder(existing.data.id)) : null});
     }
