@@ -59,10 +59,9 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
   body>footer{display:none!important}
 }
 </style></head><body>
-<header class="app-header"><div class="identity"><span class="brand-mark" aria-hidden="true">ff</span><strong>Final Fore</strong><span class="divider"></span><h1>Orders</h1></div><span id="status" role="status">Choose a campaign</span></header>
-<div class="order-toolbar"><label>Campaign <select id="campaign" aria-label="Campaign"></select></label><label>Market <select id="market" aria-label="Market"></select></label><button id="open" class="primary">Create / open order</button><a class="legacy-link" href="/legacy-orders.html">Earlier orders</a><div class="actions"><button id="refresh" class="text-action" disabled>Refresh from campaign</button><button id="save" disabled>Save draft</button><button id="preview" disabled>Preview order</button><button id="edit" hidden>Back to details</button><button id="print" hidden>Print / Save PDF</button></div></div>
-<main id="workspace"><div id="message" role="alert" hidden></div><p id="empty">Choose a saved campaign and market to create an order.</p><div id="editor" hidden></div><article id="paper" aria-label="Order preview" hidden></article></main>
-<dialog id="date-dialog"><form id="date-form"><h2>Override dates</h2><div class="date-pair"><label>Start<input id="date-start" type="date" required></label><label>End<input id="date-end" type="date" required></label></div><p id="date-error" role="alert" hidden></p><div class="dialog-actions"><button id="date-reset" type="button" class="text-action">Use campaign dates</button><span class="grow"></span><button id="date-cancel" type="button">Cancel</button><button class="primary">Apply</button></div></form></dialog>
+<header class="app-header"><div class="identity"><span class="brand-mark" aria-hidden="true">ff</span><strong>Final Fore</strong><span class="divider"></span><h1>Saved campaign order</h1></div><span id="status" role="status">Loading order…</span></header>
+<div class="order-toolbar"><a id="history" href="/campaign/orders?view=historical">Historical orders</a><button id="print" type="button" hidden>Print / Save PDF</button></div>
+<main id="workspace"><div id="message" role="alert" hidden></div><article id="paper" aria-label="Saved order" hidden></article></main>
 <footer>
   <div class="sidebar-brand"><span class="sidebar-mark" aria-hidden="true">ff</span><div><strong>Final Fore</strong><span>Weed Man</span></div></div>
   <nav class="workbook-nav" aria-label="Main navigation">
@@ -73,5 +72,5 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
     <a class="workbook-tab" href="/data.html" data-tab="data" data-view-link="data" aria-label="Reporting data" title="Reporting data"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M3 7h14M7 7v10M10 10h4M10 13.5h4"/></svg><span class="nav-label">Reporting data</span></a>
     <a class="workbook-tab" href="/dashboard.html" data-tab="dashboard" data-view-link="dashboard" aria-label="Dashboard" title="Dashboard"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3v14h14M6 13V9M10 13V5M14 13V7"/></svg><span class="nav-label">Dashboard</span></a>
   </nav>
-  <div class="workbook-status"><span id="counts"></span><span id="footer-tip">Draft orders · saved on this computer</span></div>
+  <div class="workbook-status"><span id="footer-tip">Historical order</span></div>
 </footer></body></html>

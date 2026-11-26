@@ -9,6 +9,7 @@ import { StorageError, type Store } from './store';
 import * as directory from './domain/directory';
 import * as planning from './domain/planning';
 import { clientDisplayName } from './domain/client-labels';
+import { AccessError } from './access-error';
 export const campaignKey = (id: string) => 'campaign:' + id;
 export const orderKey = (id: string, market: string) => 'order:' + JSON.stringify([id, market]);
 export class Service {
@@ -44,6 +45,7 @@ export class Service {
         const clientName = typeof source.clientName === 'string' ? clientDisplayName(source.clientName) : source.clientName;
         return campaignOrders.model({ ...source, clientName }, saved.payload.details, saved.payload.revision);
       }
+      if (query.get('view') === 'historical') throw new AccessError('Saved campaign order not found.',404);
       const c = await this.required(campaignKey(id)); return campaignOrders.model(campaignOrders.source(directory.campaignClient(c.payload,(await this.directory()).data), market), campaignOrders.defaults(), 0);
     }
     const w = (await this.required('workbook')).payload as Workbook;

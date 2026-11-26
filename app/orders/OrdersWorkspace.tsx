@@ -104,7 +104,6 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, initi
 } = {}) {
   const [clientChoice, setClientChoice] = useState(initialClientId ?? '');
   const [yearChoice, setYearChoice] = useState(initialYear ?? 0);
-  const [workflow, setWorkflow] = useState<OrderWorkflow>('broadcast');
   const [filter, setFilter] = useState<OrderFilter>(emptyFilter);
   const [editor, setEditor] = useState<OpenOrder | null>(null);
   const editorRef = useRef<OpenOrder | null>(null);
@@ -186,7 +185,6 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, initi
       if (deepLink) {
         setClientChoice(result.clientId);
         setYearChoice(result.year);
-        setWorkflow(result.workflow);
       }
       setEditor(selectedOrder(result));
     } catch (problem) {
@@ -333,7 +331,7 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, initi
 
   const editorClient = data?.clients.find(item => item.id === editor?.clientId);
   const calendar = view === 'calendar';
-  const calendarParams = new URLSearchParams({year:String(year),workflow});
+  const calendarParams = new URLSearchParams({year:String(year),workflow:'broadcast'});
   if(client)calendarParams.set('clientId',client.id);
   if(campaignId)calendarParams.set('campaignId',campaignId);
   const guardLeave = (event: React.MouseEvent<HTMLAnchorElement>) => {
@@ -381,10 +379,11 @@ export default function OrdersWorkspace({ initialOrderId, initialClientId, initi
         opportunity?.key, opportunity?.archiveId ?? undefined, item)} />}
     {!editor && !loadingOrder && data && view === 'orders' &&
       <OrderList workflow="broadcast" orders={orders.filter(isMarketOrder)} opportunities={data.opportunities ?? []}
-        legacy={data.legacyOrders ?? []} markets={markets} filter={filter} canEdit={editable}
+        legacy={[]} markets={markets} filter={filter} canEdit={editable}
         onFilter={patch => setFilter(old => ({ ...old, ...patch }))} onOpen={id => void openOrder(id)} onStart={startOrder} />}
     {!editor && data && view === 'historical' && (['broadcast','digital'] as const).map(kind =>
-      orders.some(order=>order.workflow===kind) && <OrderList key={kind} workflow={kind} orders={orders} legacy={[]}
+      (orders.some(order=>order.workflow===kind) || kind==='broadcast' && !!data.legacyOrders?.length) &&
+      <OrderList key={kind} workflow={kind} orders={orders} legacy={kind==='broadcast' ? data.legacyOrders ?? [] : []}
         title={kind==='broadcast'?'Legacy vendor orders':'Legacy Digital orders'} opportunities={[]} markets={markets}
         filter={filter} canEdit={false} onFilter={patch=>setFilter(old=>({...old,...patch}))}
         onOpen={id=>void openOrder(id)} onStart={startOrder} />)}

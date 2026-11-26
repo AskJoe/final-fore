@@ -2,21 +2,51 @@ import { AccessError, requireMember } from '@/lib/access';
 import { assetVersion, available, browserCacheable, legacyAsset } from '@/lib/legacy-pages';
 import { failure, privateHeaders, json } from '@/lib/http';
 import { loginPath } from '@/lib/login-errors';
-import { Service } from '@/lib/service';
+import { orderKey, Service } from '@/lib/service';
 import { SupabaseStore } from '@/lib/store';
+import { campaignPlanUrl, resolveCampaignRoute } from '@/lib/campaign-routes';
+import { MARKETS } from '@/lib/domain/catalogs';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+const redirectPage = (location:string) => new Response(null,{status:307,headers:{...privateHeaders,Location:location}});
 export async function GET(request:Request,context:{params:Promise<{path:string[]}>}) {
   const name=(await context.params).path.join('/');
   if (!available.has(name) && name!=='reporting-data.json') return json({error:'Not found.'},404);
   try {
     // Even assets are protected: the legacy order script includes a contact/station catalog.
     const {supabase}=await requireMember();
-    if(name==='reporting-data.json')return json(await new Service(new SupabaseStore(supabase)).report());
+    const store = new SupabaseStore(supabase);
+    const params = new URL(request.url).searchParams;
+    if(name==='reporting-data.json')return json(await new Service(store).report());
+    if (name === 'campaign.html' && (params.has('id') || params.getAll('workflow').includes('digital'))) {
+      const campaign = await resolveCampaignRoute(store, params.get('id') ?? '');
+      if (campaign?.legacy || params.getAll('workflow').includes('digital')) {
+        return redirectPage(campaignPlanUrl(campaign?.id));
+      }
+    }
+    if (name === 'orders.html') {
+      const id = params.get('campaign'), market = params.get('market');
+      if (!id && market && /^\d+$/.test(market)) {
+        return redirectPage('/legacy-orders.html?' + new URLSearchParams({market}));
+      }
+      if (!id || !market) return redirectPage('/campaign/orders');
+      const saved = await store.get(orderKey(id, market));
+      if (!saved) {
+        const campaign = await resolveCampaignRoute(store, id);
+        if (!campaign) return redirectPage('/campaign/orders');
+        const scope = new URLSearchParams({ clientId: campaign.clientId, year: String(campaign.year), workflow:'broadcast' });
+        if (campaign.id) scope.set('campaignId', campaign.id);
+        if (Object.hasOwn(MARKETS, market)) {
+          scope.set('marketId', market);
+          scope.set('section', campaign.legacy ? 'digital' : 'broadcast');
+        }
+        return redirectPage('/campaign/orders?' + scope);
+      }
+    }
     const {content,type}=await legacyAsset(name);
     // A script or stylesheet requested by its exact content version can stay in this
     // member's browser; any other request is answered fresh, as before.
-    const versioned=browserCacheable(name)&&new URL(request.url).searchParams.get('v')===await assetVersion(name);
+    const versioned=browserCacheable(name)&&params.get('v')===await assetVersion(name);
     return new Response(content,{headers:{...privateHeaders,...(versioned?{'Cache-Control':'private, max-age=31536000, immutable'}:{}),'Content-Type':type+'; charset=utf-8','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"}});
   } catch(error) {
     if(error instanceof AccessError && name.endsWith('.html')) {

@@ -70,10 +70,7 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
 </head>
 <body class="campaign-page">
   <header class="app-header">
-    <div class="identity"><span class="brand-mark" aria-hidden="true">ff</span><strong>Final Fore</strong><span class="divider"></span><h1>Campaign</h1>
-      <label class="sr-only" for="campaign-workflow">Campaign type</label>
-      <select id="campaign-workflow"><option value="broadcast" selected>Media campaigns</option><option value="digital">Legacy Digital campaigns</option></select>
-    </div>
+    <div class="identity"><span class="brand-mark" aria-hidden="true">ff</span><strong>Final Fore</strong><span class="divider"></span><h1>Campaign</h1></div>
     <div class="campaign-actions" id="campaign-actions" hidden>
       <label class="campaign-picker-label">Saved campaigns <select id="campaign-picker"><option value="">Select draft</option></select></label>
       <button type="button" id="new-campaign" class="text-action">New campaign</button>
@@ -87,29 +84,28 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
     <details class="campaign-order-links" id="campaign-order-links" hidden>
       <summary>Orders</summary>
       <div><a id="order-list" href="/campaign/orders">Order list</a><a id="order-history" href="/campaign/orders?view=historical">Historical orders</a>
-        <a href="/orders.html">Legacy campaign orders</a><a href="/legacy-orders.html">Workbook orders</a></div>
+        <a href="/legacy-orders.html">Workbook orders</a></div>
     </details>
   </nav>
-  <main id="campaign-main" hidden>
+  <main id="campaign-main" data-workflow="broadcast" hidden>
     <form id="campaign-settings" class="settings" autocomplete="off">
       <label class="name-field">Name <input id="campaign-name" aria-label="Campaign name" maxlength="120" required></label>
       <label>Client<select id="client"></select></label>
       <label>Brand <input id="client-brand" aria-label="Franchise brand" readonly></label>
       <label class="year-field">Year<input id="campaign-year" type="number" min="2020" max="2100"></label>
-      <label class="budget-field"><span id="campaign-budget-label">Total budget</span><input id="campaign-budget" inputmode="decimal" placeholder="Enter total budget"></label>
       <label>Start<input id="campaign-start" type="date"></label>
       <label>End<input id="campaign-end" type="date"></label>
     </form>
     <div id="message" role="alert" hidden></div>
     <div class="summary-line" aria-live="polite">
+      <label class="budget-field">Proposed <input id="campaign-budget" inputmode="decimal"></label>
       <span><strong id="market-count">25</strong> markets</span>
-      <span id="campaign-actual-wrap" hidden>Actual <strong id="campaign-actual"></strong></span>
-      <span><span id="allocated-label">Allocated</span> <strong id="allocated">$0.00</strong></span>
-      <span id="remaining-wrap">Remaining <strong id="remaining"></strong></span>
+      <span id="campaign-actual-wrap">Actual <strong id="campaign-actual"></strong></span>
+      <span>Market targets <strong id="allocated">$0.00</strong></span>
+      <span id="remaining-wrap">Unassigned <strong id="remaining"></strong></span>
       <span id="incomplete"></span>
-      <span class="grow" data-legacy-campaign></span><span class="muted" id="history-label" data-legacy-campaign>History 2023–2026</span>
     </div>
-    <section id="campaign-media-summary" class="campaign-media-summary" aria-label="Campaign budget by media" hidden>
+    <section id="campaign-media-summary" class="campaign-media-summary" aria-label="Campaign budget by media">
       <table aria-label="Media budget and saved orders">
         <thead><tr><th scope="col">Media</th><th scope="col" class="number">Proposed</th><th scope="col" class="number">Actual</th></tr></thead>
         <tbody>
@@ -132,16 +128,14 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
     <div class="table-tools">
       <label class="sr-only" for="market-search">Find a market</label><input id="market-search" type="search" placeholder="Find a market">
       <label class="sr-only" for="region-filter">Filter by region</label><select id="region-filter"><option value="">All regions</option><option>South</option><option>Mid</option><option>North</option><option value="unassigned">Unassigned</option></select>
-      <span id="visible-count" class="muted"></span><span class="grow"></span>
-      <button type="button" id="add-market" class="text-action">Add market</button>
+      <span id="visible-count" class="muted"></span>
     </div>
     <div class="campaign-market-viewport"><table id="market-table" role="table">
-      <colgroup><col class="col-market"><col class="col-region"><col class="col-date"><col class="col-date"><col class="col-history" data-legacy-campaign><col class="col-media" data-media-column hidden><col class="col-media" data-media-column hidden><col class="col-media" data-media-column hidden><col class="col-money"><col class="col-share"><col class="col-remove" data-legacy-campaign></colgroup>
-      <thead><tr><th scope="col">Market</th><th scope="col">Region</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="number" id="baseline-heading" data-legacy-campaign>History avg.</th><th scope="col" class="number" data-media-column hidden>Broadcast</th><th scope="col" class="number" data-media-column hidden>Weather reserve</th><th scope="col" class="number" data-media-column hidden>Digital</th><th scope="col" class="number" id="target-heading">Allocation</th><th scope="col" class="number" id="actual-heading">Budget %</th><th scope="col" data-legacy-campaign><span class="sr-only">Remove</span></th></tr></thead>
+      <colgroup><col class="col-market"><col class="col-region"><col class="col-date"><col class="col-date"><col class="col-media"><col class="col-media"><col class="col-media"><col class="col-money"><col class="col-share"></colgroup>
+      <thead><tr><th scope="col">Market</th><th scope="col">Region</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="number" data-media-column>Broadcast</th><th scope="col" class="number" data-media-column>Weather reserve</th><th scope="col" class="number" data-media-column>Digital</th><th scope="col" class="number">Proposed</th><th scope="col" class="number">Actual</th></tr></thead>
       <tbody id="market-rows" role="rowgroup"></tbody>
     </table></div>
     <p id="empty-filter" class="empty" hidden>No markets match these filters.</p>
-    <p class="table-note" id="allocation-note">Changing an allocation keeps that amount fixed and rebalances the others.</p>
   </main>
   <p id="loading" class="empty" role="status" hidden></p>
   <footer>
@@ -155,15 +149,5 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
   </nav>
   <div class="workbook-status"><span id="counts"></span><span id="footer-tip">Draft campaign · saved on this computer</span></div>
 </footer>
-  <dialog id="add-dialog" aria-labelledby="add-title">
-    <form id="add-form">
-      <h2 id="add-title">Add market</h2>
-      <label>Market<select id="market-choice"></select></label>
-      <label id="custom-name-label" hidden>New market name<input id="custom-name" maxlength="100"></label>
-      <label>Region<select id="new-region"><option value="">Unassigned</option><option>South</option><option>Mid</option><option>North</option></select></label>
-      <p id="add-error" role="alert" hidden></p>
-      <div class="dialog-actions"><button type="button" id="cancel-add">Cancel</button><button class="primary">Add market</button></div>
-    </form>
-  </dialog>
 </body>
 </html>

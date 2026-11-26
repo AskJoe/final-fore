@@ -122,8 +122,7 @@ body.campaign-page > .app-header {
 .campaign-page .app-header h1 { font-size: 16px; line-height: 23px; }
 .campaign-page .identity { width: auto; }
 .campaign-page .campaign-actions { flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-start; gap: 3px 10px; }
-.campaign-page :is(.campaign-actions,#add-market) .text-action,
-.campaign-page #add-market {
+.campaign-page .campaign-actions .text-action {
   padding: 0;
   font-size: 12px;
   text-decoration: underline;
@@ -141,7 +140,7 @@ body.campaign-page > main#campaign-main { padding-block: 6px 16px; }
 body.campaign-page > .campaign-view-nav { flex-wrap: wrap; overflow: visible; }
 .campaign-page .settings { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .campaign-page .settings label { flex-direction: row; align-items: center; gap: 4px; white-space: nowrap; }
-.campaign-page :is(.settings input,.settings select,#campaign-budget,#campaign-picker,#campaign-workflow,.region-settings-grid input,.table-tools input,.table-tools select,#market-table .inline-input) {
+.campaign-page :is(.settings input,.settings select,#campaign-budget,#campaign-picker,.region-settings-grid input,.table-tools input,.table-tools select,#market-table .inline-input) {
   inline-size: auto;
   min-inline-size: 3ch;
   max-inline-size: 100%;
@@ -155,11 +154,11 @@ body.campaign-page > .campaign-view-nav { flex-wrap: wrap; overflow: visible; }
   font-size: 12px;
   field-sizing: content;
 }
-.campaign-page :is(.settings select,#campaign-picker,#campaign-workflow,.table-tools select,#market-table select.inline-input) {
+.campaign-page :is(.settings select,#campaign-picker,.table-tools select,#market-table select.inline-input) {
   appearance: none;
   cursor: pointer;
 }
-.campaign-page :is(.settings input:not([readonly]),.settings select,#campaign-budget,#campaign-picker,#campaign-workflow,.region-settings-grid input,.table-tools input,.table-tools select,#market-table .inline-input):is(:hover,:focus) {
+.campaign-page :is(.settings input:not([readonly]),.settings select,#campaign-budget,#campaign-picker,.region-settings-grid input,.table-tools input,.table-tools select,#market-table .inline-input):is(:hover,:focus) {
   border-bottom-color: var(--line);
 }
 .campaign-page :is(.settings input,.region-settings-grid input,#market-table input)[type=date]::-webkit-datetime-edit { padding: 0; }
@@ -190,7 +189,6 @@ body.campaign-page > .campaign-view-nav { flex-wrap: wrap; overflow: visible; }
 .campaign-page .amount-cell:has(.market-budget-note) { flex-direction: column; align-items: flex-end; gap: 1px; }
 .campaign-page .market-budget-note { color: var(--muted); text-align: right; line-height: 1.2; }
 .campaign-page .market-budget-missing { color: #744816; }
-.campaign-page .market-channels { margin-inline-start: 8px; min-height: 20px; }
 .campaign-page .campaign-order-links { position: relative; align-self: center; z-index: 8; font: 12px/1.4 Arial, sans-serif; }
 .campaign-page .campaign-order-links summary { padding-block: 3px; color: var(--ff-muted); cursor: pointer; }
 .campaign-page .campaign-order-links summary:hover { text-decoration: underline; }

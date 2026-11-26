@@ -16,7 +16,9 @@ export async function GET(request: Request, context: Context) {
   try {
     // Every read here goes through ff_records, whose RLS policy admits members only.
     const supabase = await createClient();
-    return json(await readForMember(supabase,() => new Service(new SupabaseStore(supabase)).get(path,new URL(request.url).searchParams)));
+    const query = new URL(request.url).searchParams;
+    if (path === 'campaign-order') query.set('view', 'historical');
+    return json(await readForMember(supabase,() => new Service(new SupabaseStore(supabase)).get(path,query)));
   }
   catch (error) { return failure(error); }
 }
@@ -27,6 +29,7 @@ export async function POST(request: Request, context: Context) {
   if (request.headers.get('content-type')?.split(';')[0] !== 'application/json') return json({error:'Expected JSON.'},415);
   try {
     const {supabase} = await requireMember();
+    if (path.startsWith('campaign-order')) return json({error:'Open the shared market order to make changes.'},410);
     const limit = path.startsWith('campaign') || path.startsWith('order') || path.startsWith('directory') ? 150000 : 10000;
     if (Number(request.headers.get('content-length')) > limit) return json({error:'Request is too large.'},413);
     const reader=request.body?.getReader(); if (!reader) return json({error:'Expected a request body.'},400);
@@ -34,6 +37,9 @@ export async function POST(request: Request, context: Context) {
     while(true){const {value,done}=await reader.read();if(done)break;length+=value.byteLength;if(length>limit){await reader.cancel();return json({error:'Request is too large.'},413);}chunks.push(value);}
     const payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     if (!object(payload)) return json({error:'Expected a JSON object.'},400);
+    if (path === 'campaign' && payload.workflow !== 'broadcast') {
+      return json({error:'Open Campaign plan to edit a media campaign.'},410);
+    }
     return json(await new Service(new SupabaseStore(supabase)).post(path,payload));
   } catch (error) { return failure(error); }
 }

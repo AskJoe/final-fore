@@ -188,18 +188,22 @@ export async function GET(request: Request) {
     }
     if (view === 'research') return await researchResponse(directory, params, ctx.supabase, {clientId,marketId,year});
     check(view === 'workspace','Unknown Orders view.');
-    if (get('scope') === 'directory' || get('scope') === 'history') {
-      const orders = get('scope') === 'history' ? (await ctx.orders.readWorkspace(clientId,year)).orders.filter(order=>!isMarketOrder(order)) : [];
-      return json({clients,clientId,year,markets:marketDirectory(),orders,calendars:[],canEdit:true});
+    if (get('scope') === 'directory') {
+      return json({clients,clientId,year,markets:marketDirectory(),orders:[],calendars:[],canEdit:true});
     }
+    const history = get('scope') === 'history';
     const [state,archive,legacy] = await Promise.all([
-      ctx.orders.readWorkspace(clientId,year),loadOrderArchive().catch(() => null),ctx.directoryStore.list('campaign_order'),
+      ctx.orders.readWorkspace(clientId,year),history ? null : loadOrderArchive().catch(() => null),ctx.directoryStore.list('campaign_order'),
     ]);
+    const legacyOrders = legacy.map(row=>legacySummary(row,clientId,year)).filter(row=>row&&client.marketIds.includes(row.marketId));
+    if (history) {
+      return json({clients,clientId,year,markets:marketDirectory(),orders:state.orders.filter(order=>!isMarketOrder(order)),calendars:[],legacyOrders,canEdit:true});
+    }
     return json({
       ...state,clients,clientId,year,
       markets:marketDirectory(),
       opportunities:await orderOpportunities(archive,directory,{clientId,year,marketWide:true}),
-      legacyOrders:legacy.map(row=>legacySummary(row,clientId,year)).filter(row=>row&&client.marketIds.includes(row.marketId)),
+      legacyOrders,
       canEdit:true,
     });
   } catch(error) { return failure(error); }
