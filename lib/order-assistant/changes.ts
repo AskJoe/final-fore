@@ -1,8 +1,17 @@
 import { check,object } from '../domain/types';
 import type { ResearchRow } from '../orders/sources';
-import { cleanOrderDocument,type OrderDetail,type OrderLine } from '../orders/store';
+import { cleanOrderDocument,type OrderDetail,type OrderDocument,type OrderLine } from '../orders/store';
 import { spreadsheetScheduleChanges } from '../orders/metrics';
-import type { OrderChanges } from './types';
+import { canonicalDigest } from './digest';
+import { sectionForSheet, type OrderChanges, type OrderSection } from './types';
+
+export function assertOrderSectionUnchanged(before: OrderDocument, after: OrderDocument, editing: OrderSection) {
+  const protect = ({lines,...header}: OrderDocument) => ({
+    header, lines: lines.filter(line => (line.media === 'Digital') !== (editing === 'digital')),
+  });
+  check(canonicalDigest(protect(before)) === canonicalDigest(protect(after)),
+    'Only placements on the side of the order opened in this chat may change.');
+}
 
 export function cleanOrderChanges(raw:unknown):OrderChanges {
   check(object(raw)&&Object.keys(raw).every(key=>['sheet','add','remove'].includes(key))&&
@@ -89,5 +98,10 @@ export function buildOrderChanges(order:OrderDetail,raw:unknown,rows:ResearchRow
     check(!document.lines.some(existing=>identity(existing)===identity(line)),'This placement and period are already on the order.');
     document.lines.push(line);
   }
-  return cleanOrderDocument(document,{marketIds:[marketId],workflow:order.workflow});
+  const cleaned = cleanOrderDocument(document,{marketIds:[marketId],workflow:order.workflow});
+  const added = new Map(cleaned.lines.map(line => [line.id,line]));
+  const untouched = new Map(order.document.lines.map(line => [line.id,line]));
+  const after = {...order.document,lines:document.lines.map(line => untouched.get(line.id) ?? added.get(line.id)!)};
+  assertOrderSectionUnchanged(order.document,after,sectionForSheet(changes.sheet));
+  return after;
 }

@@ -4,7 +4,7 @@ import { failure,json,sameOrigin } from '@/lib/http';
 import { orderRuntime } from '@/lib/orders/runtime';
 import { stateCommand } from '@/lib/orders/research-state';
 import { MarketOrderAssistant,proposalSummary,requireUuid } from '@/lib/order-assistant/service';
-import { cleanStarUpdates } from '@/lib/order-assistant/types';
+import { assertAssistantSection,cleanOrderSection,cleanStarUpdates } from '@/lib/order-assistant/types';
 import { chatgptLaunchUrl } from '@/lib/order-assistant/launch';
 
 export const runtime='nodejs';
@@ -36,7 +36,7 @@ export async function POST(request:Request){
     if(input.action==='launch'){
       // Fail before creating a context if the published connection has not been configured.
       chatgptLaunchUrl(process.env.FINAL_FORE_CHATGPT_PLUGIN_ID,'00000000-0000-4000-8000-000000000000');
-      const result=await assistant.launch(input.orderId,input.view);
+      const result=await assistant.launch(input.orderId,input.view,input.section);
       return json({...result,url:chatgptLaunchUrl(process.env.FINAL_FORE_CHATGPT_PLUGIN_ID,result.contextId)});
     }
     if(input.action==='proposals'){
@@ -49,15 +49,17 @@ export async function POST(request:Request){
     if(input.action==='read')return json(await assistant.read(input.contextId));
     if(input.action==='apply'){
       check(typeof input.hash==='string','Approve the exact proposed changes.');
-      return json(await assistant.apply(input.contextId,input.proposalId,input.hash));
+      return json(await assistant.apply(input.contextId,input.proposalId,input.hash,cleanOrderSection(input.section)));
     }
     if(input.action==='refresh'){
       const previous=await assistant.proposalForOrder(input.orderId,input.proposalId);
-      const {contextId}=await assistant.launch(previous.orderId,{sheet:previous.changes.sheet});
+      const section=cleanOrderSection(input.section);
+      assertAssistantSection(section,previous.changes.sheet);
+      const {contextId}=await assistant.launch(previous.orderId,{sheet:previous.changes.sheet},section);
       const {stamp}=await assistant.read(contextId);
       return json(proposalSummary(await assistant.prepare(contextId,stamp,previous.changes,crypto.randomUUID())));
     }
-    if(input.action==='undo')return json(proposalSummary(await assistant.undo(input.orderId,input.proposalId)));
+    if(input.action==='undo')return json(proposalSummary(await assistant.undo(input.orderId,input.proposalId,input.section)));
     if(input.action==='detach'){
       requireUuid(input.contextId);
       const {error}=await ctx.admin.from('ff_order_assistant_contexts').update({detached:true})

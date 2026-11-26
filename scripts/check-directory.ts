@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { expect, type Page, type BrowserContext } from '@playwright/test';
+import { browserOrders } from '../tests/mock-unified-orders';
 
 // Run inside check-local's existing, in-memory Supabase fixture. No real DB writes.
 export async function checkDirectory(page:Page,context:BrowserContext,base:string,pass:(label:string)=>void) {
@@ -39,14 +40,33 @@ export async function checkDirectory(page:Page,context:BrowserContext,base:strin
   await page.goto(base+'/campaign.html');await expect(page.locator('#campaign-main')).toBeVisible();await expect(page.locator('#client')).toHaveValue('epic3');await expect(page.locator('#client-brand')).toHaveValue('Weed Man');await expect(page.locator('#client option').filter({hasText:'Browser Test Client'})).toHaveCount(1);
   pass('campaign client picker reads the directory and displays the franchise brand');
   const catalog=await (await context.request.get(base+'/api/campaign/catalog')).json();
-  const campaign={...catalog.draft.details,name:'Browser Test Campaign',clientId:client.id,budget:100000,start:'2027-03-01',end:'2027-03-28',markets:[{marketId:'custom-browser-test',name:'Test market',region:'',start:'',end:'',override:100000,channels:{r8:100000}}]};
+  const campaign={...catalog.draft.details,workflow:'broadcast',name:'Browser Test Campaign',clientId:client.id,budget:100000,start:'2027-03-01',end:'2027-03-28',markets:[]};
   const created=await context.request.post(base+'/api/campaign',{headers:{origin:base},data:campaign});assert.equal(created.status(),200,await created.text());const savedCampaign=await created.json();
-  const orderUrl=base+'/orders.html?campaign='+encodeURIComponent(savedCampaign.details.id)+'&market=custom-browser-test';
-  await page.goto(orderUrl);await expect(page.locator('#editor')).toBeVisible();await expect(page.locator('.order-context')).toContainText('Client: Browser Test Client');await expect(page.locator('.order-context')).toContainText('Brand: Test Brand');
-  const firmSelect=page.getByLabel('iHeart Streaming Radio/Audio vendor firm',{exact:true});await firmSelect.selectOption(firm.id);await expect(page.getByLabel('iHeart Streaming Radio/Audio vendor rep',{exact:true})).toBeEnabled();
-  await page.getByLabel('iHeart Streaming Radio/Audio vendor rep',{exact:true}).selectOption(rep.id);await page.waitForLoadState('networkidle');await page.getByRole('button',{name:'Save draft',exact:true}).click();await expect(page.locator('#status')).toHaveText('Saved to Supabase');
-  await page.reload();await expect(page.getByLabel('iHeart Streaming Radio/Audio vendor rep',{exact:true})).toHaveValue(rep.id);await page.getByRole('button',{name:'Preview order',exact:true}).click();await expect(page.locator('#paper')).toBeVisible();await expect(page.locator('#paper')).toContainText('Browser Test Vendor');await expect(page.locator('#paper')).toContainText('Browser Test Rep');await expect(page.locator('#paper')).toContainText('Browser Test Client');
-  await page.pdf({path:'.local-migration/vendor-order-preview.pdf',format:'Letter'});pass('order vendor and rep selection saves, reloads and appears in the printed preview');
+  await page.goto(base+'/campaign.html?workflow=broadcast&id='+encodeURIComponent(savedCampaign.details.id));
+  await expect(page.locator('#client')).toHaveValue(client.id);
+  await expect(page.locator('#client-brand')).toHaveValue('Test Brand');
+  const {clientId,year,campaignId,marketId}=browserOrders;
+  const orderUrl=base+'/campaign/orders?'+new URLSearchParams({clientId,year:String(year),campaignId,marketId,section:'digital'});
+  await page.goto(orderUrl);
+  await expect(page.getByRole('region',{name:'Digital placements',exact:true}).getByText('Editing',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Order details',exact:true}).click();
+  for(const [label,value] of [['Media Vendor',firm.name],['Representative',rep.name]]){
+    await page.getByRole('button',{name:'Edit '+label,exact:true}).click();
+    const input=page.getByRole('textbox',{name:label,exact:true});
+    await input.fill(value);await input.press('Enter');
+  }
+  await expect(page.getByText('Draft saved',{exact:true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('region',{name:'Digital placements',exact:true}).getByText('Editing',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Order details',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Edit Media Vendor',exact:true})).toHaveText(firm.name);
+  await expect(page.getByRole('button',{name:'Edit Representative',exact:true})).toHaveText(rep.name);
+  await page.getByRole('button',{name:'Print order',exact:true}).click();
+  const preview=page.frameLocator('iframe[title="Draft media order"]');
+  await expect(preview.getByText('Evening news',{exact:true}).first()).toBeVisible();
+  await expect(preview.getByText('Streaming audio',{exact:true}).first()).toBeVisible();
+  await page.getByRole('dialog',{name:'Print preview'}).getByRole('button',{name:'Close',exact:true}).click();
+  pass('unified order vendor and representative details survive reload, and client print preview includes both media sections');
   for(const [path,name] of [['/clients.html','clients'],['/vendors.html?view=reps','vendors']]){
     await page.setViewportSize({width:390,height:844});await page.goto(base+path);await expect(page.locator('#add-record')).toBeEnabled();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'Page must fit mobile viewport');

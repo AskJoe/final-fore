@@ -10,13 +10,25 @@ export type ResearchView = {
   target?: string | null;
 };
 export type DraftRecovery = { baseRevision: number; document: OrderDocument; fields: Record<string,string> };
+export type OrderSection = 'broadcast' | 'digital';
+export const sectionForSheet = (sheet: string): OrderSection =>
+  sheet === 'digital' || sheet === 'digital-history' ? 'digital' : 'broadcast';
+export function cleanOrderSection(value: unknown): OrderSection {
+  check(value === 'broadcast' || value === 'digital','Choose the Broadcast or Digital side of this order.');
+  return value;
+}
+export function assertAssistantSection(section: OrderSection | null | undefined, sheet: string) {
+  check(section, 'Reopen ChatGPT from the side of the order you want to edit.');
+  check(section === sectionForSheet(sheet),
+    'This chat can only change ' + (section === 'digital' ? 'Digital' : 'Broadcast') + ' placements. Open a new chat from the other side to edit it.');
+}
 export type ResearchState = {
   orderId: string; revision: number; shortlist: Record<string,string[]>;
   viewRevision: number; view: ResearchView | null; recovery: DraftRecovery | null;
 };
 export type MarketContext = {
   id: string; userId: string; orderId: string; clientId: string; year: number; marketId: string;
-  workflow: OrderWorkflow; expiresAt: string; detached: boolean;
+  workflow: OrderWorkflow; editSection?: OrderSection | null; expiresAt: string; detached: boolean;
 };
 export type SourceVersions = { database: Record<string,unknown>; build: string };
 export type RevisionStamp = { order: number; research: number; view: number; sources: SourceVersions };

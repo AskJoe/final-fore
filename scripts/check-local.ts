@@ -1,19 +1,31 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import next from 'next';
 import { chromium, type Browser } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
 import { startMockSupabase } from '../tests/mock-supabase';
+import { browserOrderArchive, browserOrders } from '../tests/mock-unified-orders';
+import { checkCampaign } from './check-campaign';
 import { checkDirectory } from './check-directory';
 import { checkPlanning } from './check-planning';
 async function main() {
  assert.equal(process.env.FINAL_FORE_TEST_BUILD,'1');
  assert.equal(process.env.NEXT_PUBLIC_SUPABASE_URL,'http://127.0.0.1:54329');
- const mock=await startMockSupabase(54329);
+ const mock=await startMockSupabase(54329, {unifiedOrders:true});
+ assert.ok(mock.orders);
  // Let the OS reserve an available loopback port; never take over another app's port.
  const server=createServer();let browser:Browser|undefined;
  let app:ReturnType<typeof next>|undefined;
+ let fixtureDirectory:string|undefined;
  try {
+ fixtureDirectory=fs.mkdtempSync(join(tmpdir(),'final-fore-browser-'));
+ process.env.SUPABASE_SECRET_KEY=browserOrders.secret;
+ process.env.FINAL_FORE_CHATGPT_PLUGIN_ID='local-browser-fixture';
+ process.env.FINAL_FORE_ORDER_ARCHIVE_PATH=join(fixtureDirectory,'order-archive.json');
+ fs.writeFileSync(process.env.FINAL_FORE_ORDER_ARCHIVE_PATH,JSON.stringify(browserOrderArchive));
  await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
  const address=server.address();assert.ok(address&&typeof address!=='string');
  const port=address.port;
@@ -40,7 +52,7 @@ async function main() {
   const csrf=await context.request.post(base+'/api/cell',{headers:{origin:'https://other.example'},data:{address:'DP8',text:'5',revision:w.revision}});assert.equal(csrf.status(),403);
   const stale=await context.request.post(base+'/api/cell',{headers:{origin:base},data:{address:'DP8',text:'5',revision:w.revision-1}});assert.equal(stale.status(),409);pass('cross-origin writes and stale revisions rejected');
   await page.goto(base+'/?cell=DP8');await page.waitForFunction(()=>document.querySelector<HTMLInputElement>('#address')?.value==='DP8');pass('root cell deep links retained');
-  for(const [path,selector] of [['/markets.html','#sheet'],['/markets.html#variables','#sheet'],['/campaign.html?workflow=digital','#campaign-picker'],['/legacy-orders.html','#market']]){
+  for(const [path,selector] of [['/markets.html','#sheet'],['/markets.html#variables','#sheet'],['/legacy-orders.html','#market']]){
     await page.goto(base+path);await page.locator(selector).waitFor({state:'visible'});await page.waitForLoadState('networkidle');assert.equal(await page.locator('#message:visible').count(),0,path);pass(path+' loaded');
   }
   {
@@ -50,28 +62,18 @@ async function main() {
     pass('only content-versioned code and styles are browser-cacheable');
   }
   await page.locator('#preview').click();await page.locator('#paper').waitFor({state:'visible'});assert.ok((await page.locator('#paper').innerText()).includes('Weed Man'));await page.pdf({path:'.local-migration/legacy-order-preview.pdf',format:'Letter'});pass('legacy order preview and PDF rendering');
-  const orders=JSON.parse(fs.readFileSync('.local-migration/campaign-orders.json','utf8')),order=orders[0];
-  await page.goto(base+'/orders.html?campaign='+encodeURIComponent(order.campaign_id)+'&market='+encodeURIComponent(order.market_id));await page.locator('#editor').waitFor({state:'visible'});await page.locator('#preview').click();await page.locator('#paper').waitFor({state:'visible'});await page.pdf({path:'.local-migration/campaign-order-preview.pdf',format:'Letter'});pass('campaign order load, preview and PDF rendering');
-  {
-    const previews:string[]=[];page.on('request',r=>{if(r.url().includes('/api/campaign/preview'))previews.push(r.url());});
-    await page.goto(base+'/campaign.html?workflow=digital');await page.locator('#campaign-picker').waitFor({state:'visible'});await page.waitForLoadState('networkidle');
-    // Keep this check from creating a campaign: the edit is recalculated, never saved.
-    await page.route('**/api/campaign',r=>r.request().method()==='POST'?r.abort():r.continue());
-    const before=await page.locator('#market-rows').evaluate(node=>node.textContent);
-    await page.locator('#campaign-budget').fill('250000');await page.locator('#campaign-budget').blur();
-    await page.waitForFunction(text=>document.querySelector('#market-rows')!.textContent!==text,before);
-    assert.equal(await page.locator('#message:visible').count(),0);assert.deepEqual(previews,[]);
-    pass('campaign edits recalculate in the browser without a server round trip');
-    await page.goto(base+'/markets.html');await page.evaluate(()=>{for(const key of Object.keys(localStorage))if(key.startsWith('ffm.campaign.recovery.'))localStorage.removeItem(key);});
-    await page.unroute('**/api/campaign');
-    await page.goto(base+'/campaign.html?workflow=digital');await page.locator('#campaign-picker').waitFor({state:'visible'});await page.waitForLoadState('networkidle');
-    await page.route('**/api/**',r=>r.abort());
-    await page.reload();await page.locator('#campaign-picker').waitFor({state:'visible'});
-    await page.waitForFunction(()=>document.querySelector('#message')?.textContent==='Final Fore could not be reached. Showing the copy kept on this computer.');
-    assert.ok(await page.locator('#market-rows').evaluate(node=>node.children.length>0));
-    await page.unroute('**/api/**');
-    pass('campaign page opens from its saved copy when the server cannot be reached');
-  }
+  const {access_token:accessToken}=mock.token();
+  const member=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,'local-test-key',{
+    auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
+    global:{headers:{Authorization:'Bearer '+accessToken}},
+  });
+  const {data:{user},error}=await member.auth.getUser(accessToken);assert.ok(user,error?.message??'Fixture member could not sign in.');
+  const [{orderRuntime},{MarketOrderAssistant},{checkAssistantScope}]=await Promise.all([
+    import('../lib/orders/runtime'),import('../lib/order-assistant/service'),import('./check-assistant-scope'),
+  ]);
+  const assistant=new MarketOrderAssistant(await orderRuntime({supabase:member,user}));
+  await checkCampaign(page,context,base,mock.orders.legacyCampaignId,pass,
+    (id,section)=>checkAssistantScope(assistant,id,section));
   {
     const saved=()=>document.querySelector('#save-status')?.textContent==='Saved to Supabase';
     await page.goto(base+'/index.html');await page.waitForFunction(saved);await page.waitForLoadState('networkidle');
@@ -104,6 +106,7 @@ async function main() {
   await browser?.close();
   if(server.listening)await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));
   await app?.close();await mock.close();
+  if(fixtureDirectory)fs.rmSync(fixtureDirectory,{recursive:true,force:true});
  }
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

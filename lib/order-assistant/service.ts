@@ -4,7 +4,7 @@ import { projectDocument,projectLine,projectResearchPage } from './projection';
 import { loadOrderArchive, loadOrderArchiveDigest } from '../orders/archive-source';
 import assignments from '../../data/research-assignment-seed.json';
 import { AccessError } from '../access';
-import { check,Conflict } from '../domain/types';
+import { check,Conflict,object } from '../domain/types';
 import { CHANNEL_CATALOG, MARKETS } from '../domain/catalogs';
 import { StorageError } from '../store';
 import type { OrderRuntime } from '../orders/runtime';
@@ -15,8 +15,8 @@ import { archiveOrderSeed } from '../orders/sources';
 import { orderVendorGroups } from '../orders/vendor-groups';
 import { selectedResearchKeys } from '../orders/research-selection';
 import mapping from '../../data/research-market-links.json';
-import { buildOrderChanges,cleanOrderChanges } from './changes';
-import { assertMarketContext,cleanResearchView,cleanStarUpdates,type MarketContext,type MarketProposal,
+import { assertOrderSectionUnchanged,buildOrderChanges,cleanOrderChanges } from './changes';
+import { assertAssistantSection,assertMarketContext,cleanOrderSection,cleanResearchView,cleanStarUpdates,sectionForSheet,type MarketContext,type MarketProposal,
   type ResearchView,type RevisionStamp,type SourceVersions } from './types';
 
 const uuid=(value:unknown):value is string=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -29,6 +29,7 @@ function storage(error:{code?:string}|null,message:string){
 }
 export function proposalSummary(proposal:MarketProposal) {
   return {id:proposal.id,contextId:proposal.contextId,hash:proposal.hash,status:proposal.status,orderId:proposal.orderId,
+    section:sectionForSheet(proposal.changes.sheet),
     undoOf:proposal.undoOf,
     beforeTotal:orderTotal(proposal.before),afterTotal:orderTotal(proposal.after),
     before:proposal.before.lines.map(projectLine),after:proposal.after.lines.map(projectLine),stamp:proposal.stamp,
@@ -47,17 +48,18 @@ export class MarketOrderAssistant {
     check(order.document.lines.every(line=>order.marketIds.includes(line.marketId)),'This order contains a placement outside its assigned markets.');
     return order;
   }
-  async launch(orderId:string,view:unknown){
+  async launch(orderId:string,view:unknown,section:unknown){
     const order=await this.order(orderId);
     check(order.marketIds.length===1&&order.workflow==='broadcast','Open one market order to use ChatGPT.');
     cleanResearchView(view);
+    const editSection=cleanOrderSection(section);
     const state=await stateCommand(this.runtime,orderId,'get');
     check(!state.recovery,'Correct the incomplete fields before opening ChatGPT.');
     const row={order_id:order.id,user_id:this.runtime.user.id,client_id:order.clientId,year:order.year,
-      market_id:order.marketIds[0],workflow:order.workflow};
+      market_id:order.marketIds[0],workflow:order.workflow,edit_section:editSection};
     const {data,error}=await this.runtime.admin.from('ff_order_assistant_contexts').insert(row).select('id').single();
     storage(error,'Could not create this market context.');
-    return {contextId:data!.id as string};
+    return {contextId:data!.id as string,editSection};
   }
   async scoped(contextId:string,write=false){
     requireUuid(contextId);
@@ -66,10 +68,13 @@ export class MarketOrderAssistant {
     storage(error,'Could not open this market context.');
     if(!data)throw new AccessError('Market context not found.',404);
     const context:MarketContext={id:data.id,userId:data.user_id,orderId:data.order_id,clientId:data.client_id,year:data.year,
-      marketId:data.market_id,workflow:data.workflow,expiresAt:data.expires_at,detached:data.detached};
+      marketId:data.market_id,workflow:data.workflow,editSection:data.edit_section??null,expiresAt:data.expires_at,detached:data.detached};
     const order=await this.order(context.orderId);
     assertMarketContext(context,this.runtime.user.id,order,new Date(),write);
-    if(write)check(!order.currentIssue,'Finalized orders are read-only.');
+    if(write){
+      check(context.editSection,'Reopen ChatGPT from the side of the order you want to edit.');
+      check(!order.currentIssue,'Finalized orders are read-only.');
+    }
     return {context,order};
   }
   async versions(marketId:string):Promise<SourceVersions>{
@@ -88,8 +93,12 @@ export class MarketOrderAssistant {
     // Do not expose storage paths, PDF artifacts, historical attachments, or other markets to the model.
     return {context,marketName:String(MARKETS[context.marketId]?.name??context.marketId),
       order:{id:order.id,revision:order.revision,document:projectDocument(order.document),total:orderTotal(order.document),finalized:!!order.currentIssue},
-      shortlist:state.shortlist,view:state.view??{sheet:'tv' as const},hasIncompleteFields:!!state.recovery,
+      shortlist:state.shortlist,view:this.contextView(context,state.view),hasIncompleteFields:!!state.recovery,
       proposals:(pending??[]).map(row=>proposalSummary(row.proposal as MarketProposal)),stamp,checkedAt:new Date().toISOString()};
+  }
+  private contextView(context:MarketContext,view:ResearchView|null):ResearchView {
+    if(view && (!context.editSection || sectionForSheet(view.sheet)===context.editSection))return view;
+    return {sheet:context.editSection==='digital'?'digital':'tv'};
   }
   async research(order:OrderDetail,view:ResearchView,ids?:string[]){
     const {data:directory}=await this.runtime.share.directory();
@@ -139,8 +148,9 @@ export class MarketOrderAssistant {
   async search(contextId:string,override:unknown={},wholeMarket=false){
     const {context,order}=await this.scoped(contextId);
     const state=await stateCommand(this.runtime,order.id,'get');
-    const view=cleanResearchView({...(!wholeMarket && state.view || {sheet:state.view?.sheet==='digital'?'digital':'tv'}),...override as object});
-    if(wholeMarket)check(['tv','radio','digital','digital-history'].includes(view.sheet),'Choose TV, Radio, or Digital market research.');
+    const current=this.contextView(context,state.view);
+    const differentSheet=object(override)&&override.sheet!==undefined&&override.sheet!==current.sheet;
+    const view=cleanResearchView({...(!wholeMarket&&!differentSheet ? current : {sheet:current.sheet}),...override as object});
     const before=await this.versions(context.marketId);
     const result=await this.research(order,view);
     const after=await this.versions(context.marketId);
@@ -172,10 +182,11 @@ export class MarketOrderAssistant {
     const hash=createHmac('sha256',key).update('ff-market-chat-v1:'+session).digest('hex');
     const {error}=await this.runtime.admin.rpc('ff_order_assistant_bind_chat',{p_actor:this.runtime.user.id,
       p_context:context.id,p_session:hash});
-    storage(error,'This chat is already tied to a different order. Start a new chat for this market.');
+    storage(error,'This chat is already tied to a different order or editing section. Start a new chat from the order.');
   }
   async stars(contextId:string,sheet:string,expectedRevision:number,raw:unknown,operationId:string){
-    const {order}=await this.scoped(contextId,true),items=cleanStarUpdates(raw);
+    const {context,order}=await this.scoped(contextId,true),items=cleanStarUpdates(raw);
+    assertAssistantSection(context.editSection,sheet);
     requireUuid(operationId);
     const sources=await this.versions(order.marketIds[0]);
     // Unstarring a retired source remains possible; adding stars requires current attributable rows.
@@ -189,6 +200,7 @@ export class MarketOrderAssistant {
     if(digest(stamp)!==digest(current.stamp))throw new Conflict('Order or research changed. Refresh before preparing changes.');
     check(!current.hasIncompleteFields,'Correct incomplete fields before preparing order changes.');
     const changes=cleanOrderChanges(raw),order=await this.order(current.order.id);
+    assertAssistantSection(current.context.editSection,changes.sheet);
     const existing=await this.runtime.admin.from('ff_order_assistant_proposals').select('proposal')
       .eq('user_id',this.runtime.user.id).eq('operation_id',operationId).maybeSingle();
     storage(existing.error,'Could not verify this proposal request.');
@@ -221,12 +233,15 @@ export class MarketOrderAssistant {
     if(!data)throw new AccessError('Proposal not found.',404);
     return data.proposal as MarketProposal;
   }
-  async undo(orderId:string,proposalId:string){
+  async undo(orderId:string,proposalId:string,section:unknown){
     const original=await this.proposalForOrder(orderId,proposalId),order=await this.order(orderId);
+    const editSection=cleanOrderSection(section);
+    assertAssistantSection(editSection,original.changes.sheet);
+    assertOrderSectionUnchanged(original.after,original.before,editSection);
     check(original.status==='applied'&&!original.undoOf,'Choose a completed placement change to undo.');
     check(order.revision===original.resultRevision&&digest(order.document)===digest(original.after),
       'The order changed after this batch. Review a new proposal instead of undoing it.');
-    const {contextId}=await this.launch(orderId,{sheet:original.changes.sheet});
+    const {contextId}=await this.launch(orderId,{sheet:original.changes.sheet},editSection);
     const current=await this.read(contextId);
     check(digest(current.stamp.sources)===digest(original.stamp.sources),'Research changed after this batch. Review the order again.');
     const proposal:MarketProposal={id:randomUUID(),contextId,orderId,userId:this.runtime.user.id,
@@ -238,10 +253,14 @@ export class MarketOrderAssistant {
     storage(error,'Could not prepare this undo.');
     return proposal;
   }
-  async apply(contextId:string,proposalId:string,approvedHash:string){
+  async apply(contextId:string,proposalId:string,approvedHash:string,section?:unknown){
     const {context,order}=await this.scoped(contextId,true);
     const proposal=await this.proposal(contextId,proposalId);
     check(proposal.contextId===contextId&&proposal.hash===approvedHash,'Approve this exact proposal before applying.');
+    const editSection=cleanOrderSection(context.editSection);
+    if(section!==undefined)check(cleanOrderSection(section)===editSection,'Switch to the side of the order used to prepare this proposal.');
+    assertAssistantSection(editSection,proposal.changes.sheet);
+    assertOrderSectionUnchanged(proposal.before,proposal.after,editSection);
     const sources=await this.versions(context.marketId);
     if(proposal.status!=='applied'){
       const current=await this.read(contextId);

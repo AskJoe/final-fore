@@ -2,9 +2,11 @@
 import { createServer } from 'node:http';
 import fs from 'node:fs';
 import { MemoryStore } from './memory-store';
+import { mockUnifiedOrders } from './mock-unified-orders';
 const owner='11111111-1111-4111-8111-111111111111';
-export async function startMockSupabase(port:number) {
+export async function startMockSupabase(port:number, {unifiedOrders = false} = {}) {
  const store=new MemoryStore(JSON.parse(fs.readFileSync('.local-migration/records.json','utf8')));
+ const orders=unifiedOrders ? await mockUnifiedOrders(store) : undefined;
  const user={id:owner,aud:'authenticated',role:'authenticated',email:'owner@example.test',email_confirmed_at:'2026-11-10T00:00:00Z',app_metadata:{provider:'email',providers:['email']},user_metadata:{},created_at:'2026-11-10T00:00:00Z'};
  let memberAllowed=true;
  const tokens=new Set<string>(),calls:string[]=[];
@@ -12,12 +14,16 @@ export async function startMockSupabase(port:number) {
  const server=createServer(async(req,res)=>{
   const url=new URL(req.url!,'http://127.0.0.1:'+port);calls.push((req.method??'GET')+' '+url.pathname);const send=(data:any,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(data));};
   const chunks:Buffer[]=[];for await(const c of req)chunks.push(c);const body=chunks.length?JSON.parse(Buffer.concat(chunks).toString()):{};
+  const orderResponse=orders?.serviceRequest(url,req.method,req.headers.apikey?.toString(),body);
+  if(orderResponse){send(orderResponse.value,orderResponse.status);return;}
   if(url.pathname==='/auth/v1/token'){if(url.searchParams.get('grant_type')==='refresh_token'||body.email==='owner@example.test'&&body.password==='local-test-password'){send(token());}else send({message:'Invalid credentials'},400);return;}
   const bearer=req.headers.authorization?.replace('Bearer ','');if(!bearer||!tokens.has(bearer)){send({message:'Not authenticated'},401);return;}
   if(url.pathname==='/auth/v1/user'){send(user);return;}if(url.pathname==='/auth/v1/logout'){tokens.delete(bearer);send({});return;}
   if(url.pathname==='/rest/v1/ff_members'){send(memberAllowed?[{user_id:owner}]:[]);return;}
+  if(orders && ['/rest/v1/rpc/ff_tv_workbook_page','/rest/v1/rpc/ff_radio_workbook_page'].includes(url.pathname)){send(null);return;}
   if(url.pathname==='/rest/v1/ff_records'){
-    let rows=[...store.records.values()];for(const key of ['id','kind']){const v=url.searchParams.get(key);if(v?.startsWith('eq.'))rows=rows.filter(r=>(r as any)[key]===v.slice(3));}
+    let rows=[...store.records.values()];for(const key of ['id','kind'] as const){const v=url.searchParams.get(key);if(v?.startsWith('eq.'))rows=rows.filter(r=>r[key]===v.slice(3));}
+    const ids=url.searchParams.get('id');if(ids?.startsWith('in.('))rows=rows.filter(r=>ids.slice(4,-1).split(',').includes(r.id));
     rows.sort((a,b)=>a.id.localeCompare(b.id));const offset=Number(url.searchParams.get('offset')??0),limit=Number(url.searchParams.get('limit')??rows.length);send(rows.slice(offset,offset+limit));return;
   }
   if(url.pathname==='/rest/v1/rpc/ff_save_record'){
@@ -26,5 +32,5 @@ export async function startMockSupabase(port:number) {
   send({message:'Unexpected mock request'},404);
  });
  await new Promise<void>(resolve=>server.listen(port,'127.0.0.1',resolve));
- return {store,calls,server,token,setMemberAllowed:(value:boolean)=>{memberAllowed=value;},close:()=>new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()))};
+ return {store,calls,server,token,orders,setMemberAllowed:(value:boolean)=>{memberAllowed=value;},close:()=>new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()))};
 }

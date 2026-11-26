@@ -545,7 +545,9 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       const saved=await sync.flush(true);
       await researchState.flush(saved?.id??order?.id,null);
       if(!saved&&!order)throw new Error('Save this draft before opening ChatGPT.');
-      const result=await assistantRequest<{contextId:string;url:string}>({action:'launch',orderId:saved?.id??order!.id,view:researchView.current});
+      const result=await assistantRequest<{contextId:string;url:string}>({
+        action:'launch',orderId:saved?.id??order!.id,view:researchView.current,section:digitalSection?'digital':'broadcast',
+      });
       launchContext.current=result.contextId;
       if(destination)destination.location.replace(result.url);
       else window.location.assign(result.url);
@@ -838,7 +840,7 @@ export function OrderEditor({ selection, client, markets, canEdit, busy, fromCal
       style={{ '--ow-split': split + '%' } as React.CSSProperties}>
       {spreadsheet ? [researchPane, divider, orderPane] : [orderPane, divider, researchPane]}
     </div>
-    {!immutable&&researchState.ready&&<OrderAssistantChanges onBusy={setApplying} orderId={order?.id} beforeApply={async()=>{
+    {!immutable&&researchState.ready&&<OrderAssistantChanges onBusy={setApplying} orderId={order?.id} section={digitalSection?'digital':'broadcast'} beforeApply={async()=>{
       if(Object.keys(recoveryFields).length||recoveryConflict)throw new Error('Correct incomplete entries before applying changes.');
       const saved=await sync.flush();await researchState.flush(saved?.id??order?.id,null);
     }} onUpdate={onUpdate}/>}
