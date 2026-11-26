@@ -106,9 +106,8 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
       <span id="campaign-actual-wrap" hidden>Actual <strong id="campaign-actual"></strong></span>
       <span><span id="allocated-label">Allocated</span> <strong id="allocated">$0.00</strong></span>
       <span id="remaining-wrap">Remaining <strong id="remaining"></strong></span>
-      <span id="campaign-gap-wrap" title="Proposed budget minus saved order totals, including fees." hidden>Budget remaining <strong id="campaign-gap"></strong></span>
       <span id="incomplete"></span>
-      <span class="grow" data-legacy-history></span><span class="muted" id="history-label" data-legacy-history>History 2023–2026</span>
+      <span class="grow" data-legacy-campaign></span><span class="muted" id="history-label" data-legacy-campaign>History 2023–2026</span>
     </div>
     <section id="campaign-media-summary" class="campaign-media-summary" aria-label="Campaign budget by media" hidden>
       <table aria-label="Media budget and saved orders">
@@ -137,8 +136,8 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
       <button type="button" id="add-market" class="text-action">Add market</button>
     </div>
     <div class="campaign-market-viewport"><table id="market-table" role="table">
-      <colgroup><col class="col-market"><col class="col-region"><col class="col-date"><col class="col-date"><col class="col-history" data-legacy-history><col class="col-media" data-media-column hidden><col class="col-media" data-media-column hidden><col class="col-media" data-media-column hidden><col class="col-money"><col class="col-share"><col class="col-remove"></colgroup>
-      <thead><tr><th scope="col">Market</th><th scope="col">Region</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="number" id="baseline-heading" data-legacy-history>History avg.</th><th scope="col" class="number" data-media-column hidden>Broadcast</th><th scope="col" class="number" data-media-column hidden>Weather reserve</th><th scope="col" class="number" data-media-column hidden>Digital</th><th scope="col" class="number" id="target-heading">Allocation</th><th scope="col" class="number" id="actual-heading">Budget %</th><th scope="col" id="last-heading"><span class="sr-only">Remove</span></th></tr></thead>
+      <colgroup><col class="col-market"><col class="col-region"><col class="col-date"><col class="col-date"><col class="col-history" data-legacy-campaign><col class="col-media" data-media-column hidden><col class="col-media" data-media-column hidden><col class="col-media" data-media-column hidden><col class="col-money"><col class="col-share"><col class="col-remove" data-legacy-campaign></colgroup>
+      <thead><tr><th scope="col">Market</th><th scope="col">Region</th><th scope="col">Start</th><th scope="col">End</th><th scope="col" class="number" id="baseline-heading" data-legacy-campaign>History avg.</th><th scope="col" class="number" data-media-column hidden>Broadcast</th><th scope="col" class="number" data-media-column hidden>Weather reserve</th><th scope="col" class="number" data-media-column hidden>Digital</th><th scope="col" class="number" id="target-heading">Allocation</th><th scope="col" class="number" id="actual-heading">Budget %</th><th scope="col" data-legacy-campaign><span class="sr-only">Remove</span></th></tr></thead>
       <tbody id="market-rows" role="rowgroup"></tbody>
     </table></div>
     <p id="empty-filter" class="empty" hidden>No markets match these filters.</p>

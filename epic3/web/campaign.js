@@ -3,7 +3,6 @@ const $=id=>document.getElementById(id);
 const make=(tag,value='',cls='')=>{const node=document.createElement(tag);node.textContent=value;if(cls)node.className=cls;return node;};
 const currency=c=>c==null?'':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);
 const percent=n=>n==null?'':new Intl.NumberFormat('en-US',{style:'percent',minimumFractionDigits:1,maximumFractionDigits:1}).format(n);
-const remainingBudgetLabel='Budget remaining';
 const dateText=s=>s?`${Number(s.slice(5,7))}/${Number(s.slice(8,10))}/${s.slice(2,4)}`:'';
 const clone=x=>JSON.parse(JSON.stringify(x));
 let catalog,draft,view,blankDraft,dirty=false,saving=false,valid=true,sequence=0,pending=false;
@@ -152,12 +151,7 @@ async function withBroadcastBudget(result,cached=false){
   const owner=byMarket.get(row.sharedBudgetMarketId);
   if(!owner)continue;
   row.budgetOwner=owner.name;
-  (owner.sharedMarkets??=[]).push(row);
- }
- for(const row of rows){
-  const group=[row,...(row.sharedMarkets??[])];
-  row.gap=row.allocation==null||!group.some(market=>market.actual!=null)?null:
-   row.allocation-group.reduce((total,market)=>total+(market.actual??0),0);
+  (owner.sharedMarketNames??=[]).push(row.name);
  }
  const sum=key=>rows.reduce((total,row)=>total+(row[key]??0),0);
  const proposed=result.details.budget??sum('allocation');
@@ -218,7 +212,6 @@ function renderSummary(){
   $('campaign-media-available-total').textContent=currency(view.proposed-(weatherReserve??0));
   $('campaign-market-weather').hidden=view.media.weatherReserve==null||view.media.weatherReserve===weatherReserve;
   $('campaign-market-weather-total').textContent=currency(view.media.weatherReserve);
-  $('campaign-gap').textContent=currency(view.proposed-view.actual);
   const missing=view.rows.filter(row=>row.allocation==null&&!row.budgetOwner).length;
   $('incomplete').textContent=missing?`${missing} ${missing===1?'market needs':'markets need'} a budget`:'';
   if(document.activeElement!==$('campaign-budget')&&!invalidInputs.has('campaign-budget'))$('campaign-budget').value=currency(view.proposed);
@@ -399,10 +392,7 @@ function renderRows(){
   else budgetFlag(amount,row);
   cell(isBroadcast()?'Proposed':'Allocation',isBroadcast()?'number market-proposed':'number').append(amount);
   const share=cell(isBroadcast()?'Actual':'Budget %','number share');share.textContent=isBroadcast()?currency(row.actual):percent(row.share);share.classList.toggle('blank-result',!isBroadcast()&&row.share==null);
-  if(isBroadcast()){const gap=cell(remainingBudgetLabel,'number market-gap');gap.textContent=currency(row.gap);
-   gap.title='Proposed budget minus saved order totals, including fees.';
-   if(row.sharedMarkets?.length)gap.title+=' Includes '+row.sharedMarkets.map(market=>market.name).join(', ')+'.';
-   body.append(tr);continue;}
+  if(isBroadcast()){body.append(tr);continue;}
   const remove=make('button','×','remove');remove.type='button';remove.setAttribute('aria-label',`Remove ${row.name}`);
   remove.addEventListener('click',()=>{draft.markets=draft.markets.filter(r=>r.marketId!==row.marketId);expanded.delete(row.marketId);for(const n of tr.querySelectorAll('input'))invalidInputs.delete(inputKey(n));markDirty();recalculate(true);});cell('Remove').append(remove);
   body.append(tr);if(expanded.has(row.marketId))body.append(detailRow(row));
@@ -413,7 +403,7 @@ function renderRows(){
 function budgetFlag(container,row){
  const previous=container.querySelector('.market-budget-note');
  const note=row.budgetOwner?'Shared with '+row.budgetOwner:row.allocation==null?'Missing budget':
-  row.sharedMarkets?.length?'Includes '+row.sharedMarkets.map(market=>market.name).join(', '):'';
+  row.sharedMarketNames?.length?'Includes '+row.sharedMarketNames.join(', '):'';
  if(!note){previous?.remove();return;}
  const label=previous??make('small','','market-budget-note');
  label.textContent=note;
@@ -437,7 +427,6 @@ function updateRows(){
    tr.querySelector('.market-broadcast').textContent=currency(row.broadcast)||'—';
    tr.querySelector('.market-weather').textContent=currency(row.weatherReserve)||'—';
    tr.querySelector('.market-digital').textContent=currency(row.digital)||'—';
-   tr.querySelector('.market-gap').textContent=currency(row.gap);
    budgetFlag(tr.querySelector('.amount-cell'),row);
    tr.querySelector('.market-placement-count').textContent=placementCount(row);
    continue;
@@ -607,13 +596,13 @@ async function initialize(selected){
   const broadcast=isBroadcast(),main=$('campaign-main');main.dataset.workflow=workflow;
   $('campaign-media-summary').hidden=!broadcast;
   main.querySelectorAll('[data-media-column]').forEach(column=>{column.hidden=!broadcast;});
-  main.querySelectorAll('[data-legacy-history]').forEach(element=>{element.hidden=broadcast;});
-  $('add-market').hidden=broadcast;$('allocation-note').hidden=broadcast;$('campaign-actual-wrap').hidden=!broadcast;$('campaign-gap-wrap').hidden=!broadcast;
+  main.querySelectorAll('[data-legacy-campaign]').forEach(element=>{element.hidden=broadcast;});
+  $('add-market').hidden=broadcast;$('allocation-note').hidden=broadcast;$('campaign-actual-wrap').hidden=!broadcast;
   if(broadcast){
    $('campaign-budget-label').textContent='Proposed';$('campaign-budget').placeholder='';
    main.querySelector('.summary-line').prepend(main.querySelector('.budget-field'));
    $('allocated-label').textContent='Market targets';$('target-heading').textContent='Proposed';
-   $('actual-heading').textContent='Actual';$('last-heading').textContent=remainingBudgetLabel;
+   $('actual-heading').textContent='Actual';
   }
   let remembered='';try{remembered=localStorage.getItem(activeKey())||'';}catch{}
   if(remembered==='new')remembered='';

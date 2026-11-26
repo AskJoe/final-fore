@@ -198,7 +198,6 @@ body.campaign-page > main#campaign-main { padding: 6px var(--page-gutter) 16px; 
 .campaign-page #campaign-main[data-workflow=broadcast] #market-table .market-budget-note { max-inline-size: 18ch; white-space: normal; }
 .campaign-page #campaign-main[data-workflow=broadcast] .amount-cell { justify-content: flex-end; }
 .campaign-page #campaign-main[data-workflow=broadcast] [data-media-column] { white-space: normal; }
-.campaign-page #campaign-main[data-workflow=broadcast] #last-heading { text-align: right; white-space: normal; }
 .campaign-page .market-placement-count { display: block; font-size: 11px; color: #52665a; }
 .campaign-page .summary-line .budget-field { display: inline-flex; flex-direction: row; align-items: center; gap: 4px; }
 @media (max-width: 1050px) {
