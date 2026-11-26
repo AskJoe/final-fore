@@ -84,12 +84,12 @@ body>.app-header .identity>.brand-mark,body>.app-header .identity>.brand,body>.a
   <nav class="campaign-view-nav" aria-label="Campaign views">
     <a href="/campaign.html" aria-current="page">Campaign plan</a>
     <a href="/campaign/calendar" id="campaign-calendar">Calendar</a>
+    <details class="campaign-order-links" id="campaign-order-links" hidden>
+      <summary>Orders</summary>
+      <div><a id="order-list" href="/campaign/orders">Order list</a><a id="order-history" href="/campaign/orders?view=historical">Historical orders</a>
+        <a href="/orders.html">Legacy campaign orders</a><a href="/legacy-orders.html">Workbook orders</a></div>
+    </details>
   </nav>
-  <details class="campaign-order-links" id="campaign-order-links" hidden>
-    <summary>Orders</summary>
-    <div><a id="order-list" href="/campaign/orders">Order list</a><a id="order-history" href="/campaign/orders?view=historical">Historical orders</a>
-      <a href="/orders.html">Legacy campaign orders</a><a href="/legacy-orders.html">Workbook orders</a></div>
-  </details>
   <main id="campaign-main" hidden>
     <form id="campaign-settings" class="settings" autocomplete="off">
       <label class="name-field">Name <input id="campaign-name" aria-label="Campaign name" maxlength="120" required></label>
