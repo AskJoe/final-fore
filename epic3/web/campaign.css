@@ -104,8 +104,9 @@ dialog input,dialog select{width:100%}
 /* Keep campaign setup and actions in short rows above the market table. */
 body.campaign-page > .app-header {
   min-height: 33px;
-  padding: 3px 12px;
+  padding: 3px var(--page-gutter);
   gap: 6px 12px;
+  flex-wrap: wrap;
 }
 .campaign-page .app-header h1 { font-size: 16px; line-height: 23px; }
 .campaign-page .identity { width: auto; }
@@ -124,70 +125,82 @@ body.campaign-page > .app-header {
   gap: 4px;
   font-size: 11px;
 }
-.campaign-page #campaign-picker {
-  max-width: 160px;
-  height: 22px;
-  padding: 0 3px;
-  border: 0;
-  border-bottom: 1px dotted var(--line);
-  border-radius: 0;
-  background: transparent;
-  font-size: 12px;
-}
 .campaign-page #save-status { min-width: 0; margin: 0; font-size: 11px; }
-body.campaign-page > main#campaign-main { padding: 4px 12px 12px; }
-.campaign-page .settings { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; }
+body.campaign-page > main#campaign-main { padding: 6px var(--page-gutter) 16px; }
+.campaign-page .campaign-view-nav { padding-inline: var(--page-gutter); }
+.campaign-page .settings { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .campaign-page .settings label { flex-direction: row; align-items: center; gap: 4px; white-space: nowrap; }
-.campaign-page .settings :is(input,select) {
-  width: auto;
-  height: 23px;
-  padding: 1px 4px;
-  border: 0;
-  border-bottom: 1px dotted #a6b4a8;
-  border-radius: 0;
+.campaign-page :is(.settings input,.settings select,#campaign-budget,#campaign-picker,#campaign-workflow,.region-settings-grid input,.table-tools input,.table-tools select,#market-table .inline-input) {
+  inline-size: auto;
+  min-inline-size: 3ch;
+  max-inline-size: 100%;
+  block-size: auto;
+  min-block-size: 1.6em;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: none;
   font-size: 12px;
+  field-sizing: content;
 }
-.campaign-page .settings #campaign-name { width: 122px; }
-.campaign-page .settings #client { width: 134px; text-overflow: ellipsis; }
-.campaign-page .settings #client-brand { width: 78px; background: transparent; }
-.campaign-page .settings #campaign-year { width: 51px; }
-.campaign-page .settings #campaign-budget { width: 105px; font-weight: 400; }
-.campaign-page .settings input[type=date] { width: 108px; }
+.campaign-page :is(.settings select,#campaign-picker,#campaign-workflow,.table-tools select,#market-table select.inline-input) {
+  appearance: none;
+  cursor: pointer;
+}
+.campaign-page :is(.settings input:not([readonly]),.settings select,#campaign-budget,#campaign-picker,#campaign-workflow,.region-settings-grid input,.table-tools input,.table-tools select,#market-table .inline-input):is(:hover,:focus) {
+  border-bottom-color: var(--line);
+}
+.campaign-page :is(.settings input,.region-settings-grid input,#market-table input)[type=date]::-webkit-datetime-edit { padding: 0; }
+.campaign-page :is(.settings input,.region-settings-grid input,#market-table input)[type=date]:not(:focus)::-webkit-calendar-picker-indicator {
+  display: none;
+}
+@supports selector(input::-webkit-calendar-picker-indicator) {
+  .campaign-page :is(.settings input,.region-settings-grid input,#market-table input)[type=date]:not(:focus) { inline-size: 10.4ch; }
+}
+.campaign-page #campaign-year { appearance: textfield; }
+.campaign-page #campaign-year::-webkit-inner-spin-button { appearance: none; }
+.campaign-page :is(#campaign-name,#client,#client-brand,#campaign-picker) { max-inline-size: 25ch; }
+.campaign-page :is(#campaign-budget,#market-table .amount-cell input) { font-variant-numeric: tabular-nums; }
+.campaign-page :is(#campaign-budget,#market-table .amount-cell input)[aria-invalid=true] { border-bottom-color: #b54646; }
+@supports not (field-sizing: content) {
+  .campaign-page :is(.settings input,#campaign-budget,.region-settings-grid input,#market-table input.inline-input) { inline-size: 13ch; }
+  .campaign-page #campaign-year { inline-size: 5ch; }
+}
 .campaign-page .summary-line { padding: 4px 0; gap: 4px 13px; font-size: 12px; }
 .campaign-page .regional-settings { padding: 3px 0; }
+.campaign-page .region-settings-grid { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.campaign-page .region-settings-grid section { grid-template-columns: max-content repeat(2,max-content); gap: 3px 8px; }
+.campaign-page .region-settings-grid strong { grid-column: auto; }
 .campaign-page .table-tools { min-height: 30px; padding: 3px 0; gap: 6px; }
-.campaign-page #market-search { width: min(154px,35vw); }
-.campaign-page .table-tools :is(input,select) { height: 23px; padding: 1px 4px; font-size: 12px; }
+.campaign-page #market-search { inline-size: auto; max-inline-size: min(20ch,40vw); border-bottom-color: var(--line); }
 .campaign-page .market-order { font-weight: 650; text-underline-offset: 2px; }
 .campaign-page .market-order-links { display: flex; flex-wrap: wrap; gap: .25rem .65rem; }
-.campaign-page .amount-cell:has(.market-budget-note) { flex-wrap: wrap; justify-content: flex-end; }
+.campaign-page .amount-cell:has(.market-budget-note) { flex-direction: column; align-items: flex-end; gap: 1px; }
 .campaign-page .market-budget-note { color: var(--muted); text-align: right; line-height: 1.2; }
 .campaign-page .market-budget-missing { color: #744816; }
 .campaign-page .market-channels { margin-inline-start: 8px; min-height: 20px; }
-.campaign-page #campaign-workflow { height: 23px; padding: 0 3px; font-size: 12px; }
 .campaign-page { position: relative; }
-.campaign-page .campaign-order-links { position: absolute; inset: 33px 12px auto auto; z-index: 8; font-size: 12px; }
+.campaign-page .campaign-order-links { position: absolute; inset: 33px var(--page-gutter) auto auto; z-index: 8; font-size: 12px; }
 .campaign-page .campaign-order-links summary { padding-block: 4px; color: var(--ff-action); text-decoration: underline; cursor: pointer; text-align: right; }
 .campaign-page .campaign-order-links div { display: grid; gap: 6px; background: white; border: 1px solid var(--ff-line); padding: 8px; }
 .campaign-media-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 18px; padding: 6px 0; border-bottom: 1px solid var(--line); }
-.campaign-media-summary table { width: min(100%, 380px); }
+.campaign-media-summary table { width: auto; table-layout: auto; }
 .campaign-media-summary :is(th,td) { height: auto; padding: 3px 6px; font-size: 12px; }
 .campaign-media-summary tbody th { color: var(--ink); }
 .campaign-media-summary .table-note { max-width: 305px; margin: 0; }
 .campaign-media-summary .table-note p { margin: 2px 0; }
-.campaign-page #campaign-main[data-workflow=broadcast] .campaign-market-viewport { overflow-x: auto; }
-.campaign-page #campaign-main[data-workflow=broadcast] #market-table { min-width: 1040px; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-market { width: 175px; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-region { width: 69px; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-date { width: 108px; }
-.campaign-page #campaign-main[data-workflow=broadcast] :is(.col-history,.col-share,.col-media) { width: 77px; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-money { width: 99px; }
-.campaign-page #campaign-main[data-workflow=broadcast] .col-remove { width: 91px; }
+.campaign-page #campaign-main[data-workflow=broadcast] .campaign-market-viewport { max-inline-size: 100%; overflow-x: auto; }
+.campaign-page #campaign-main[data-workflow=broadcast] #market-table { width: auto; table-layout: auto; }
+.campaign-page #campaign-main[data-workflow=broadcast] #market-table col { width: auto; }
+.campaign-page #campaign-main[data-workflow=broadcast] #market-table td { height: auto; padding-block: 5px; }
+.campaign-page #campaign-main[data-workflow=broadcast] #market-table td.number { white-space: nowrap; }
+.campaign-page #campaign-main[data-workflow=broadcast] #market-table .market-budget-note { max-inline-size: 18ch; white-space: normal; }
+.campaign-page #campaign-main[data-workflow=broadcast] .amount-cell { justify-content: flex-end; }
 .campaign-page #campaign-main[data-workflow=broadcast] [data-media-column] { white-space: normal; }
 .campaign-page #campaign-main[data-workflow=broadcast] #last-heading { text-align: right; white-space: normal; }
 .campaign-page .market-placement-count { display: block; font-size: 11px; color: #52665a; }
 .campaign-page .summary-line .budget-field { display: inline-flex; flex-direction: row; align-items: center; gap: 4px; }
-.campaign-page .summary-line #campaign-budget { width: 105px; height: 23px; padding: 1px 4px; border: 0; border-bottom: 1px dotted #a6b4a8; border-radius: 0; background: var(--input); }
 @media (max-width: 1050px) {
   .campaign-page #campaign-main[data-workflow=broadcast] #market-table { display: block; min-width: 0; }
   .campaign-page #campaign-main[data-workflow=broadcast] #market-table tbody { display: block; }
@@ -204,14 +217,15 @@ body.campaign-page > main#campaign-main { padding: 4px 12px 12px; }
   }
   .campaign-page #campaign-main[data-workflow=broadcast] #market-table td:first-child { grid-column: 1 / -2; }
   .campaign-page #campaign-main[data-workflow=broadcast] #market-table td:first-child::before { display: none; }
-  .campaign-page #campaign-main[data-workflow=broadcast] #market-table .amount-cell:has(.market-budget-note) { justify-content: flex-start; }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table .amount-cell { justify-content: flex-start; }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table .amount-cell:has(.market-budget-note) { align-items: flex-start; }
+  .campaign-page #campaign-main[data-workflow=broadcast] #market-table .amount-cell input { text-align: left; }
 }
 @media (max-width: 760px) {
-  .campaign-page .campaign-order-links { position: relative; inset: auto; margin: 0 12px; width: fit-content; }
+  .campaign-page .campaign-order-links { position: relative; inset: auto; margin: 0 var(--page-gutter); width: fit-content; }
   .campaign-page #campaign-main[data-workflow=broadcast] #market-table tbody tr { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (max-width: 760px) {
   .campaign-page .campaign-actions { justify-content: flex-start; }
-  .campaign-page #campaign-picker { max-width: 120px; }
-  .campaign-page .settings #client { width: 114px; }
+  .campaign-page #campaign-picker { max-inline-size: 18ch; }
 }

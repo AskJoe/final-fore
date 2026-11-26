@@ -417,7 +417,8 @@ function budgetFlag(container,row){
  label.classList.toggle('market-budget-missing',row.allocation==null&&!row.budgetOwner);
  if(!previous)container.append(label);
 }
-const placementCount=row=>row.placements?`${row.placements} ${row.placements===1?'placement':'placements'}`:'No saved placements';
+const placementCount=row=>row.placements?`${row.placements} ${row.placements===1?'placement':'placements'}`:
+ row.actual==null?'No saved order':'Draft · no placements';
 function updateRows(){
  for(const row of view.rows){
   const tr=[...$('market-rows').children].find(n=>n.dataset.market===row.marketId);if(!tr)continue;
